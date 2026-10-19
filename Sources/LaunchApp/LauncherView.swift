@@ -325,7 +325,7 @@ private struct FolderOverlay: View {
                 .font(.system(size: layout.folderTitleFontSize, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(height: layout.folderTitleHeight)
-            HStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, apps in
                     LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
                         ForEach(Array(apps.enumerated()), id: \.offset) { index, app in
