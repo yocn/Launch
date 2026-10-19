@@ -32,4 +32,16 @@ final class ScreenPresenterTests: XCTestCase {
             LauncherPanelConfiguration.styleMask.contains(.nonactivatingPanel)
         )
     }
+
+    @MainActor
+    func testLauncherPanelCanBecomeKeyWhenBorderless() {
+        let panel = LauncherPanel(
+            contentRect: .zero,
+            styleMask: LauncherPanelConfiguration.styleMask,
+            backing: .buffered,
+            defer: false
+        )
+
+        XCTAssertTrue(panel.canBecomeKey)
+    }
 }

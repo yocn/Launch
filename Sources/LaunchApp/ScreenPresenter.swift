@@ -16,6 +16,16 @@ public enum LauncherPanelConfiguration {
     public static let styleMask: NSWindow.StyleMask = [.borderless]
 }
 
+final class LauncherPanel: NSPanel {
+    override var canBecomeKey: Bool {
+        true
+    }
+
+    override var canBecomeMain: Bool {
+        false
+    }
+}
+
 @MainActor
 final class ScreenPresenter {
     private var panel: NSPanel?
@@ -51,7 +61,7 @@ final class ScreenPresenter {
     }
 
     private func launcherPanel(for screen: NSScreen) -> NSPanel {
-        let panel = NSPanel(
+        let panel = LauncherPanel(
             contentRect: screen.frame,
             styleMask: LauncherPanelConfiguration.styleMask,
             backing: .buffered,
