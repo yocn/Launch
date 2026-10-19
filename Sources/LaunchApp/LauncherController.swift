@@ -81,6 +81,24 @@ final class LauncherController {
         }
     }
 
+    func handle(_ command: LauncherCommand) {
+        guard presenter.isVisible else {
+            return
+        }
+        switch command {
+        case .move(let direction):
+            model.moveSelection(direction)
+        case .activate:
+            if let app = model.activateSelection() {
+                launch(app)
+            }
+        case .nextPage:
+            model.turnPage(.next)
+        case .previousPage:
+            model.turnPage(.previous)
+        }
+    }
+
     func launch(_ app: CatalogApp) {
         guard openApplication(URL(fileURLWithPath: app.identity.path)) else {
             return

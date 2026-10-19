@@ -160,6 +160,43 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testActivateCommandLaunchesSelectedApp() {
+        var openedPaths: [String] = []
+        let apps = makeApps(count: 2)
+        let (controller, presenter) = makeController(apps: apps) { url in
+            openedPaths.append(url.path)
+            return true
+        }
+        controller.show()
+        controller.model.setQuery("App 1")
+
+        controller.handle(.activate)
+
+        XCTAssertEqual(openedPaths, [apps[1].identity.path])
+        XCTAssertEqual(presenter.dismissals, [false])
+    }
+
+    @MainActor
+    func testCommandsAreIgnoredWhileHidden() {
+        let (controller, _) = makeController(apps: makeApps(count: 2))
+
+        controller.handle(.move(.right))
+
+        XCTAssertNil(controller.model.selectedIndex)
+    }
+
+    @MainActor
+    func testPageCommandsTurnPages() {
+        let (controller, _) = makeController(apps: makeApps(count: 40))
+        controller.show()
+
+        controller.handle(.nextPage)
+        XCTAssertEqual(controller.model.currentPage, 1)
+        controller.handle(.previousPage)
+        XCTAssertEqual(controller.model.currentPage, 0)
+    }
+
+    @MainActor
     private func makeController(
         apps: [CatalogApp] = [],
         iconCache: IconCache = IconCache { _ in NSImage() },
