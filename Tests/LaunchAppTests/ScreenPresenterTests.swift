@@ -33,6 +33,11 @@ final class ScreenPresenterTests: XCTestCase {
         )
     }
 
+    func testSearchPresentationShowsClearControlOnlyForQuery() {
+        XCTAssertFalse(SearchPresentation.showsClearControl(for: ""))
+        XCTAssertTrue(SearchPresentation.showsClearControl(for: "safari"))
+    }
+
     @MainActor
     func testLauncherPanelCanBecomeKeyWhenBorderless() {
         let panel = LauncherPanel(

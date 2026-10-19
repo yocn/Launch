@@ -15,6 +15,7 @@
 - 2026-10-19：自动化的键盘文本注入和 Escape 未能到达 SwiftUI 搜索框，尽管搜索数据绑定本身已验证。搜索框会在出现时请求焦点，仍需由真人在目标机验证实际键盘输入与 Escape 关闭。
 - 2026-10-19：以只读方式检查 `/Users/yocn/Library/Application Support` 和 `/Users/yocn/Library/Containers` 的常见候选名，未确认旧 Launchpad 布局来源；未读取、修改或重置系统数据。
 - 2026-10-19：确认原生无边框 `NSPanel.canBecomeKey` 为 `false`，这会阻断搜索框的真实键盘焦点。开发包已改用覆写该能力的 `LauncherPanel`；对应自动化测试通过。后续界面回归因自动化环境的 ScreenCaptureKit 取屏失败而未能完成，仍需真人验证文本输入与 Escape。
+- 2026-10-19：参考版 LaunchOS 实测为 7 列 × 5 行分页网格，页码圆点可点击，搜索后出现清除按钮且清除后回到网格，点击空白处关闭。对 `safari` 搜索态发送 Escape 未观察到状态变化。
 
 ## 待验证
 
