@@ -54,7 +54,8 @@ extension ScrollSample {
             isPrecise: event.hasPreciseScrollingDeltas,
             phase: phase,
             isMomentum: event.momentumPhase != [],
-            timestamp: event.timestamp
+            // 平滑滚动等工具合成的滚轮事件 timestamp 为 0，用接收时刻计算冷却
+            timestamp: ProcessInfo.processInfo.systemUptime
         )
     }
 }
