@@ -19,6 +19,8 @@ struct LauncherView: View {
     let onLaunch: (CatalogApp) -> Void
 
     @FocusState private var searchFieldIsFocused: Bool
+    @State private var folderFrames: [String: CGRect] = [:]
+    nonisolated private static let contentSpace = "launcher-content"
 
     var body: some View {
         GeometryReader { proxy in
@@ -33,24 +35,27 @@ struct LauncherView: View {
                     screenSize: proxy.size,
                     referenceSize: NSScreen.screens.first?.frame.size ?? proxy.size
                 )
-                homeContent(layout: layout)
-                    .frame(width: layout.contentSize.width, height: layout.contentSize.height)
-                    .opacity(model.openFolder == nil ? 1 : 0)
-                    .allowsHitTesting(model.openFolder == nil)
+                ZStack {
+                    homeContent(layout: layout)
+                        .opacity(model.openFolder == nil ? 1 : 0)
+                        .allowsHitTesting(model.openFolder == nil)
 
-                if let folder = model.openFolder {
-                    FolderOverlay(
-                        folder: folder,
-                        layout: layout,
-                        columns: gridColumns(layout),
-                        onLaunch: onLaunch
-                    )
-                    .frame(width: layout.contentSize.width, height: layout.contentSize.height)
-                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                    if let folder = model.openFolder {
+                        FolderOverlay(
+                            model: model,
+                            folder: folder,
+                            layout: layout,
+                            columns: gridColumns(layout),
+                            onLaunch: onLaunch
+                        )
+                        .transition(.folderZoom(from: folderFrames[folder.id], in: layout.contentSize))
+                    }
                 }
+                .frame(width: layout.contentSize.width, height: layout.contentSize.height)
+                .coordinateSpace(.named(Self.contentSpace))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.easeOut(duration: 0.2), value: model.openFolderID)
+            .animation(.easeOut(duration: 0.25), value: model.openFolderID)
         }
         .onExitCommand(perform: onEscape)
         .onAppear {
@@ -72,7 +77,7 @@ struct LauncherView: View {
             Color.clear
                 .frame(height: layout.searchToGrid)
 
-            if model.visibleItems.isEmpty {
+            if model.pages.isEmpty {
                 ContentUnavailableView(
                     "未找到应用",
                     systemImage: "magnifyingglass",
@@ -80,13 +85,26 @@ struct LauncherView: View {
                 )
                 .foregroundStyle(.white)
             } else {
-                LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
-                    ForEach(Array(model.visibleItems.enumerated()), id: \.offset) { _, item in
-                        itemView(item, layout: layout)
+                HStack(spacing: 0) {
+                    ForEach(Array(model.pages.enumerated()), id: \.offset) { pageIndex, items in
+                        LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
+                            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                                itemView(
+                                    item,
+                                    layout: layout,
+                                    isSelected: pageIndex == model.currentPage && index == model.selectedIndex
+                                )
+                            }
+                        }
+                        .padding(.horizontal, layout.horizontalInset)
+                        .frame(width: layout.contentSize.width, height: layout.gridHeight, alignment: .top)
+                        .allowsHitTesting(pageIndex == model.currentPage)
                     }
                 }
-                .padding(.horizontal, layout.horizontalInset)
-                .frame(height: layout.gridHeight, alignment: .top)
+                .offset(x: -CGFloat(model.currentPage) * layout.contentSize.width)
+                .frame(width: layout.contentSize.width, height: layout.gridHeight, alignment: .topLeading)
+                .clipped()
+                .animation(.easeOut(duration: 0.3), value: model.currentPage)
             }
 
             Spacer(minLength: 0)
@@ -106,15 +124,20 @@ struct LauncherView: View {
     }
 
     @ViewBuilder
-    private func itemView(_ item: ResolvedItem, layout: LauncherHomeLayout) -> some View {
+    private func itemView(_ item: ResolvedItem, layout: LauncherHomeLayout, isSelected: Bool) -> some View {
         switch item {
         case .app(let app):
-            LauncherAppTile(app: app, layout: layout) {
+            LauncherAppTile(app: app, layout: layout, isSelected: isSelected) {
                 onLaunch(app)
             }
         case .folder(let folder):
-            LauncherFolderTile(folder: folder, layout: layout) {
+            LauncherFolderTile(folder: folder, layout: layout, isSelected: isSelected) {
                 model.showFolder(id: folder.id)
+            }
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .named(Self.contentSpace))
+            } action: { frame in
+                folderFrames[folder.id] = frame
             }
         case .empty:
             Color.clear
@@ -188,6 +211,7 @@ struct LauncherView: View {
 private struct LauncherAppTile: View {
     let app: CatalogApp
     let layout: LauncherHomeLayout
+    let isSelected: Bool
     let action: () -> Void
 
     @State private var isHovering = false
@@ -211,7 +235,7 @@ private struct LauncherAppTile: View {
             .frame(width: layout.tileWidth)
             .background {
                 RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                    .fill(.white.opacity(isHovering ? 0.15 : 0))
+                    .fill(.white.opacity(isSelected ? 0.26 : (isHovering ? 0.15 : 0)))
             }
         }
         .buttonStyle(.plain)
@@ -224,6 +248,7 @@ private struct LauncherAppTile: View {
 private struct LauncherFolderTile: View {
     let folder: ResolvedFolder
     let layout: LauncherHomeLayout
+    let isSelected: Bool
     let action: () -> Void
 
     @State private var isHovering = false
@@ -244,7 +269,7 @@ private struct LauncherFolderTile: View {
             .frame(width: layout.tileWidth)
             .background {
                 RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                    .fill(.white.opacity(isHovering ? 0.15 : 0))
+                    .fill(.white.opacity(isSelected ? 0.26 : (isHovering ? 0.15 : 0)))
             }
         }
         .buttonStyle(.plain)
@@ -287,50 +312,97 @@ private struct FolderPreview: View {
 }
 
 private struct FolderOverlay: View {
+    let model: LauncherModel
     let folder: ResolvedFolder
     let layout: LauncherHomeLayout
     let columns: [GridItem]
     let onLaunch: (CatalogApp) -> Void
 
     var body: some View {
+        let pages = model.folderPages
         VStack(spacing: layout.folderTitleSpacing) {
             Text(folder.name)
                 .font(.system(size: layout.folderTitleFontSize, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(height: layout.folderTitleHeight)
-            members
-                .frame(height: layout.folderGridHeight(memberCount: folder.apps.count), alignment: .top)
-                .padding(.vertical, layout.folderPanelPadding)
-                .background {
-                    RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
-                        .fill(.white.opacity(0.08))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
-                                .stroke(.white.opacity(0.15), lineWidth: 1)
+            HStack(spacing: 0) {
+                ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, apps in
+                    LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
+                        ForEach(Array(apps.enumerated()), id: \.offset) { index, app in
+                            LauncherAppTile(
+                                app: app,
+                                layout: layout,
+                                isSelected: pageIndex == model.folderPage && index == model.folderSelectedIndex
+                            ) {
+                                onLaunch(app)
+                            }
                         }
-                        .padding(.horizontal, layout.horizontalInset - layout.folderPanelOutset)
-                        .onTapGesture {}
+                    }
+                    .padding(.horizontal, layout.horizontalInset)
+                    .frame(width: layout.contentSize.width, alignment: .top)
+                    .allowsHitTesting(pageIndex == model.folderPage)
                 }
+            }
+            .offset(x: -CGFloat(model.folderPage) * layout.contentSize.width)
+            .frame(
+                width: layout.contentSize.width,
+                height: layout.folderGridHeight(memberCount: folder.apps.count),
+                alignment: .topLeading
+            )
+            .clipped()
+            .animation(.easeOut(duration: 0.3), value: model.folderPage)
+            .padding(.vertical, layout.folderPanelPadding)
+            .background {
+                RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
+                    .fill(.white.opacity(0.08))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
+                            .stroke(.white.opacity(0.15), lineWidth: 1)
+                    }
+                    .padding(.horizontal, layout.horizontalInset - layout.folderPanelOutset)
+                    .onTapGesture {}
+            }
+            if pages.count > 1 {
+                HStack(spacing: layout.pageDotSpacing) {
+                    ForEach(pages.indices, id: \.self) { pageIndex in
+                        Button {
+                            model.selectFolderPage(pageIndex)
+                        } label: {
+                            Circle()
+                                .fill(pageIndex == model.folderPage ? .white : .white.opacity(0.4))
+                                .frame(width: layout.pageDotSize, height: layout.pageDotSize)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("文件夹第 \(pageIndex + 1) 页")
+                    }
+                }
+            }
         }
     }
+}
 
-    @ViewBuilder
-    private var members: some View {
-        let grid = LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
-            ForEach(folder.apps, id: \.identity) { app in
-                LauncherAppTile(app: app, layout: layout) {
-                    onLaunch(app)
-                }
-            }
-        }
-        .padding(.horizontal, layout.horizontalInset)
+private struct FolderZoomModifier: ViewModifier {
+    let scale: CGFloat
+    let offset: CGSize
+    let opacity: Double
 
-        if folder.apps.count > LauncherHomeLayout.pageCapacity {
-            ScrollView(.vertical, showsIndicators: false) {
-                grid
-            }
-        } else {
-            grid
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(scale)
+            .offset(offset)
+            .opacity(opacity)
+    }
+}
+
+private extension AnyTransition {
+    static func folderZoom(from source: CGRect?, in size: CGSize) -> AnyTransition {
+        guard let source, size.width > 0 else {
+            return .opacity.combined(with: .scale(scale: 0.92))
         }
+        let offset = CGSize(width: source.midX - size.width / 2, height: source.midY - size.height / 2)
+        return .modifier(
+            active: FolderZoomModifier(scale: max(source.width / size.width, 0.05), offset: offset, opacity: 0),
+            identity: FolderZoomModifier(scale: 1, offset: .zero, opacity: 1)
+        )
     }
 }
