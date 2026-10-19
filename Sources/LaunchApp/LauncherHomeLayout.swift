@@ -66,4 +66,24 @@ struct LauncherHomeLayout: Equatable {
     var pageDotSize: CGFloat { 10 * sizeScale }
     var pageDotSpacing: CGFloat { 18 * sizeScale }
     var bottomInset: CGFloat { 40 * sizeScale }
+
+    var folderCornerRadius: CGFloat { iconSide * 0.225 }
+    var folderPreviewIconSide: CGFloat { iconSide * 0.19 }
+    var folderPreviewSpacing: CGFloat { iconSide * 0.065 }
+    var folderPanelOutset: CGFloat { 42 * sizeScale }
+    var folderPanelPadding: CGFloat { 30 * sizeScale }
+    var folderPanelCornerRadius: CGFloat { 36 * sizeScale }
+    var folderTitleFontSize: CGFloat { 22 * sizeScale }
+    var folderTitleHeight: CGFloat { 28 * sizeScale }
+    var folderTitleSpacing: CGFloat { 30 * sizeScale }
+
+    func folderRowCount(memberCount: Int) -> Int {
+        let rows = (memberCount + Self.columnCount - 1) / Self.columnCount
+        return min(max(rows, 1), Self.rowCount)
+    }
+
+    func folderGridHeight(memberCount: Int) -> CGFloat {
+        let rows = CGFloat(folderRowCount(memberCount: memberCount))
+        return tileHeight * rows + rowSpacing * (rows - 1)
+    }
 }

@@ -95,4 +95,40 @@ final class LauncherHomeLayoutTests: XCTestCase {
 
         XCTAssertEqual(usedWidth, layout.contentSize.width, accuracy: 0.0001)
     }
+
+    func testFolderPreviewFitsInsideIcon() {
+        let layout = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen)
+
+        XCTAssertLessThan(
+            layout.folderPreviewIconSide * 3 + layout.folderPreviewSpacing * 2,
+            layout.iconSide
+        )
+    }
+
+    func testFolderRowCountCapsAtFiveRows() {
+        let layout = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen)
+
+        XCTAssertEqual(layout.folderRowCount(memberCount: 0), 1)
+        XCTAssertEqual(layout.folderRowCount(memberCount: 8), 2)
+        XCTAssertEqual(layout.folderRowCount(memberCount: 29), 5)
+        XCTAssertEqual(layout.folderRowCount(memberCount: 40), 5)
+    }
+
+    func testFullFolderPanelFitsOnEveryScreen() {
+        for screen in [mainScreen, CGSize(width: 1920, height: 1080), CGSize(width: 1504, height: 846)] {
+            let layout = LauncherHomeLayout(screenSize: screen, referenceSize: mainScreen)
+            let usedHeight = layout.folderTitleHeight
+                + layout.folderTitleSpacing
+                + layout.folderGridHeight(memberCount: 35)
+                + layout.folderPanelPadding * 2
+
+            XCTAssertLessThanOrEqual(usedHeight, layout.contentSize.height, "\(screen)")
+        }
+    }
+
+    func testFolderPanelExtendsBeyondGridColumns() {
+        let layout = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen)
+
+        XCTAssertEqual(layout.horizontalInset - layout.folderPanelOutset, 94.08, accuracy: 0.01)
+    }
 }
