@@ -28,6 +28,31 @@ final class AppCatalogTests: XCTestCase {
         )
     }
 
+    func testScanIncludesAppsFlaggedHidden() throws {
+        let root = try fixtureApps([
+            ("Safari.app", "com.apple.Safari"),
+        ])
+        var appURL = root.appending(path: "Safari.app", directoryHint: .isDirectory)
+        var values = URLResourceValues()
+        values.isHidden = true
+        try appURL.setResourceValues(values)
+
+        let apps = try AppCatalog().scan(roots: [root])
+
+        XCTAssertEqual(apps.map(\.identity.bundleIdentifier), ["com.apple.Safari"])
+    }
+
+    func testScanSkipsDotPrefixedEntries() throws {
+        let root = try fixtureApps([
+            (".Staging.app", "com.example.staging"),
+            ("Visible.app", "com.example.visible"),
+        ])
+
+        let apps = try AppCatalog().scan(roots: [root])
+
+        XCTAssertEqual(apps.map(\.displayName), ["Visible"])
+    }
+
     private func fixtureApps(_ fixtures: [(String, String)]) throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)

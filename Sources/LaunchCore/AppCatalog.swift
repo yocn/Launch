@@ -14,12 +14,17 @@ public struct AppCatalog {
             guard let enumerator = fileManager.enumerator(
                 at: root,
                 includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
+                options: []
             ) else {
                 continue
             }
 
             while let url = enumerator.nextObject() as? URL {
+                // Safari 的入口是带 hidden 标志的符号链接，.skipsHiddenFiles 会把它跳过
+                if url.lastPathComponent.hasPrefix(".") {
+                    enumerator.skipDescendants()
+                    continue
+                }
                 guard url.pathExtension == "app" else {
                     continue
                 }
