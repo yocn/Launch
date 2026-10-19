@@ -22,6 +22,54 @@ final class LayoutStoreTests: XCTestCase {
         XCTAssertEqual(try store.load(), original)
     }
 
+    func testReplaceKeepsPreviousLayoutAsBackup() throws {
+        let store = try temporaryStore()
+        let original = LayoutDocument(pages: [LayoutPage(slots: [.empty])])
+        let replacement = LayoutDocument(pages: [LayoutPage(slots: [.empty, .empty])])
+        try store.save(original)
+
+        try store.replace(with: replacement)
+
+        XCTAssertEqual(try store.load(), replacement)
+        XCTAssertTrue(store.hasBackup)
+    }
+
+    func testSwapWithBackupExchangesLayoutsBothWays() throws {
+        let store = try temporaryStore()
+        let original = LayoutDocument(pages: [LayoutPage(slots: [.empty])])
+        let replacement = LayoutDocument(pages: [LayoutPage(slots: [.empty, .empty])])
+        try store.save(original)
+        try store.replace(with: replacement)
+
+        try store.swapWithBackup()
+        XCTAssertEqual(try store.load(), original)
+
+        try store.swapWithBackup()
+        XCTAssertEqual(try store.load(), replacement)
+    }
+
+    func testCorruptBackupIsRejectedWithoutTouchingLayout() throws {
+        let store = try temporaryStore()
+        let original = LayoutDocument(pages: [LayoutPage(slots: [.empty])])
+        try store.save(original)
+        try Data("not json".utf8).write(to: store.backupURL)
+
+        XCTAssertThrowsError(try store.swapWithBackup())
+
+        XCTAssertEqual(try store.load(), original)
+    }
+
+    func testMalformedLayoutFileFailsToLoad() throws {
+        let store = try temporaryStore()
+        try FileManager.default.createDirectory(
+            at: store.fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("not json".utf8).write(to: store.fileURL)
+
+        XCTAssertThrowsError(try store.load())
+    }
+
     private func temporaryStore() throws -> LayoutStore {
         let directory = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)

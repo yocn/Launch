@@ -4,6 +4,15 @@ public enum LayoutStoreError: Error, Equatable {
     case unsupportedSchema(Int)
 }
 
+extension LayoutStoreError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .unsupportedSchema(let version):
+            "布局文件版本 \(version) 不受支持"
+        }
+    }
+}
+
 public struct LayoutStore {
     public let fileURL: URL
     private let fileManager: FileManager
@@ -11,6 +20,14 @@ public struct LayoutStore {
     public init(fileURL: URL, fileManager: FileManager = .default) {
         self.fileURL = fileURL
         self.fileManager = fileManager
+    }
+
+    public var backupURL: URL {
+        fileURL.appendingPathExtension("backup")
+    }
+
+    public var hasBackup: Bool {
+        fileManager.fileExists(atPath: backupURL.path())
     }
 
     public func load() throws -> LayoutDocument? {
@@ -31,6 +48,22 @@ public struct LayoutStore {
         try writeValidatedData(data, createBackup: true)
     }
 
+    public func replace(with document: LayoutDocument) throws {
+        try replaceFromImport(try JSONEncoder().encode(document))
+    }
+
+    public func swapWithBackup() throws {
+        let backupData = try Data(contentsOf: backupURL)
+        _ = try decode(backupData)
+        let currentData = try? Data(contentsOf: fileURL)
+        try backupData.write(to: fileURL, options: .atomic)
+        if let currentData {
+            try currentData.write(to: backupURL, options: .atomic)
+        } else {
+            try fileManager.removeItem(at: backupURL)
+        }
+    }
+
     private func decode(_ data: Data) throws -> LayoutDocument {
         let document = try JSONDecoder().decode(LayoutDocument.self, from: data)
         guard document.schemaVersion == LayoutDocument.currentVersion else {
@@ -43,7 +76,6 @@ public struct LayoutStore {
         let directory = fileURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         if createBackup, fileManager.fileExists(atPath: fileURL.path()) {
-            let backupURL = fileURL.appendingPathExtension("backup")
             try? fileManager.removeItem(at: backupURL)
             try fileManager.copyItem(at: fileURL, to: backupURL)
         }
