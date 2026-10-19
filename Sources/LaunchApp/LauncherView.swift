@@ -17,9 +17,6 @@ struct LauncherView: View {
     @State private var currentPage = 0
     @FocusState private var searchFieldIsFocused: Bool
 
-    private let columnCount = 7
-    private let rowCount = 5
-
     private var results: [CatalogApp] {
         SearchService.results(for: query, in: apps, hidden: [])
     }
@@ -27,7 +24,7 @@ struct LauncherView: View {
     private var pages: [[CatalogApp]] {
         LauncherPagination.pages(
             results,
-            capacity: columnCount * rowCount
+            capacity: LauncherHomeLayout.pageCapacity
         )
     }
 
@@ -43,69 +40,17 @@ struct LauncherView: View {
     }
 
     var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onClose)
+        GeometryReader { proxy in
+            ZStack {
+                Rectangle()
+                    .fill(.regularMaterial)
+                    .overlay(Color.black.opacity(0.24))
+                    .ignoresSafeArea()
+                    .onTapGesture(perform: onClose)
 
-            VStack(spacing: 42) {
-                searchBar
-
-                if visibleApps.isEmpty {
-                    ContentUnavailableView(
-                        "未找到应用",
-                        systemImage: "magnifyingglass",
-                        description: Text("换个关键词试试")
-                    )
-                    .foregroundStyle(.white)
-                    .frame(maxHeight: .infinity)
-                } else {
-                    LazyVGrid(
-                        columns: Array(
-                            repeating: GridItem(.flexible(minimum: 120), spacing: 44),
-                            count: columnCount
-                        ),
-                        spacing: 54
-                    ) {
-                        ForEach(visibleApps, id: \.identity) { app in
-                            Button {
-                                if NSWorkspace.shared.open(
-                                    URL(fileURLWithPath: app.identity.path)
-                                ) {
-                                    onLaunch()
-                                }
-                            } label: {
-                                VStack(spacing: 10) {
-                                    Image(nsImage: NSWorkspace.shared.icon(
-                                        forFile: app.identity.path
-                                    ))
-                                    .resizable()
-                                    .interpolation(.high)
-                                    .frame(width: 104, height: 104)
-                                    Text(app.displayName)
-                                        .font(.system(size: 17, weight: .medium))
-                                        .foregroundStyle(.white)
-                                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-                                        .lineLimit(1)
-                                        .frame(maxWidth: 180)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(app.displayName)
-                        }
-                    }
-                    .padding(.horizontal, 160)
-                }
-
-                Spacer(minLength: 20)
-
-                if pages.count > 1 {
-                    pageIndicator
-                }
+                homeContent(in: proxy.size)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.top, 82)
-            .padding(.bottom, 52)
         }
         .onExitCommand(perform: onClose)
         .onChange(of: query) {
@@ -116,7 +61,62 @@ struct LauncherView: View {
         }
     }
 
-    private var searchBar: some View {
+    @ViewBuilder
+    private func homeContent(in screenSize: CGSize) -> some View {
+        let iconSide = LauncherHomeLayout.iconSideLength(for: screenSize)
+        let tileWidth = iconSide + 24
+        let columns = Array(
+            repeating: GridItem(
+                .fixed(tileWidth),
+                spacing: LauncherHomeLayout.columnSpacing(
+                    for: screenSize,
+                    itemWidth: tileWidth
+                )
+            ),
+            count: LauncherHomeLayout.columnCount
+        )
+        let topInset = min(max(42, screenSize.height * 0.052), 100)
+        let searchToGrid = min(max(42, screenSize.height * 0.052), 100)
+        let rowSpacing = min(max(18, screenSize.height * 0.048), 92)
+
+        VStack(spacing: 0) {
+            searchBar(width: min(480, screenSize.width - 64))
+                .padding(.top, topInset)
+
+            Spacer(minLength: searchToGrid)
+
+            if visibleApps.isEmpty {
+                ContentUnavailableView(
+                    "未找到应用",
+                    systemImage: "magnifyingglass",
+                    description: Text("换个关键词试试")
+                )
+                .foregroundStyle(.white)
+            } else {
+                LazyVGrid(columns: columns, spacing: rowSpacing) {
+                    ForEach(visibleApps, id: \.identity) { app in
+                        LauncherAppTile(app: app, iconSide: iconSide) {
+                            if NSWorkspace.shared.open(
+                                URL(fileURLWithPath: app.identity.path)
+                            ) {
+                                onLaunch()
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, LauncherHomeLayout.horizontalInset(for: screenSize))
+            }
+
+            Spacer(minLength: 24)
+
+            if pages.count > 1 {
+                pageIndicator
+                    .padding(.bottom, 50)
+            }
+        }
+    }
+
+    private func searchBar(width: CGFloat) -> some View {
         HStack(spacing: 14) {
             Image(systemName: "magnifyingglass")
                 .font(.title2.weight(.medium))
@@ -141,7 +141,7 @@ struct LauncherView: View {
             }
         }
         .padding(.horizontal, 24)
-        .frame(width: 480, height: 58)
+        .frame(width: width, height: 58)
         .background(.white.opacity(0.11), in: Capsule())
         .overlay {
             Capsule()
@@ -164,5 +164,40 @@ struct LauncherView: View {
                 .accessibilityLabel("第 \(pageIndex + 1) 页")
             }
         }
+    }
+}
+
+private struct LauncherAppTile: View {
+    let app: CatalogApp
+    let iconSide: CGFloat
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 12) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: app.identity.path))
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: iconSide, height: iconSide)
+                Text(app.displayName)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+                    .lineLimit(1)
+                    .frame(maxWidth: iconSide + 24)
+            }
+            .padding(.vertical, 12)
+            .frame(width: iconSide + 24)
+            .background {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(.white.opacity(isHovering ? 0.15 : 0))
+            }
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onHover { isHovering = $0 }
+        .accessibilityLabel(app.displayName)
     }
 }
