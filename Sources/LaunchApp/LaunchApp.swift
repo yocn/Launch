@@ -36,7 +36,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             LauncherView(
                 model: controller.model,
                 onEscape: { [weak self] in self?.controller.handleEscape() },
-                onBackgroundClick: { [weak self] in self?.controller.hide(.backgroundClick) },
+                onBackgroundClick: { [weak self] in self?.controller.handleBackgroundClick() },
                 onLaunch: { [weak self] app in self?.controller.launch(app) }
             )
         )

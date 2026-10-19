@@ -129,6 +129,37 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testBackgroundClickClosesOpenFolderBeforeLauncher() {
+        let apps = makeApps(count: 1)
+        let (controller, presenter) = makeController(apps: apps)
+        controller.model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
+        controller.show()
+        controller.model.showFolder(id: "f")
+
+        controller.handleBackgroundClick()
+        XCTAssertTrue(presenter.isVisible)
+        XCTAssertNil(controller.model.openFolderID)
+
+        controller.handleBackgroundClick()
+        XCTAssertEqual(presenter.dismissals, [true])
+    }
+
+    @MainActor
+    func testEscapeClosesFolderBeforeHiding() {
+        let apps = makeApps(count: 1)
+        let (controller, presenter) = makeController(apps: apps)
+        controller.model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
+        controller.show()
+        controller.model.showFolder(id: "f")
+
+        controller.handleEscape()
+        XCTAssertTrue(presenter.isVisible)
+
+        controller.handleEscape()
+        XCTAssertEqual(presenter.dismissals, [true])
+    }
+
+    @MainActor
     private func makeController(
         apps: [CatalogApp] = [],
         iconCache: IconCache = IconCache { _ in NSImage() },

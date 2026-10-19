@@ -35,8 +35,22 @@ struct LauncherView: View {
                 )
                 homeContent(layout: layout)
                     .frame(width: layout.contentSize.width, height: layout.contentSize.height)
+                    .opacity(model.openFolder == nil ? 1 : 0)
+                    .allowsHitTesting(model.openFolder == nil)
+
+                if let folder = model.openFolder {
+                    FolderOverlay(
+                        folder: folder,
+                        layout: layout,
+                        columns: gridColumns(layout),
+                        onLaunch: onLaunch
+                    )
+                    .frame(width: layout.contentSize.width, height: layout.contentSize.height)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.easeOut(duration: 0.2), value: model.openFolderID)
         }
         .onExitCommand(perform: onEscape)
         .onAppear {
@@ -268,6 +282,55 @@ private struct FolderPreview: View {
                     RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
                         .stroke(.white.opacity(0.22), lineWidth: 1)
                 }
+        }
+    }
+}
+
+private struct FolderOverlay: View {
+    let folder: ResolvedFolder
+    let layout: LauncherHomeLayout
+    let columns: [GridItem]
+    let onLaunch: (CatalogApp) -> Void
+
+    var body: some View {
+        VStack(spacing: layout.folderTitleSpacing) {
+            Text(folder.name)
+                .font(.system(size: layout.folderTitleFontSize, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(height: layout.folderTitleHeight)
+            members
+                .frame(height: layout.folderGridHeight(memberCount: folder.apps.count), alignment: .top)
+                .padding(.vertical, layout.folderPanelPadding)
+                .background {
+                    RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
+                        .fill(.white.opacity(0.08))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
+                                .stroke(.white.opacity(0.15), lineWidth: 1)
+                        }
+                        .padding(.horizontal, layout.horizontalInset - layout.folderPanelOutset)
+                        .onTapGesture {}
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var members: some View {
+        let grid = LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
+            ForEach(folder.apps, id: \.identity) { app in
+                LauncherAppTile(app: app, layout: layout) {
+                    onLaunch(app)
+                }
+            }
+        }
+        .padding(.horizontal, layout.horizontalInset)
+
+        if folder.apps.count > LauncherHomeLayout.pageCapacity {
+            ScrollView(.vertical, showsIndicators: false) {
+                grid
+            }
+        } else {
+            grid
         }
     }
 }

@@ -73,6 +73,14 @@ final class LauncherController {
         }
     }
 
+    func handleBackgroundClick() {
+        if model.openFolderID != nil {
+            model.closeFolder()
+        } else {
+            hide(.backgroundClick)
+        }
+    }
+
     func launch(_ app: CatalogApp) {
         guard openApplication(URL(fileURLWithPath: app.identity.path)) else {
             return
