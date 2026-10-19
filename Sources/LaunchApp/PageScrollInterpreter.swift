@@ -6,6 +6,12 @@ enum PageDirection: Equatable {
     case previous
 }
 
+enum ScrollAction: Equatable {
+    case turn(PageDirection)
+    case drag(CGFloat)
+    case endDrag(predictedTranslation: CGFloat)
+}
+
 struct ScrollSample: Equatable {
     enum Phase: Equatable {
         case none
@@ -23,36 +29,77 @@ struct ScrollSample: Equatable {
 }
 
 struct PageScrollInterpreter {
+    private enum Axis {
+        case horizontal
+        case vertical
+    }
+
     var threshold: CGFloat = 40
     var wheelInterval: TimeInterval = 0.35
     var burstGap: TimeInterval = 0.25
+    var axisLockDistance: CGFloat = 4
+    var flingDuration: TimeInterval = 0.2
     private var accumulated: CGFloat = 0
     private var hasTurned = false
     private var lastWheelTurn: TimeInterval?
     private var lastPreciseSample: TimeInterval?
+    private var gestureAxis: Axis?
+    private var gestureX: CGFloat = 0
+    private var gestureY: CGFloat = 0
+    private var recentDeltas: [(delta: CGFloat, time: TimeInterval)] = []
 
-    mutating func interpret(_ sample: ScrollSample) -> PageDirection? {
+    mutating func interpret(_ sample: ScrollSample) -> ScrollAction? {
         guard !sample.isMomentum else {
             return nil
         }
-        return sample.isPrecise ? interpretGesture(sample) : interpretWheel(sample)
+        guard sample.isPrecise else {
+            return interpretWheel(sample).map(ScrollAction.turn)
+        }
+        guard sample.phase != .none else {
+            return interpretBurst(sample).map(ScrollAction.turn)
+        }
+        return interpretGesture(sample)
     }
 
-    private mutating func interpretGesture(_ sample: ScrollSample) -> PageDirection? {
-        // Mos 等平滑滚动工具产生无阶段的精确滚动，只能按时间间隔划分一次手势
-        let startsBurst = sample.phase == .none
-            && lastPreciseSample.map { sample.timestamp - $0 > burstGap } ?? true
-        lastPreciseSample = sample.timestamp
-        if sample.phase == .began || startsBurst {
-            accumulated = 0
-            hasTurned = false
+    private mutating func interpretGesture(_ sample: ScrollSample) -> ScrollAction? {
+        if sample.phase == .began {
+            resetGesture()
         }
         defer {
             if sample.phase == .ended {
-                accumulated = 0
-                hasTurned = false
+                resetGesture()
             }
         }
+        gestureX += sample.deltaX
+        gestureY += sample.deltaY
+        if gestureAxis == nil, max(abs(gestureX), abs(gestureY)) >= axisLockDistance {
+            gestureAxis = abs(gestureX) >= abs(gestureY) ? .horizontal : .vertical
+        }
+        switch gestureAxis {
+        case .horizontal:
+            recentDeltas = Array((recentDeltas + [(sample.deltaX, sample.timestamp)]).suffix(4))
+            if sample.phase == .ended {
+                return .endDrag(predictedTranslation: gestureX + velocity() * flingDuration)
+            }
+            return .drag(gestureX)
+        case .vertical:
+            guard !hasTurned, abs(gestureY) >= threshold else {
+                return nil
+            }
+            hasTurned = true
+            return .turn(gestureY < 0 ? .next : .previous)
+        case nil:
+            return nil
+        }
+    }
+
+    // Mos 等平滑滚动工具产生无阶段的精确滚动，只能按时间间隔划分一次手势
+    private mutating func interpretBurst(_ sample: ScrollSample) -> PageDirection? {
+        if lastPreciseSample.map({ sample.timestamp - $0 > burstGap }) ?? true {
+            accumulated = 0
+            hasTurned = false
+        }
+        lastPreciseSample = sample.timestamp
         accumulated += abs(sample.deltaX) >= abs(sample.deltaY) ? sample.deltaX : sample.deltaY
         guard !hasTurned, abs(accumulated) >= threshold else {
             return nil
@@ -71,5 +118,21 @@ struct PageScrollInterpreter {
         }
         lastWheelTurn = sample.timestamp
         return delta < 0 ? .next : .previous
+    }
+
+    private mutating func resetGesture() {
+        gestureAxis = nil
+        gestureX = 0
+        gestureY = 0
+        hasTurned = false
+        recentDeltas = []
+    }
+
+    private func velocity() -> CGFloat {
+        guard let first = recentDeltas.first, let last = recentDeltas.last, last.time > first.time else {
+            return 0
+        }
+        let travelled = recentDeltas.dropFirst().reduce(0) { $0 + $1.delta }
+        return travelled / CGFloat(last.time - first.time)
     }
 }

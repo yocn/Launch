@@ -26,8 +26,15 @@ final class LauncherInputMonitor {
             guard let self, isLauncherWindow(event.window) else {
                 return event
             }
-            if let direction = interpreter.interpret(ScrollSample(event: event)) {
+            switch interpreter.interpret(ScrollSample(event: event)) {
+            case .turn(let direction)?:
                 onCommand(direction == .next ? .nextPage : .previousPage)
+            case .drag(let translation)?:
+                onCommand(.dragPage(translation))
+            case .endDrag(let predictedTranslation)?:
+                onCommand(.endPageDrag(predictedTranslation: predictedTranslation))
+            case nil:
+                break
             }
             return nil
         }
