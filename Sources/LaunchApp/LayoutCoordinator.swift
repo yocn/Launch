@@ -1,0 +1,159 @@
+import Foundation
+import LaunchCore
+
+@MainActor
+protocol LayoutPrompting: AnyObject {
+    func confirmFirstImport(_ summary: LaunchpadImportSummary) -> Bool
+    func confirmReimport(_ summary: LaunchpadImportSummary) -> Bool
+    func confirmRestore() -> Bool
+    func showError(_ message: String)
+}
+
+protocol LaunchpadSource: Sendable {
+    var isAvailable: Bool { get }
+    func readSnapshot() async throws -> LaunchpadSnapshot
+}
+
+@MainActor
+final class LayoutCoordinator {
+    static var defaultLayoutURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "Launch/layout.json")
+    }
+
+    var onLayoutChange: (([[ResolvedItem]]) -> Void)?
+
+    private let store: LayoutStore
+    private let launchpad: LaunchpadSource
+    private let prompter: LayoutPrompting
+    private let pageCapacity: Int
+    private var document: LayoutDocument?
+    private var catalog: [CatalogApp] = []
+    private var needsSetup = false
+    private var isSettingUp = false
+    private var isReadOnly = false
+    private var hasReportedSaveError = false
+
+    init(
+        store: LayoutStore,
+        launchpad: LaunchpadSource,
+        prompter: LayoutPrompting,
+        pageCapacity: Int = LauncherHomeLayout.pageCapacity
+    ) {
+        self.store = store
+        self.launchpad = launchpad
+        self.prompter = prompter
+        self.pageCapacity = pageCapacity
+    }
+
+    var canImport: Bool {
+        launchpad.isAvailable
+    }
+
+    var canRestore: Bool {
+        store.hasBackup
+    }
+
+    func start() {
+        do {
+            document = try store.load()
+            needsSetup = document == nil
+        } catch {
+            isReadOnly = true
+            prompter.showError("布局文件无法读取，暂时按名称排列；文件保持原样。")
+        }
+    }
+
+    func catalogDidChange(_ apps: [CatalogApp]) async {
+        catalog = apps
+        guard !isSettingUp else {
+            return
+        }
+        if needsSetup {
+            isSettingUp = true
+            await runFirstSetup()
+            needsSetup = false
+            isSettingUp = false
+        }
+        publish()
+    }
+
+    func importFromLaunchpad() async {
+        do {
+            let snapshot = try await launchpad.readSnapshot()
+            let result = LaunchpadImporter.makeImport(from: snapshot, catalog: catalog, pageCapacity: pageCapacity)
+            guard prompter.confirmReimport(result.summary) else {
+                return
+            }
+            try store.replace(with: result.document)
+            document = result.document
+            isReadOnly = false
+            needsSetup = false
+            publish()
+        } catch {
+            prompter.showError("导入失败：\(error.localizedDescription)")
+        }
+    }
+
+    func restoreBackup() {
+        guard prompter.confirmRestore() else {
+            return
+        }
+        do {
+            try store.swapWithBackup()
+            document = try store.load()
+            isReadOnly = false
+            needsSetup = false
+            publish()
+        } catch {
+            prompter.showError("恢复失败：\(error.localizedDescription)")
+        }
+    }
+
+    private func runFirstSetup() async {
+        var imported: LayoutDocument?
+        if launchpad.isAvailable {
+            do {
+                let snapshot = try await launchpad.readSnapshot()
+                let result = LaunchpadImporter.makeImport(from: snapshot, catalog: catalog, pageCapacity: pageCapacity)
+                if prompter.confirmFirstImport(result.summary) {
+                    imported = result.document
+                }
+            } catch {
+                prompter.showError(error.localizedDescription)
+            }
+        }
+        let document = imported ?? LayoutEngine.defaultDocument(catalog: catalog, pageCapacity: pageCapacity)
+        self.document = document
+        save(document)
+    }
+
+    private func publish() {
+        guard let document else {
+            let fallback = LayoutEngine.defaultDocument(catalog: catalog, pageCapacity: pageCapacity)
+            onLayoutChange?(LayoutEngine.reconcile(layout: fallback, catalog: catalog, pageCapacity: pageCapacity).pages)
+            return
+        }
+        let reconciled = LayoutEngine.reconcile(layout: document, catalog: catalog, pageCapacity: pageCapacity)
+        if !reconciled.appendedApps.isEmpty {
+            self.document = reconciled.document
+            save(reconciled.document)
+        }
+        onLayoutChange?(reconciled.pages)
+    }
+
+    private func save(_ document: LayoutDocument) {
+        guard !isReadOnly else {
+            return
+        }
+        do {
+            try store.save(document)
+        } catch {
+            guard !hasReportedSaveError else {
+                return
+            }
+            hasReportedSaveError = true
+            prompter.showError("保存布局失败：\(error.localizedDescription)")
+        }
+    }
+}

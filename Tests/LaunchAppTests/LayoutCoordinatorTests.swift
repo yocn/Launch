@@ -1,0 +1,195 @@
+import Foundation
+import LaunchCore
+import XCTest
+@testable import LaunchApp
+
+@MainActor
+private final class FakePrompter: LayoutPrompting {
+    var answer = true
+    private(set) var firstImportSummaries: [LaunchpadImportSummary] = []
+    private(set) var reimportSummaries: [LaunchpadImportSummary] = []
+    private(set) var restoreRequests = 0
+    private(set) var errors: [String] = []
+
+    func confirmFirstImport(_ summary: LaunchpadImportSummary) -> Bool {
+        firstImportSummaries.append(summary)
+        return answer
+    }
+
+    func confirmReimport(_ summary: LaunchpadImportSummary) -> Bool {
+        reimportSummaries.append(summary)
+        return answer
+    }
+
+    func confirmRestore() -> Bool {
+        restoreRequests += 1
+        return answer
+    }
+
+    func showError(_ message: String) {
+        errors.append(message)
+    }
+}
+
+private struct FakeLaunchpad: LaunchpadSource {
+    var isAvailable = true
+    var snapshot = LaunchpadSnapshot(pages: [])
+    var failure: LaunchpadReadError?
+
+    func readSnapshot() async throws -> LaunchpadSnapshot {
+        if let failure {
+            throw failure
+        }
+        return snapshot
+    }
+}
+
+@MainActor
+private final class PublishedPages {
+    var values: [[[ResolvedItem]]] = []
+    var last: [[ResolvedItem]]? { values.last }
+}
+
+final class LayoutCoordinatorTests: XCTestCase {
+    private let apps = makeApps(count: 3)
+
+    private func launchpadApp(_ app: CatalogApp) -> LaunchpadApp {
+        LaunchpadApp(bundleIdentifier: app.identity.bundleIdentifier!, title: app.displayName)
+    }
+
+    @MainActor
+    func testFirstLaunchImportsLaunchpadLayoutAfterConfirmation() async throws {
+        let store = try temporaryStore()
+        let prompter = FakePrompter()
+        let snapshot = LaunchpadSnapshot(pages: [[
+            .folder(id: 7, name: "效率", apps: [launchpadApp(apps[0])]),
+            .app(launchpadApp(apps[1])),
+        ]])
+        let (coordinator, published) = makeCoordinator(store, prompter, FakeLaunchpad(snapshot: snapshot))
+
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        XCTAssertEqual(prompter.firstImportSummaries.count, 1)
+        XCTAssertEqual(published.last, [[
+            makeFolder(id: "launchpad-7", name: "效率", apps: [apps[0]]),
+            .app(apps[1]),
+            .app(apps[2]),
+        ]])
+        XCTAssertEqual(try store.load()?.pages.first?.slots.count, 3)
+    }
+
+    @MainActor
+    func testDecliningFirstImportSavesDefaultLayout() async throws {
+        let store = try temporaryStore()
+        let prompter = FakePrompter()
+        prompter.answer = false
+        let snapshot = LaunchpadSnapshot(pages: [[.folder(id: 7, name: "效率", apps: [launchpadApp(apps[0])])]])
+        let (coordinator, published) = makeCoordinator(store, prompter, FakeLaunchpad(snapshot: snapshot))
+
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        XCTAssertEqual(published.last, [apps.map(ResolvedItem.app)])
+        XCTAssertEqual(try store.load(), LayoutEngine.defaultDocument(catalog: apps, pageCapacity: 35))
+    }
+
+    @MainActor
+    func testFirstLaunchWithoutLaunchpadUsesDefaultSilently() async throws {
+        let store = try temporaryStore()
+        let prompter = FakePrompter()
+        let (coordinator, _) = makeCoordinator(store, prompter, FakeLaunchpad(isAvailable: false))
+
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        XCTAssertTrue(prompter.firstImportSummaries.isEmpty)
+        XCTAssertNotNil(try store.load())
+    }
+
+    @MainActor
+    func testReadFailureDuringFirstLaunchFallsBackToDefault() async throws {
+        let store = try temporaryStore()
+        let prompter = FakePrompter()
+        let (coordinator, _) = makeCoordinator(store, prompter, FakeLaunchpad(failure: .missingRoot))
+
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        XCTAssertEqual(prompter.errors.count, 1)
+        XCTAssertEqual(try store.load(), LayoutEngine.defaultDocument(catalog: apps, pageCapacity: 35))
+    }
+
+    @MainActor
+    func testExistingLayoutAppendsNewAppsAndSaves() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: [.app(apps[2].identity)])]))
+        let prompter = FakePrompter()
+        let (coordinator, published) = makeCoordinator(store, prompter, FakeLaunchpad())
+
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        XCTAssertTrue(prompter.firstImportSummaries.isEmpty)
+        XCTAssertEqual(published.last, [[.app(apps[2]), .app(apps[0]), .app(apps[1])]])
+        XCTAssertEqual(try store.load()?.pages.first?.slots.count, 3)
+    }
+
+    @MainActor
+    func testCorruptLayoutIsLeftUntouched() async throws {
+        let store = try temporaryStore()
+        try FileManager.default.createDirectory(
+            at: store.fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("not json".utf8).write(to: store.fileURL)
+        let prompter = FakePrompter()
+        let (coordinator, published) = makeCoordinator(store, prompter, FakeLaunchpad())
+
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        XCTAssertEqual(prompter.errors.count, 1)
+        XCTAssertTrue(prompter.firstImportSummaries.isEmpty)
+        XCTAssertEqual(published.last, [apps.map(ResolvedItem.app)])
+        XCTAssertEqual(try Data(contentsOf: store.fileURL), Data("not json".utf8))
+    }
+
+    @MainActor
+    func testReimportBacksUpAndRestoreSwapsBack() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: [.app(apps[2].identity)])]))
+        let prompter = FakePrompter()
+        let snapshot = LaunchpadSnapshot(pages: [[.app(launchpadApp(apps[0]))]])
+        let (coordinator, published) = makeCoordinator(store, prompter, FakeLaunchpad(snapshot: snapshot))
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        await coordinator.importFromLaunchpad()
+
+        XCTAssertEqual(prompter.reimportSummaries.count, 1)
+        XCTAssertTrue(coordinator.canRestore)
+        XCTAssertEqual(published.last, [[.app(apps[0]), .app(apps[1]), .app(apps[2])]])
+
+        coordinator.restoreBackup()
+
+        XCTAssertEqual(prompter.restoreRequests, 1)
+        XCTAssertEqual(published.last, [[.app(apps[2]), .app(apps[0]), .app(apps[1])]])
+    }
+
+    @MainActor
+    private func makeCoordinator(
+        _ store: LayoutStore,
+        _ prompter: FakePrompter,
+        _ launchpad: FakeLaunchpad
+    ) -> (LayoutCoordinator, PublishedPages) {
+        let published = PublishedPages()
+        let coordinator = LayoutCoordinator(store: store, launchpad: launchpad, prompter: prompter)
+        coordinator.onLayoutChange = { published.values.append($0) }
+        return (coordinator, published)
+    }
+
+    private func temporaryStore() throws -> LayoutStore {
+        LayoutStore(fileURL: try makeTemporaryDirectory().appending(path: "Launch/layout.json"))
+    }
+}
