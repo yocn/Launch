@@ -23,7 +23,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private let presenter = ScreenPresenter()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let catalog = (try? AppCatalog().scan(roots: [URL(fileURLWithPath: "/Applications")])) ?? []
+        let catalog = (try? AppCatalog().scan(
+            roots: ApplicationSources.defaultRoots()
+        )) ?? []
         presenter.show(catalog: catalog)
     }
 }

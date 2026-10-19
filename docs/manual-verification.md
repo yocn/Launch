@@ -16,6 +16,7 @@
 - 2026-10-19：以只读方式检查 `/Users/yocn/Library/Application Support` 和 `/Users/yocn/Library/Containers` 的常见候选名，未确认旧 Launchpad 布局来源；未读取、修改或重置系统数据。
 - 2026-10-19：确认原生无边框 `NSPanel.canBecomeKey` 为 `false`，这会阻断搜索框的真实键盘焦点。开发包已改用覆写该能力的 `LauncherPanel`；对应自动化测试通过。后续界面回归因自动化环境的 ScreenCaptureKit 取屏失败而未能完成，仍需真人验证文本输入与 Escape。
 - 2026-10-19：参考版 LaunchOS 实测为 7 列 × 5 行分页网格，页码圆点可点击，搜索后出现清除按钮且清除后回到网格，点击空白处关闭。对 `safari` 搜索态发送 Escape 未观察到状态变化。
+- 2026-10-19：开发包的默认应用来源已扩展为用户与系统应用目录；来源路径由自动化测试固定，完整网格视觉回归仍受开发包的 ScreenCaptureKit 取屏错误影响。
 
 ## 待验证
 
