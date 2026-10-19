@@ -29,9 +29,14 @@ struct LauncherView: View {
                     .ignoresSafeArea()
                     .onTapGesture(perform: onBackgroundClick)
 
-                homeContent(in: proxy.size)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                let layout = LauncherHomeLayout(
+                    screenSize: proxy.size,
+                    referenceSize: NSScreen.screens.first?.frame.size ?? proxy.size
+                )
+                homeContent(layout: layout)
+                    .frame(width: layout.contentSize.width, height: layout.contentSize.height)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onExitCommand(perform: onEscape)
         .onAppear {
@@ -43,32 +48,18 @@ struct LauncherView: View {
     }
 
     @ViewBuilder
-    private func homeContent(in screenSize: CGSize) -> some View {
-        let iconSide = LauncherHomeLayout.iconSideLength(for: screenSize)
-        let tileWidth = iconSide + 24
+    private func homeContent(layout: LauncherHomeLayout) -> some View {
         let columns = Array(
-            repeating: GridItem(
-                .fixed(tileWidth),
-                spacing: LauncherHomeLayout.columnSpacing(
-                    for: screenSize,
-                    itemWidth: tileWidth
-                )
-            ),
+            repeating: GridItem(.fixed(layout.tileWidth), spacing: layout.columnSpacing),
             count: LauncherHomeLayout.columnCount
-        )
-        let topInset = min(max(42, screenSize.height * 0.052), 100)
-        let searchToGrid = min(max(42, screenSize.height * 0.028), 56)
-        let rowSpacing = LauncherHomeLayout.rowSpacing(
-            for: screenSize,
-            iconSide: iconSide
         )
 
         VStack(spacing: 0) {
-            searchBar(width: min(240, screenSize.width - 48))
-                .padding(.top, topInset)
+            searchBar(layout: layout)
+                .padding(.top, layout.topInset)
 
             Color.clear
-                .frame(height: searchToGrid)
+                .frame(height: layout.searchToGrid)
 
             if model.visibleApps.isEmpty {
                 ContentUnavailableView(
@@ -78,34 +69,30 @@ struct LauncherView: View {
                 )
                 .foregroundStyle(.white)
             } else {
-                LazyVGrid(columns: columns, spacing: rowSpacing) {
+                LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
                     ForEach(model.visibleApps, id: \.identity) { app in
-                        LauncherAppTile(app: app, iconSide: iconSide) {
+                        LauncherAppTile(app: app, layout: layout) {
                             onLaunch(app)
                         }
                     }
                 }
-                .padding(.horizontal, LauncherHomeLayout.horizontalInset(for: screenSize))
-                .frame(
-                    height: LauncherHomeLayout.gridHeight(for: screenSize),
-                    alignment: .top
-                )
-                .clipped()
+                .padding(.horizontal, layout.horizontalInset)
+                .frame(height: layout.gridHeight, alignment: .top)
             }
 
-            Spacer(minLength: 24)
+            Spacer(minLength: 0)
 
             if model.pages.count > 1 {
-                pageIndicator
-                    .padding(.bottom, 110)
+                pageIndicator(layout: layout)
+                    .padding(.bottom, layout.bottomInset)
             }
         }
     }
 
-    private func searchBar(width: CGFloat) -> some View {
-        HStack(spacing: 14) {
+    private func searchBar(layout: LauncherHomeLayout) -> some View {
+        HStack(spacing: layout.searchBarSpacing) {
             Image(systemName: "magnifyingglass")
-                .font(.title3.weight(.medium))
+                .font(.system(size: layout.searchIconSize, weight: .medium))
                 .foregroundStyle(.white.opacity(0.9))
 
             TextField("搜索应用", text: Binding(
@@ -113,7 +100,7 @@ struct LauncherView: View {
                 set: { model.setQuery($0) }
             ))
                 .textFieldStyle(.plain)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: layout.searchFontSize, weight: .semibold))
                 .foregroundStyle(.white)
                 .focused($searchFieldIsFocused)
 
@@ -122,37 +109,41 @@ struct LauncherView: View {
                     model.setQuery("")
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.body)
+                        .font(.system(size: layout.clearIconSize))
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("清除搜索")
             } else if SearchPresentation.showsMoreControl(for: model.query) {
                 Image(systemName: "ellipsis.circle")
-                    .font(.title3)
+                    .font(.system(size: layout.searchIconSize))
                     .foregroundStyle(.white.opacity(0.7))
                     .accessibilityLabel("更多选项")
             }
         }
-        .padding(.horizontal, 12)
-        .frame(width: width, height: 42)
+        .padding(.horizontal, layout.searchBarPadding)
+        .frame(width: layout.searchBarWidth, height: layout.searchBarHeight)
         .background(.white.opacity(0.11), in: Capsule())
         .overlay {
             Capsule()
                 .stroke(.white.opacity(0.45), lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.18), radius: 14, y: 8)
+        .shadow(
+            color: .black.opacity(0.18),
+            radius: layout.searchShadowRadius,
+            y: layout.searchShadowOffset
+        )
     }
 
-    private var pageIndicator: some View {
-        HStack(spacing: 18) {
+    private func pageIndicator(layout: LauncherHomeLayout) -> some View {
+        HStack(spacing: layout.pageDotSpacing) {
             ForEach(model.pages.indices, id: \.self) { pageIndex in
                 Button {
                     model.selectPage(pageIndex)
                 } label: {
                     Circle()
                         .fill(pageIndex == model.currentPage ? .white : .white.opacity(0.4))
-                        .frame(width: 10, height: 10)
+                        .frame(width: layout.pageDotSize, height: layout.pageDotSize)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("第 \(pageIndex + 1) 页")
@@ -163,34 +154,35 @@ struct LauncherView: View {
 
 private struct LauncherAppTile: View {
     let app: CatalogApp
-    let iconSide: CGFloat
+    let layout: LauncherHomeLayout
     let action: () -> Void
 
     @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 12) {
+            VStack(spacing: layout.iconLabelSpacing) {
                 Image(nsImage: IconCache.shared.icon(for: app.identity.path))
                     .resizable()
                     .interpolation(.high)
-                    .frame(width: iconSide, height: iconSide)
+                    .frame(width: layout.iconSide, height: layout.iconSide)
                 Text(app.displayName)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: layout.labelFontSize, weight: .medium))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
                     .lineLimit(1)
-                    .frame(maxWidth: iconSide + 24)
+                    .frame(maxWidth: layout.tileWidth)
+                    .frame(height: layout.labelHeight)
             }
-            .padding(.vertical, 12)
-            .frame(width: iconSide + 24)
+            .padding(.vertical, layout.tilePadding)
+            .frame(width: layout.tileWidth)
             .background {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
                     .fill(.white.opacity(isHovering ? 0.15 : 0))
             }
         }
         .buttonStyle(.plain)
-        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
         .onHover { isHovering = $0 }
         .accessibilityLabel(app.displayName)
     }

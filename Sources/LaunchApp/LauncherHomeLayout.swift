@@ -1,35 +1,69 @@
 import CoreGraphics
 
-enum LauncherHomeLayout {
+struct LauncherHomeLayout: Equatable {
     static let columnCount = 7
     static let rowCount = 5
     static let pageCapacity = columnCount * rowCount
 
-    static func iconSideLength(for screenSize: CGSize) -> CGFloat {
-        let availableSide = min(screenSize.width / 18, screenSize.height / 12)
-        return min(max(availableSide, 88), 160)
+    // 以下尺寸按 1512×982 主屏调校，参考屏不同尺寸时整体缩放
+    static let canvasSize = CGSize(width: 1512, height: 982)
+
+    let contentSize: CGSize
+    let sizeScale: CGFloat
+
+    init(screenSize: CGSize, referenceSize: CGSize) {
+        let screenScale = min(
+            screenSize.width / referenceSize.width,
+            screenSize.height / referenceSize.height
+        )
+        let referenceScale = min(
+            referenceSize.width / Self.canvasSize.width,
+            referenceSize.height / Self.canvasSize.height
+        )
+        contentSize = CGSize(
+            width: referenceSize.width * screenScale,
+            height: referenceSize.height * screenScale
+        )
+        sizeScale = referenceScale * screenScale
     }
 
-    static func horizontalInset(for screenSize: CGSize) -> CGFloat {
-        max(56, screenSize.width * 0.09)
+    var iconSide: CGFloat { 88 * sizeScale }
+    var tileWidth: CGFloat { 112 * sizeScale }
+    var tilePadding: CGFloat { 12 * sizeScale }
+    var iconLabelSpacing: CGFloat { 12 * sizeScale }
+    var labelFontSize: CGFloat { 14 * sizeScale }
+    var labelHeight: CGFloat { 17 * sizeScale }
+    var tileCornerRadius: CGFloat { 24 * sizeScale }
+    var rowSpacing: CGFloat { 17 * sizeScale }
+
+    var tileHeight: CGFloat {
+        tilePadding * 2 + iconSide + iconLabelSpacing + labelHeight
     }
 
-    static func columnSpacing(for screenSize: CGSize, itemWidth: CGFloat) -> CGFloat {
-        let usableWidth = screenSize.width - horizontalInset(for: screenSize) * 2
-        let naturalSpacing = (usableWidth - itemWidth * CGFloat(columnCount))
-            / CGFloat(columnCount - 1)
-        return max(32, naturalSpacing)
+    var gridHeight: CGFloat {
+        let rows = CGFloat(Self.rowCount)
+        return tileHeight * rows + rowSpacing * (rows - 1)
     }
 
-    static func gridHeight(for screenSize: CGSize) -> CGFloat {
-        screenSize.height * 0.7
+    var horizontalInset: CGFloat { contentSize.width * 0.09 }
+
+    var columnSpacing: CGFloat {
+        let columns = CGFloat(Self.columnCount)
+        return (contentSize.width - horizontalInset * 2 - tileWidth * columns) / (columns - 1)
     }
 
-    static func rowSpacing(for screenSize: CGSize, iconSide: CGFloat) -> CGFloat {
-        let tileHeight = iconSide + 56
-        let availableSpacing = (
-            gridHeight(for: screenSize) - tileHeight * CGFloat(rowCount)
-        ) / CGFloat(rowCount - 1)
-        return min(max(availableSpacing, 18), 48)
-    }
+    var topInset: CGFloat { 51 * sizeScale }
+    var searchBarWidth: CGFloat { 240 * sizeScale }
+    var searchBarHeight: CGFloat { 42 * sizeScale }
+    var searchBarPadding: CGFloat { 12 * sizeScale }
+    var searchBarSpacing: CGFloat { 14 * sizeScale }
+    var searchFontSize: CGFloat { 14 * sizeScale }
+    var searchIconSize: CGFloat { 15 * sizeScale }
+    var clearIconSize: CGFloat { 13 * sizeScale }
+    var searchShadowRadius: CGFloat { 14 * sizeScale }
+    var searchShadowOffset: CGFloat { 8 * sizeScale }
+    var searchToGrid: CGFloat { 42 * sizeScale }
+    var pageDotSize: CGFloat { 10 * sizeScale }
+    var pageDotSpacing: CGFloat { 18 * sizeScale }
+    var bottomInset: CGFloat { 40 * sizeScale }
 }
