@@ -197,6 +197,19 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testDragCommandsFollowAndTurnPages() {
+        let (controller, _) = makeController(apps: makeApps(count: 40))
+        controller.show()
+        controller.model.updatePageWidth(1000)
+
+        controller.handle(.dragPage(-500))
+        XCTAssertEqual(controller.model.pageDragOffset, -500)
+        controller.handle(.endPageDrag(predictedTranslation: -500))
+
+        XCTAssertEqual(controller.model.currentPage, 1)
+    }
+
+    @MainActor
     private func makeController(
         apps: [CatalogApp] = [],
         iconCache: IconCache = IconCache { _ in NSImage() },

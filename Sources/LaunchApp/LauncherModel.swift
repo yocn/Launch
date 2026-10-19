@@ -1,3 +1,4 @@
+import CoreGraphics
 import LaunchCore
 import Observation
 
@@ -19,6 +20,9 @@ final class LauncherModel {
     private(set) var openFolderID: String?
     private(set) var folderPage = 0
     private(set) var folderSelectedIndex: Int?
+    private(set) var isPageDragging = false
+    private(set) var pageDragTranslation: CGFloat = 0
+    private(set) var pageWidth: CGFloat = 0
 
     init(apps: [CatalogApp] = []) {
         self.apps = apps
@@ -73,6 +77,50 @@ final class LauncherModel {
             return []
         }
         return pages[LauncherPagination.normalizedPageIndex(folderPage, pageCount: pages.count)]
+    }
+
+    var pageDragOffset: CGFloat {
+        PageDragResolver.displayOffset(
+            translation: pageDragTranslation,
+            currentPage: activePage,
+            pageCount: activePageCount
+        )
+    }
+
+    private var activePage: Int {
+        openFolder != nil ? folderPage : currentPage
+    }
+
+    private var activePageCount: Int {
+        openFolder != nil ? folderPages.count : pages.count
+    }
+
+    func updatePageWidth(_ width: CGFloat) {
+        pageWidth = width
+    }
+
+    func dragPage(by translation: CGFloat) {
+        isPageDragging = true
+        pageDragTranslation = translation
+    }
+
+    func endPageDrag(predictedTranslation: CGFloat) {
+        let target = PageDragResolver.targetPage(
+            currentPage: activePage,
+            pageCount: activePageCount,
+            predictedTranslation: predictedTranslation,
+            pageWidth: pageWidth
+        )
+        isPageDragging = false
+        pageDragTranslation = 0
+        guard target != activePage else {
+            return
+        }
+        if openFolder != nil {
+            selectFolderPage(target)
+        } else {
+            selectPage(target)
+        }
     }
 
     func setQuery(_ newQuery: String) {

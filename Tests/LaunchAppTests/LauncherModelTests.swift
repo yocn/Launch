@@ -232,6 +232,51 @@ final class LauncherModelTests: XCTestCase {
     }
 
     @MainActor
+    func testDragFollowsAndReleaseTurnsPage() {
+        let model = LauncherModel(apps: makeApps(count: 40))
+        model.updatePageWidth(1000)
+
+        model.dragPage(by: -200)
+        XCTAssertTrue(model.isPageDragging)
+        XCTAssertEqual(model.pageDragOffset, -200)
+
+        model.endPageDrag(predictedTranslation: -400)
+        XCTAssertEqual(model.currentPage, 1)
+        XCTAssertEqual(model.pageDragOffset, 0)
+        XCTAssertFalse(model.isPageDragging)
+    }
+
+    @MainActor
+    func testShortDragSnapsBackAndFirstPageResists() {
+        let model = LauncherModel(apps: makeApps(count: 40))
+        model.updatePageWidth(1000)
+
+        model.dragPage(by: 200)
+        XCTAssertEqual(model.pageDragOffset, 60, accuracy: 0.001)
+        model.endPageDrag(predictedTranslation: 900)
+        XCTAssertEqual(model.currentPage, 0)
+
+        model.dragPage(by: -100)
+        model.endPageDrag(predictedTranslation: -150)
+        XCTAssertEqual(model.currentPage, 0)
+    }
+
+    @MainActor
+    func testDragInsideFolderTurnsFolderPage() {
+        let apps = makeApps(count: 40)
+        let model = LauncherModel(apps: apps)
+        model.updateLayout([[makeFolder(id: "f", name: "其他", apps: apps)]])
+        model.showFolder(id: "f")
+        model.updatePageWidth(1000)
+
+        model.dragPage(by: -350)
+        model.endPageDrag(predictedTranslation: -350)
+
+        XCTAssertEqual(model.folderPage, 1)
+        XCTAssertEqual(model.openFolderID, "f")
+    }
+
+    @MainActor
     func testShrinkingResultsClampsSelection() {
         let model = LauncherModel(apps: makeApps(count: 3))
         model.moveSelection(.right)
