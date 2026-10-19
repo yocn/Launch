@@ -13,35 +13,12 @@ enum SearchPresentation {
 }
 
 struct LauncherView: View {
-    let apps: [CatalogApp]
-    let onClose: () -> Void
-    let onLaunch: () -> Void
+    let model: LauncherModel
+    let onEscape: () -> Void
+    let onBackgroundClick: () -> Void
+    let onLaunch: (CatalogApp) -> Void
 
-    @State private var query = ""
-    @State private var currentPage = 0
     @FocusState private var searchFieldIsFocused: Bool
-
-    private var results: [CatalogApp] {
-        SearchService.results(for: query, in: apps, hidden: [])
-    }
-
-    private var pages: [[CatalogApp]] {
-        LauncherPagination.pages(
-            results,
-            capacity: LauncherHomeLayout.pageCapacity
-        )
-    }
-
-    private var visibleApps: [CatalogApp] {
-        guard !pages.isEmpty else {
-            return []
-        }
-        let pageIndex = LauncherPagination.normalizedPageIndex(
-            currentPage,
-            pageCount: pages.count
-        )
-        return pages[pageIndex]
-    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -50,17 +27,17 @@ struct LauncherView: View {
                     .fill(.regularMaterial)
                 .overlay(Color.black.opacity(0.47))
                     .ignoresSafeArea()
-                    .onTapGesture(perform: onClose)
+                    .onTapGesture(perform: onBackgroundClick)
 
                 homeContent(in: proxy.size)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .onExitCommand(perform: onClose)
-        .onChange(of: query) {
-            currentPage = 0
-        }
+        .onExitCommand(perform: onEscape)
         .onAppear {
+            searchFieldIsFocused = true
+        }
+        .onChange(of: model.presentationCount) {
             searchFieldIsFocused = true
         }
     }
@@ -93,7 +70,7 @@ struct LauncherView: View {
             Color.clear
                 .frame(height: searchToGrid)
 
-            if visibleApps.isEmpty {
+            if model.visibleApps.isEmpty {
                 ContentUnavailableView(
                     "未找到应用",
                     systemImage: "magnifyingglass",
@@ -102,13 +79,9 @@ struct LauncherView: View {
                 .foregroundStyle(.white)
             } else {
                 LazyVGrid(columns: columns, spacing: rowSpacing) {
-                    ForEach(visibleApps, id: \.identity) { app in
+                    ForEach(model.visibleApps, id: \.identity) { app in
                         LauncherAppTile(app: app, iconSide: iconSide) {
-                            if NSWorkspace.shared.open(
-                                URL(fileURLWithPath: app.identity.path)
-                            ) {
-                                onLaunch()
-                            }
+                            onLaunch(app)
                         }
                     }
                 }
@@ -122,7 +95,7 @@ struct LauncherView: View {
 
             Spacer(minLength: 24)
 
-            if pages.count > 1 {
+            if model.pages.count > 1 {
                 pageIndicator
                     .padding(.bottom, 110)
             }
@@ -135,15 +108,18 @@ struct LauncherView: View {
                 .font(.title3.weight(.medium))
                 .foregroundStyle(.white.opacity(0.9))
 
-            TextField("搜索应用", text: $query)
+            TextField("搜索应用", text: Binding(
+                get: { model.query },
+                set: { model.setQuery($0) }
+            ))
                 .textFieldStyle(.plain)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
                 .focused($searchFieldIsFocused)
 
-            if SearchPresentation.showsClearControl(for: query) {
+            if SearchPresentation.showsClearControl(for: model.query) {
                 Button {
-                    query = ""
+                    model.setQuery("")
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.body)
@@ -151,7 +127,7 @@ struct LauncherView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("清除搜索")
-            } else if SearchPresentation.showsMoreControl(for: query) {
+            } else if SearchPresentation.showsMoreControl(for: model.query) {
                 Image(systemName: "ellipsis.circle")
                     .font(.title3)
                     .foregroundStyle(.white.opacity(0.7))
@@ -170,12 +146,12 @@ struct LauncherView: View {
 
     private var pageIndicator: some View {
         HStack(spacing: 18) {
-            ForEach(pages.indices, id: \.self) { pageIndex in
+            ForEach(model.pages.indices, id: \.self) { pageIndex in
                 Button {
-                    currentPage = pageIndex
+                    model.selectPage(pageIndex)
                 } label: {
                     Circle()
-                        .fill(pageIndex == currentPage ? .white : .white.opacity(0.4))
+                        .fill(pageIndex == model.currentPage ? .white : .white.opacity(0.4))
                         .frame(width: 10, height: 10)
                 }
                 .buttonStyle(.plain)
@@ -195,7 +171,7 @@ private struct LauncherAppTile: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 12) {
-                Image(nsImage: ApplicationIconResolver.icon(for: app.identity.path))
+                Image(nsImage: IconCache.shared.icon(for: app.identity.path))
                     .resizable()
                     .interpolation(.high)
                     .frame(width: iconSide, height: iconSide)

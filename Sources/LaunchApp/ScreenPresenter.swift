@@ -1,6 +1,5 @@
 import AppKit
 import CoreGraphics
-import LaunchCore
 import SwiftUI
 
 public enum ScreenSelectionPolicy {
@@ -27,46 +26,17 @@ final class LauncherPanel: NSPanel {
 }
 
 @MainActor
-final class ScreenPresenter {
-    private var panel: NSPanel?
+final class ScreenPresenter: LauncherPresenting {
+    var onResignActive: (() -> Void)?
+    private let panel: LauncherPanel
+    private var resignObserver: NSObjectProtocol?
 
-    func show(catalog: [CatalogApp]) {
-        let screens = NSScreen.screens
-        let frames = screens.map(\.frame)
-        let screenIndex = ScreenSelectionPolicy.screenIndex(
-            containing: NSEvent.mouseLocation,
-            in: frames
-        ) ?? 0
-        guard screens.indices.contains(screenIndex) else {
-            return
-        }
-
-        let targetScreen = screens[screenIndex]
-        let panel = launcherPanel(for: targetScreen)
-        panel.contentView = NSHostingView(
-            rootView: LauncherView(
-                apps: catalog,
-                onClose: { [weak self] in self?.hide() },
-                onLaunch: { [weak self] in self?.hide() }
-            )
-        )
-        self.panel = panel
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
-    }
-
-    func hide() {
-        panel?.orderOut(nil)
-        panel = nil
-    }
-
-    private func launcherPanel(for screen: NSScreen) -> NSPanel {
-        let panel = LauncherPanel(
-            contentRect: screen.frame,
+    init() {
+        panel = LauncherPanel(
+            contentRect: .zero,
             styleMask: LauncherPanelConfiguration.styleMask,
             backing: .buffered,
-            defer: false,
-            screen: screen
+            defer: false
         )
         panel.isFloatingPanel = true
         panel.level = .statusBar
@@ -79,6 +49,48 @@ final class ScreenPresenter {
         panel.isOpaque = false
         panel.hasShadow = false
         panel.hidesOnDeactivate = false
-        return panel
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.onResignActive?()
+            }
+        }
+    }
+
+    var isVisible: Bool {
+        panel.isVisible
+    }
+
+    func setContent(_ content: some View) {
+        panel.contentView = NSHostingView(rootView: content)
+    }
+
+    func present() {
+        guard let screen = targetScreen() else {
+            return
+        }
+        panel.setFrame(screen.frame, display: true)
+        NSApp.unhide(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    func dismiss(restoringPreviousApp: Bool) {
+        panel.orderOut(nil)
+        if restoringPreviousApp {
+            NSApp.hide(nil)
+        }
+    }
+
+    private func targetScreen() -> NSScreen? {
+        let screens = NSScreen.screens
+        let index = ScreenSelectionPolicy.screenIndex(
+            containing: NSEvent.mouseLocation,
+            in: screens.map(\.frame)
+        ) ?? 0
+        return screens.indices.contains(index) ? screens[index] : nil
     }
 }
