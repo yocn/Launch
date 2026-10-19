@@ -20,6 +20,7 @@ struct LauncherView: View {
 
     @FocusState private var searchFieldIsFocused: Bool
     @State private var folderFrames: [String: CGRect] = [:]
+    @State private var dragTracker = PageDragTracker()
     nonisolated private static let contentSpace = "launcher-content"
 
     var body: some View {
@@ -46,6 +47,7 @@ struct LauncherView: View {
                             folder: folder,
                             layout: layout,
                             columns: gridColumns(layout),
+                            dragTracker: dragTracker,
                             onLaunch: onLaunch
                         )
                         .transition(.folderZoom(from: folderFrames[folder.id], in: layout.contentSize))
@@ -53,6 +55,11 @@ struct LauncherView: View {
                 }
                 .frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 .coordinateSpace(.named(Self.contentSpace))
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.width
+                } action: { width in
+                    model.updatePageWidth(width)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.easeOut(duration: 0.25), value: model.openFolderID)
@@ -101,10 +108,18 @@ struct LauncherView: View {
                         .allowsHitTesting(pageIndex == model.currentPage)
                     }
                 }
-                .offset(x: -CGFloat(model.currentPage) * layout.contentSize.width)
+                .offset(x: -CGFloat(model.currentPage) * layout.contentSize.width
+                    + (model.openFolder == nil ? model.pageDragOffset : 0))
                 .frame(width: layout.contentSize.width, height: layout.gridHeight, alignment: .topLeading)
                 .clipped()
+                .modifier(PageDragArea(model: model, tracker: dragTracker))
+                .onTapGesture {
+                    if !dragTracker.suppressesTap {
+                        onBackgroundClick()
+                    }
+                }
                 .animation(.easeOut(duration: 0.3), value: model.currentPage)
+                .animation(.easeOut(duration: 0.3), value: model.isPageDragging)
             }
 
             Spacer(minLength: 0)
@@ -128,11 +143,15 @@ struct LauncherView: View {
         switch item {
         case .app(let app):
             LauncherAppTile(app: app, layout: layout, isSelected: isSelected) {
-                onLaunch(app)
+                if !dragTracker.suppressesTap {
+                    onLaunch(app)
+                }
             }
         case .folder(let folder):
             LauncherFolderTile(folder: folder, layout: layout, isSelected: isSelected) {
-                model.showFolder(id: folder.id)
+                if !dragTracker.suppressesTap {
+                    model.showFolder(id: folder.id)
+                }
             }
             .onGeometryChange(for: CGRect.self) { proxy in
                 proxy.frame(in: .named(Self.contentSpace))
@@ -316,6 +335,7 @@ private struct FolderOverlay: View {
     let folder: ResolvedFolder
     let layout: LauncherHomeLayout
     let columns: [GridItem]
+    let dragTracker: PageDragTracker
     let onLaunch: (CatalogApp) -> Void
 
     var body: some View {
@@ -334,7 +354,9 @@ private struct FolderOverlay: View {
                                 layout: layout,
                                 isSelected: pageIndex == model.folderPage && index == model.folderSelectedIndex
                             ) {
-                                onLaunch(app)
+                                if !dragTracker.suppressesTap {
+                                    onLaunch(app)
+                                }
                             }
                         }
                     }
@@ -343,14 +365,16 @@ private struct FolderOverlay: View {
                     .allowsHitTesting(pageIndex == model.folderPage)
                 }
             }
-            .offset(x: -CGFloat(model.folderPage) * layout.contentSize.width)
+            .offset(x: -CGFloat(model.folderPage) * layout.contentSize.width + model.pageDragOffset)
             .frame(
                 width: layout.contentSize.width,
                 height: layout.folderGridHeight(memberCount: folder.apps.count),
                 alignment: .topLeading
             )
             .clipped()
+            .modifier(PageDragArea(model: model, tracker: dragTracker))
             .animation(.easeOut(duration: 0.3), value: model.folderPage)
+            .animation(.easeOut(duration: 0.3), value: model.isPageDragging)
             .padding(.vertical, layout.folderPanelPadding)
             .background {
                 RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
@@ -404,5 +428,38 @@ private extension AnyTransition {
             active: FolderZoomModifier(scale: max(source.width / size.width, 0.05), offset: offset, opacity: 0),
             identity: FolderZoomModifier(scale: 1, offset: .zero, opacity: 1)
         )
+    }
+}
+
+@MainActor
+final class PageDragTracker {
+    var isDragging = false
+    var lastDragEnd: TimeInterval = 0
+
+    // 鼠标松开时按钮动作与拖动结束的先后不固定，结束后短时间内仍视为拖动
+    var suppressesTap: Bool {
+        isDragging || ProcessInfo.processInfo.systemUptime - lastDragEnd < 0.2
+    }
+}
+
+private struct PageDragArea: ViewModifier {
+    let model: LauncherModel
+    let tracker: PageDragTracker
+
+    func body(content: Content) -> some View {
+        content
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 6, coordinateSpace: .global)
+                    .onChanged { value in
+                        tracker.isDragging = true
+                        model.dragPage(by: value.translation.width)
+                    }
+                    .onEnded { value in
+                        model.endPageDrag(predictedTranslation: value.predictedEndTranslation.width)
+                        tracker.isDragging = false
+                        tracker.lastDragEnd = ProcessInfo.processInfo.systemUptime
+                    }
+            )
     }
 }
