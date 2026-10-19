@@ -95,7 +95,7 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 
 ## 6. 布局继承：优先验证的风险
 
-当前已提供 `LaunchpadProbe`，它只报告调用方提供的候选路径是否存在、可读和文件类型，不会创建、修改或重置任何系统数据。2026-10-19 确认旧 Launchpad 数据库位于 `$(getconf DARWIN_USER_DIR)/com.apple.dock.launchpad/db/db`（SQLite，同目录有 `db-wal`、`db-shm`；`dbinfo` 记录 build 24F74，即 macOS 15.5 时期写入）。复制到临时目录只读查询：`items` 表以 `parent_id`、`ordering` 组织树，type 1 为根、3 为页面、2 为文件夹、4 为应用；`launchpad_root` 下有 2 个有内容的页面（另有 1 个空页）、3 个命名文件夹，共 96 个应用，其中 81 个可按 Bundle ID 对应本机应用。LaunchOS 2.4.0 读取同一路径。macOS 26 的 Spotlight 应用入口不等同于旧 Launchpad 布局。
+当前已提供 `LaunchpadProbe`，它只报告调用方提供的候选路径是否存在、可读和文件类型，不会创建、修改或重置任何系统数据。2026-10-19 确认旧 Launchpad 数据库位于 `$(getconf DARWIN_USER_DIR)/com.apple.dock.launchpad/db/db`（SQLite，同目录有 `db-wal`、`db-shm`；`dbinfo` 记录 build 24F74，即 macOS 15.5 时期写入）。复制到临时目录只读查询：`items` 表以 `parent_id`、`ordering` 组织树，type 1 为根、3 为页面、2 为文件夹、4 为应用；`launchpad_root` 下有 2 个有内容的页面（另有 1 个空页）、3 个命名文件夹，共 96 个应用，其中 81 个可按 Bundle ID 对应本机应用。LaunchOS 2.4.0 读取同一路径。macOS 26 的 Spotlight 应用入口不等同于旧 Launchpad 布局。第 2 期已实现只读导入（`LaunchpadSnapshotReader`、`LaunchpadImporter`），对齐与持久化规则见 `docs/superpowers/specs/2026-10-19-layout-inheritance-design.md`。
 
 第一阶段需记录：
 
