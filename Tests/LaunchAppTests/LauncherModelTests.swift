@@ -143,4 +143,103 @@ final class LauncherModelTests: XCTestCase {
 
         XCTAssertNil(model.openFolderID)
     }
+
+    @MainActor
+    func testTypingSelectsFirstResultAndClearingDeselects() {
+        let model = LauncherModel(apps: makeApps(count: 3))
+
+        model.setQuery("App")
+        XCTAssertEqual(model.selectedIndex, 0)
+        model.setQuery("zzz")
+        XCTAssertNil(model.selectedIndex)
+        model.setQuery("")
+        XCTAssertNil(model.selectedIndex)
+    }
+
+    @MainActor
+    func testArrowsCrossToNextPage() {
+        let model = LauncherModel(apps: makeApps(count: 40))
+
+        model.moveSelection(.right)
+        XCTAssertEqual(model.selectedIndex, 0)
+        for _ in 0 ..< 35 {
+            model.moveSelection(.right)
+        }
+
+        XCTAssertEqual(model.currentPage, 1)
+        XCTAssertEqual(model.selectedIndex, 0)
+    }
+
+    @MainActor
+    func testActivateReturnsSelectedSearchResult() {
+        let apps = makeApps(count: 3)
+        let model = LauncherModel(apps: apps)
+
+        model.setQuery("App 1")
+
+        XCTAssertEqual(model.activateSelection(), apps[1])
+    }
+
+    @MainActor
+    func testActivatingFolderOpensItAndSelectsFirstMember() {
+        let apps = makeApps(count: 2)
+        let model = LauncherModel(apps: apps)
+        model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
+        model.moveSelection(.right)
+
+        XCTAssertNil(model.activateSelection())
+        XCTAssertEqual(model.openFolderID, "f")
+        XCTAssertEqual(model.folderSelectedIndex, 0)
+        XCTAssertEqual(model.activateSelection(), apps[0])
+    }
+
+    @MainActor
+    func testEscapeFromFolderSelectsFolderTile() {
+        let apps = makeApps(count: 2)
+        let model = LauncherModel(apps: apps)
+        model.updateLayout([[.app(apps[0]), makeFolder(id: "f", name: "效率", apps: [apps[1]])]])
+        model.showFolder(id: "f")
+
+        XCTAssertEqual(model.handleEscape(), .closedFolder)
+        XCTAssertEqual(model.selectedIndex, 1)
+    }
+
+    @MainActor
+    func testLargeFolderPagesAndArrowsStayInsideFolder() {
+        let apps = makeApps(count: 40)
+        let model = LauncherModel(apps: apps)
+        model.updateLayout([[makeFolder(id: "f", name: "其他", apps: apps)]])
+        model.showFolder(id: "f")
+
+        XCTAssertEqual(model.folderPages.count, 2)
+        model.turnPage(.next)
+        XCTAssertEqual(model.folderPage, 1)
+        XCTAssertEqual(model.visibleFolderApps.count, 5)
+        model.moveSelection(.right)
+        XCTAssertEqual(model.folderSelectedIndex, 0)
+        XCTAssertEqual(model.activateSelection(), model.visibleFolderApps[0])
+    }
+
+    @MainActor
+    func testPageTurnClearsSelection() {
+        let model = LauncherModel(apps: makeApps(count: 40))
+        model.moveSelection(.right)
+
+        model.turnPage(.next)
+
+        XCTAssertEqual(model.currentPage, 1)
+        XCTAssertNil(model.selectedIndex)
+    }
+
+    @MainActor
+    func testShrinkingResultsClampsSelection() {
+        let model = LauncherModel(apps: makeApps(count: 3))
+        model.moveSelection(.right)
+        model.moveSelection(.right)
+        model.moveSelection(.right)
+
+        model.updateApps(makeApps(count: 1))
+
+        XCTAssertEqual(model.selectedIndex, 0)
+    }
 }
