@@ -27,10 +27,22 @@ public struct CatalogApp: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+public struct LayoutFolder: Codable, Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let apps: [AppIdentity]
+
+    public init(id: String, name: String, apps: [AppIdentity]) {
+        self.id = id
+        self.name = name
+        self.apps = apps
+    }
+}
+
 public enum LayoutSlot: Codable, Equatable, Sendable {
     case app(AppIdentity)
+    case folder(LayoutFolder)
     case empty
-    case missing(AppIdentity)
 }
 
 public struct LayoutPage: Codable, Equatable, Sendable {
@@ -54,4 +66,22 @@ public struct LayoutDocument: Codable, Equatable, Sendable {
         self.schemaVersion = schemaVersion
         self.pages = pages
     }
+}
+
+public struct ResolvedFolder: Equatable, Sendable {
+    public let id: String
+    public let name: String
+    public let apps: [CatalogApp]
+
+    public init(id: String, name: String, apps: [CatalogApp]) {
+        self.id = id
+        self.name = name
+        self.apps = apps
+    }
+}
+
+public enum ResolvedItem: Equatable, Sendable {
+    case app(CatalogApp)
+    case folder(ResolvedFolder)
+    case empty
 }

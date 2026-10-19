@@ -22,4 +22,18 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(document.pages.first?.slots.count, 2)
         XCTAssertEqual(document.pages.first?.slots[1], .empty)
     }
+
+    func testLayoutWithFolderSurvivesJSONRoundTrip() throws {
+        let reader = AppIdentity(bundleIdentifier: "com.example.Reader", path: "/Applications/Reader.app")
+        let document = LayoutDocument(pages: [
+            LayoutPage(slots: [.folder(LayoutFolder(id: "f", name: "阅读", apps: [reader])), .empty]),
+        ])
+
+        let decoded = try JSONDecoder().decode(
+            LayoutDocument.self,
+            from: JSONEncoder().encode(document)
+        )
+
+        XCTAssertEqual(decoded, document)
+    }
 }
