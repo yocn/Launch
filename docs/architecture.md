@@ -58,7 +58,7 @@
 
 这些是职责边界，不要求为每个名字建立独立 Package 或复杂接口层。初期可在同一应用 target 内按目录组织，必要时才拆模块。
 
-主界面优先评估 AppKit 的集合视图实现网格、复用和拖拽，设置用 SwiftUI；最终组件选择要由拖拽、文件夹动画和分页原型验证，不能仅凭“原生”推定所有交互都能自然满足。
+主界面先沿用 SwiftUI 网格（LaunchOS 2.4.0 同样以 SwiftUI + `NSPanel` 实现，未使用 `NSCollectionView`），拖拽、文件夹动画或性能遇到瓶颈时再评估 AppKit 集合视图；设置用 SwiftUI。多屏时以主显示器为参考布局，其他屏幕整体等比缩放（见 `LauncherHomeLayout`）。LaunchOS 技术栈的只读观察见 `docs/superpowers/specs/2026-10-19-resident-launcher-design.md` 第 8.2 节。
 
 ## 4. 数据模型与流转
 
@@ -89,13 +89,13 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 
 快捷键唤起后应可直接输入搜索。方向键、Return、Esc、点击空白处、文件夹退出、搜索清空和跨页行为，以进一步观察到的 LaunchOS 行为定稿。不要把 Esc 简单绑定成所有状态下直接关闭，应先明确搜索、文件夹和编辑状态的退出层次。
 
-默认快捷键可以参考 Option + Space，但本机 LaunchOS 正在使用该组合。开发调试需使用不冲突的组合或显式启动入口，最终由用户配置。F4 和触控板手势的可行性、权限和冲突处理尚未验证；不能提前宣称与普通快捷键同等可靠。
+默认快捷键已定为 ⌥Space（KeyboardShortcuts 库，底层 Carbon），由用户自行关闭 LaunchOS 的同名快捷键。Carbon 不报告跨进程的同组合键注册，因此 Launch 主动检测 LaunchOS 是否运行且占用相同组合并提示；快捷键录制属于设置页。F4 和触控板手势的可行性、权限和冲突处理尚未验证；不能提前宣称与普通快捷键同等可靠。
 
 应用卸载、恢复系统数据、覆盖布局属于有明确影响的操作，必须单独设计确认与恢复流程。用户要求功能等价，并不意味着开发时可以直接执行这些操作。特别是“恢复系统 Launchpad 数据”的真实含义及写入目标尚未核实，不得直接实现成回写系统数据库。
 
 ## 6. 布局继承：优先验证的风险
 
-当前已提供 `LaunchpadProbe`，它只报告调用方提供的候选路径是否存在、可读和文件类型，不会创建、修改或重置任何系统数据。2026-10-19 对 `/Users/yocn/Library/Application Support` 和 `/Users/yocn/Library/Containers` 的有限用户级检查未发现可确认的旧 Launchpad 数据源；因此项目暂不硬编码未经证实的系统路径。macOS 26 的现有 Spotlight 应用入口不等同于旧 Launchpad 布局，也不能根据 LaunchOS 界面反推系统数据库一定完整存在。
+当前已提供 `LaunchpadProbe`，它只报告调用方提供的候选路径是否存在、可读和文件类型，不会创建、修改或重置任何系统数据。2026-10-19 确认旧 Launchpad 数据库位于 `$(getconf DARWIN_USER_DIR)/com.apple.dock.launchpad/db/db`（SQLite，同目录有 `db-wal`、`db-shm`；`dbinfo` 记录 build 24F74，即 macOS 15.5 时期写入）。复制到临时目录只读查询：`items` 表以 `parent_id`、`ordering` 组织树，type 1 为根、3 为页面、2 为文件夹、4 为应用；`launchpad_root` 下有 2 个有内容的页面（另有 1 个空页）、3 个命名文件夹，共 96 个应用，其中 81 个可按 Bundle ID 对应本机应用。LaunchOS 2.4.0 读取同一路径。macOS 26 的 Spotlight 应用入口不等同于旧 Launchpad 布局。
 
 第一阶段需记录：
 
