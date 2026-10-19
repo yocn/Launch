@@ -27,11 +27,11 @@ public struct LayoutStore {
     }
 
     public var hasBackup: Bool {
-        fileManager.fileExists(atPath: backupURL.path())
+        fileManager.fileExists(atPath: backupURL.path(percentEncoded: false))
     }
 
     public func load() throws -> LayoutDocument? {
-        guard fileManager.fileExists(atPath: fileURL.path()) else {
+        guard fileManager.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
             return nil
         }
         return try decode(try Data(contentsOf: fileURL))
@@ -75,7 +75,7 @@ public struct LayoutStore {
     private func writeValidatedData(_ data: Data, createBackup: Bool) throws {
         let directory = fileURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        if createBackup, fileManager.fileExists(atPath: fileURL.path()) {
+        if createBackup, fileManager.fileExists(atPath: fileURL.path(percentEncoded: false)) {
             try? fileManager.removeItem(at: backupURL)
             try fileManager.copyItem(at: fileURL, to: backupURL)
         }

@@ -59,6 +59,22 @@ final class LayoutStoreTests: XCTestCase {
         XCTAssertEqual(try store.load(), original)
     }
 
+    func testPathWithSpacesLoadsAndBacksUp() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: root)
+        }
+        let store = LayoutStore(fileURL: root.appending(path: "Application Support/Launch/layout.json"))
+        let original = LayoutDocument(pages: [LayoutPage(slots: [.empty])])
+        try store.save(original)
+
+        XCTAssertEqual(try store.load(), original)
+
+        try store.replace(with: LayoutDocument(pages: []))
+        XCTAssertTrue(store.hasBackup)
+    }
+
     func testMalformedLayoutFileFailsToLoad() throws {
         let store = try temporaryStore()
         try FileManager.default.createDirectory(
