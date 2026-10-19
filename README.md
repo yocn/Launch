@@ -12,7 +12,8 @@
 
 - 已观察本机 LaunchOS 主界面、搜索、菜单及部分设置页面，并完成初步架构讨论。
 - 已核实开发机为 macOS 26.6.1（25G76），安装 Xcode 27.0（27A266a）。
-- 已建立 Swift Package 基础工程，可使用 swift build 和 swift test 构建与验证；当前应用仍是无窗口骨架。
+- 已建立可运行的 Swift Package 原型：扫描 /Applications，展示网格并即时筛选；布局编辑、旧布局导入和系统入口仍未实现。
+- 使用 `./scripts/build-app.sh` 可在 `.build/Launch.app` 生成开发用应用包，便于手动验证界面。
 - 尚未验证旧 Launchpad 布局数据是否存在、是否可读，以及能恢复多少内容。
 - `Launch` 是暂用项目名，正式产品名和 Bundle ID 尚未确定。
 
