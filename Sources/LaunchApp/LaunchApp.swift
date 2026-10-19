@@ -35,6 +35,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     )
     private var statusItemController: StatusItemController?
     private var catalogWatcher: CatalogWatcher?
+    private let inputMonitor = LauncherInputMonitor()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         presenter.setContent(
@@ -52,6 +53,11 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             self?.controller.model.updateLayout(pages)
         }
         layoutCoordinator.start()
+        inputMonitor.start(
+            isLauncherWindow: { [weak self] window in self?.presenter.isLauncherWindow(window) ?? false },
+            isComposingText: { [weak self] in self?.presenter.isComposingText ?? false },
+            onCommand: { [weak self] command in self?.controller.handle(command) }
+        )
         HotKeyService.register { [weak self] in
             self?.controller.toggle()
         }

@@ -64,6 +64,14 @@ final class ScreenPresenter: LauncherPresenting {
         panel.isVisible
     }
 
+    func isLauncherWindow(_ window: NSWindow?) -> Bool {
+        window === panel
+    }
+
+    var isComposingText: Bool {
+        (panel.firstResponder as? NSTextView)?.hasMarkedText() ?? false
+    }
+
     func setContent(_ content: some View) {
         panel.contentView = NSHostingView(rootView: content)
     }
