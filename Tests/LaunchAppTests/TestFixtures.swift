@@ -25,3 +25,7 @@ extension XCTestCase {
         return url
     }
 }
+
+func makeFolder(id: String, name: String, apps: [CatalogApp]) -> ResolvedItem {
+    .folder(ResolvedFolder(id: id, name: name, apps: apps))
+}

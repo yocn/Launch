@@ -49,10 +49,7 @@ struct LauncherView: View {
 
     @ViewBuilder
     private func homeContent(layout: LauncherHomeLayout) -> some View {
-        let columns = Array(
-            repeating: GridItem(.fixed(layout.tileWidth), spacing: layout.columnSpacing),
-            count: LauncherHomeLayout.columnCount
-        )
+        let columns = gridColumns(layout)
 
         VStack(spacing: 0) {
             searchBar(layout: layout)
@@ -61,7 +58,7 @@ struct LauncherView: View {
             Color.clear
                 .frame(height: layout.searchToGrid)
 
-            if model.visibleApps.isEmpty {
+            if model.visibleItems.isEmpty {
                 ContentUnavailableView(
                     "未找到应用",
                     systemImage: "magnifyingglass",
@@ -70,10 +67,8 @@ struct LauncherView: View {
                 .foregroundStyle(.white)
             } else {
                 LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
-                    ForEach(model.visibleApps, id: \.identity) { app in
-                        LauncherAppTile(app: app, layout: layout) {
-                            onLaunch(app)
-                        }
+                    ForEach(Array(model.visibleItems.enumerated()), id: \.offset) { _, item in
+                        itemView(item, layout: layout)
                     }
                 }
                 .padding(.horizontal, layout.horizontalInset)
@@ -86,6 +81,30 @@ struct LauncherView: View {
                 pageIndicator(layout: layout)
                     .padding(.bottom, layout.bottomInset)
             }
+        }
+    }
+
+    private func gridColumns(_ layout: LauncherHomeLayout) -> [GridItem] {
+        Array(
+            repeating: GridItem(.fixed(layout.tileWidth), spacing: layout.columnSpacing),
+            count: LauncherHomeLayout.columnCount
+        )
+    }
+
+    @ViewBuilder
+    private func itemView(_ item: ResolvedItem, layout: LauncherHomeLayout) -> some View {
+        switch item {
+        case .app(let app):
+            LauncherAppTile(app: app, layout: layout) {
+                onLaunch(app)
+            }
+        case .folder(let folder):
+            LauncherFolderTile(folder: folder, layout: layout) {
+                model.showFolder(id: folder.id)
+            }
+        case .empty:
+            Color.clear
+                .frame(width: layout.tileWidth, height: layout.tileHeight)
         }
     }
 
@@ -185,5 +204,70 @@ private struct LauncherAppTile: View {
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
         .onHover { isHovering = $0 }
         .accessibilityLabel(app.displayName)
+    }
+}
+
+private struct LauncherFolderTile: View {
+    let folder: ResolvedFolder
+    let layout: LauncherHomeLayout
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: layout.iconLabelSpacing) {
+                FolderPreview(apps: Array(folder.apps.prefix(9)), layout: layout)
+                Text(folder.name)
+                    .font(.system(size: layout.labelFontSize, weight: .medium))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+                    .lineLimit(1)
+                    .frame(maxWidth: layout.tileWidth)
+                    .frame(height: layout.labelHeight)
+            }
+            .padding(.vertical, layout.tilePadding)
+            .frame(width: layout.tileWidth)
+            .background {
+                RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
+                    .fill(.white.opacity(isHovering ? 0.15 : 0))
+            }
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
+        .onHover { isHovering = $0 }
+        .accessibilityLabel(folder.name)
+    }
+}
+
+private struct FolderPreview: View {
+    let apps: [CatalogApp]
+    let layout: LauncherHomeLayout
+
+    var body: some View {
+        let side = layout.folderPreviewIconSide
+        let spacing = layout.folderPreviewSpacing
+        let gridSide = side * 3 + spacing * 2
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.fixed(side), spacing: spacing), count: 3),
+            spacing: spacing
+        ) {
+            ForEach(apps, id: \.identity) { app in
+                Image(nsImage: IconCache.shared.icon(for: app.identity.path))
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: side, height: side)
+            }
+        }
+        .frame(width: gridSide, height: gridSide, alignment: .top)
+        .frame(width: layout.iconSide, height: layout.iconSide)
+        .background {
+            RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
+                .fill(.white.opacity(0.14))
+                .overlay {
+                    RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
+                        .stroke(.white.opacity(0.22), lineWidth: 1)
+                }
+        }
     }
 }
