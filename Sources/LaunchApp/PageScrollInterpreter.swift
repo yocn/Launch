@@ -25,9 +25,11 @@ struct ScrollSample: Equatable {
 struct PageScrollInterpreter {
     var threshold: CGFloat = 40
     var wheelInterval: TimeInterval = 0.35
+    var burstGap: TimeInterval = 0.25
     private var accumulated: CGFloat = 0
     private var hasTurned = false
     private var lastWheelTurn: TimeInterval?
+    private var lastPreciseSample: TimeInterval?
 
     mutating func interpret(_ sample: ScrollSample) -> PageDirection? {
         guard !sample.isMomentum else {
@@ -37,7 +39,11 @@ struct PageScrollInterpreter {
     }
 
     private mutating func interpretGesture(_ sample: ScrollSample) -> PageDirection? {
-        if sample.phase == .began {
+        // Mos 等平滑滚动工具产生无阶段的精确滚动，只能按时间间隔划分一次手势
+        let startsBurst = sample.phase == .none
+            && lastPreciseSample.map { sample.timestamp - $0 > burstGap } ?? true
+        lastPreciseSample = sample.timestamp
+        if sample.phase == .began || startsBurst {
             accumulated = 0
             hasTurned = false
         }

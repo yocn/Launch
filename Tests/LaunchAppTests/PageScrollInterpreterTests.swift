@@ -36,6 +36,30 @@ final class PageScrollInterpreterTests: XCTestCase {
         XCTAssertEqual(interpreter.interpret(trackpad(5, -50, .began)), .next)
     }
 
+    func testPhaselessPreciseBurstsTurnOncePerBurst() {
+        var interpreter = PageScrollInterpreter()
+        let burst: [CGFloat] = [0, -5, -8, -8, -7, -6, -5, -4]
+        var turns: [PageDirection] = []
+
+        for start in [0.0, 1.0] {
+            for (index, deltaY) in burst.enumerated() {
+                let sample = ScrollSample(
+                    deltaX: 0,
+                    deltaY: deltaY,
+                    isPrecise: true,
+                    phase: .none,
+                    isMomentum: false,
+                    timestamp: start + Double(index) * 0.008
+                )
+                if let direction = interpreter.interpret(sample) {
+                    turns.append(direction)
+                }
+            }
+        }
+
+        XCTAssertEqual(turns, [.next, .next])
+    }
+
     func testWheelTurnsAtMostOncePerInterval() {
         var interpreter = PageScrollInterpreter()
 
