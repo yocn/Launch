@@ -28,6 +28,11 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         iconCache: .shared,
         openApplication: { NSWorkspace.shared.open($0) }
     )
+    private lazy var layoutCoordinator = LayoutCoordinator(
+        store: LayoutStore(fileURL: LayoutCoordinator.defaultLayoutURL),
+        launchpad: LiveLaunchpadSource(databaseURL: LaunchpadSnapshotReader.defaultDatabaseURL()),
+        prompter: AlertLayoutPrompter()
+    )
     private var statusItemController: StatusItemController?
     private var catalogWatcher: CatalogWatcher?
 
@@ -43,16 +48,29 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         presenter.onResignActive = { [weak self] in
             self?.controller.hide(.resignedActive)
         }
+        layoutCoordinator.onLayoutChange = { [weak self] pages in
+            self?.controller.model.updateLayout(pages)
+        }
+        layoutCoordinator.start()
         HotKeyService.register { [weak self] in
             self?.controller.toggle()
         }
         statusItemController = StatusItemController(
             loginItemService: loginItemService,
+            layoutMenu: LayoutMenuActions(
+                canImport: { [weak self] in self?.layoutCoordinator.canImport ?? false },
+                importLayout: { [weak self] in
+                    Task { await self?.layoutCoordinator.importFromLaunchpad() }
+                },
+                canRestore: { [weak self] in self?.layoutCoordinator.canRestore ?? false },
+                restoreLayout: { [weak self] in self?.layoutCoordinator.restoreBackup() }
+            ),
             hasHotKeyConflict: { [weak self] in self?.hasHotKeyConflict() ?? false },
             onOpen: { [weak self] in self?.controller.show() }
         )
         let watcher = CatalogWatcher(roots: ApplicationSources.defaultRoots()) { [weak self] apps in
             self?.controller.updateCatalog(apps)
+            Task { await self?.layoutCoordinator.catalogDidChange(apps) }
         }
         watcher.start()
         catalogWatcher = watcher
