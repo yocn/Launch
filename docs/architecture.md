@@ -95,7 +95,7 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 
 ## 6. 布局继承：优先验证的风险
 
-目前只核实了系统版本，未探测或读取实际旧 Launchpad 数据。macOS 26 的现有 Spotlight 应用入口不等同于旧 Launchpad 布局，也不能根据 LaunchOS 界面反推系统数据库一定完整存在。
+当前已提供 `LaunchpadProbe`，它只报告调用方提供的候选路径是否存在、可读和文件类型，不会创建、修改或重置任何系统数据。2026-10-19 对 `/Users/yocn/Library/Application Support` 和 `/Users/yocn/Library/Containers` 的有限用户级检查未发现可确认的旧 Launchpad 数据源；因此项目暂不硬编码未经证实的系统路径。macOS 26 的现有 Spotlight 应用入口不等同于旧 Launchpad 布局，也不能根据 LaunchOS 界面反推系统数据库一定完整存在。
 
 第一阶段需记录：
 

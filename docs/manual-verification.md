@@ -13,6 +13,7 @@
 
 - 2026-10-19：开发用应用包可启动，覆盖窗口显示本机 /Applications 中的应用网格；搜索值设为 chat 时筛选出 ChatGPT 与 WeChat。
 - 2026-10-19：自动化的键盘文本注入和 Escape 未能到达 SwiftUI 搜索框，尽管搜索数据绑定本身已验证。搜索框会在出现时请求焦点，仍需由真人在目标机验证实际键盘输入与 Escape 关闭。
+- 2026-10-19：以只读方式检查 `/Users/yocn/Library/Application Support` 和 `/Users/yocn/Library/Containers` 的常见候选名，未确认旧 Launchpad 布局来源；未读取、修改或重置系统数据。
 
 ## 待验证
 
