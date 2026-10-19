@@ -15,6 +15,19 @@ final class AppCatalogTests: XCTestCase {
         XCTAssertEqual(apps.first?.identity.path, root.appending(path: "Alpha.app").path())
     }
 
+    func testScanPreservesSpacesInApplicationPaths() throws {
+        let root = try fixtureApps([
+            ("Utility App.app", "com.example.utility"),
+        ])
+
+        let apps = try AppCatalog().scan(roots: [root])
+
+        XCTAssertEqual(
+            apps.first?.identity.path,
+            root.appending(path: "Utility App.app").path
+        )
+    }
+
     private func fixtureApps(_ fixtures: [(String, String)]) throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)

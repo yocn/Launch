@@ -6,6 +6,10 @@ enum SearchPresentation {
     static func showsClearControl(for query: String) -> Bool {
         !query.isEmpty
     }
+
+    static func showsMoreControl(for query: String) -> Bool {
+        query.isEmpty
+    }
 }
 
 struct LauncherView: View {
@@ -44,7 +48,7 @@ struct LauncherView: View {
             ZStack {
                 Rectangle()
                     .fill(.regularMaterial)
-                    .overlay(Color.black.opacity(0.24))
+                .overlay(Color.black.opacity(0.47))
                     .ignoresSafeArea()
                     .onTapGesture(perform: onClose)
 
@@ -76,14 +80,18 @@ struct LauncherView: View {
             count: LauncherHomeLayout.columnCount
         )
         let topInset = min(max(42, screenSize.height * 0.052), 100)
-        let searchToGrid = min(max(42, screenSize.height * 0.052), 100)
-        let rowSpacing = min(max(18, screenSize.height * 0.048), 92)
+        let searchToGrid = min(max(42, screenSize.height * 0.028), 56)
+        let rowSpacing = LauncherHomeLayout.rowSpacing(
+            for: screenSize,
+            iconSide: iconSide
+        )
 
         VStack(spacing: 0) {
-            searchBar(width: min(480, screenSize.width - 64))
+            searchBar(width: min(240, screenSize.width - 48))
                 .padding(.top, topInset)
 
-            Spacer(minLength: searchToGrid)
+            Color.clear
+                .frame(height: searchToGrid)
 
             if visibleApps.isEmpty {
                 ContentUnavailableView(
@@ -105,13 +113,18 @@ struct LauncherView: View {
                     }
                 }
                 .padding(.horizontal, LauncherHomeLayout.horizontalInset(for: screenSize))
+                .frame(
+                    height: LauncherHomeLayout.gridHeight(for: screenSize),
+                    alignment: .top
+                )
+                .clipped()
             }
 
             Spacer(minLength: 24)
 
             if pages.count > 1 {
                 pageIndicator
-                    .padding(.bottom, 50)
+                    .padding(.bottom, 110)
             }
         }
     }
@@ -119,12 +132,12 @@ struct LauncherView: View {
     private func searchBar(width: CGFloat) -> some View {
         HStack(spacing: 14) {
             Image(systemName: "magnifyingglass")
-                .font(.title2.weight(.medium))
+                .font(.title3.weight(.medium))
                 .foregroundStyle(.white.opacity(0.9))
 
             TextField("搜索应用", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 24, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
                 .focused($searchFieldIsFocused)
 
@@ -133,15 +146,20 @@ struct LauncherView: View {
                     query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
+                        .font(.body)
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("清除搜索")
+            } else if SearchPresentation.showsMoreControl(for: query) {
+                Image(systemName: "ellipsis.circle")
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .accessibilityLabel("更多选项")
             }
         }
-        .padding(.horizontal, 24)
-        .frame(width: width, height: 58)
+        .padding(.horizontal, 12)
+        .frame(width: width, height: 42)
         .background(.white.opacity(0.11), in: Capsule())
         .overlay {
             Capsule()
@@ -177,12 +195,12 @@ private struct LauncherAppTile: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 12) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: app.identity.path))
+                Image(nsImage: ApplicationIconResolver.icon(for: app.identity.path))
                     .resizable()
                     .interpolation(.high)
                     .frame(width: iconSide, height: iconSide)
                 Text(app.displayName)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
                     .lineLimit(1)

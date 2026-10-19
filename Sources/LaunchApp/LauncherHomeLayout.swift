@@ -20,4 +20,16 @@ enum LauncherHomeLayout {
             / CGFloat(columnCount - 1)
         return max(32, naturalSpacing)
     }
+
+    static func gridHeight(for screenSize: CGSize) -> CGFloat {
+        screenSize.height * 0.7
+    }
+
+    static func rowSpacing(for screenSize: CGSize, iconSide: CGFloat) -> CGFloat {
+        let tileHeight = iconSide + 56
+        let availableSpacing = (
+            gridHeight(for: screenSize) - tileHeight * CGFloat(rowCount)
+        ) / CGFloat(rowCount - 1)
+        return min(max(availableSpacing, 18), 48)
+    }
 }

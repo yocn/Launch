@@ -23,4 +23,21 @@ final class LauncherHomeLayoutTests: XCTestCase {
             88
         )
     }
+
+    func testGridHeightLeavesRoomForSearchAndPageIndicator() {
+        XCTAssertEqual(
+            LauncherHomeLayout.gridHeight(for: CGSize(width: 3024, height: 1920)),
+            1_344
+        )
+    }
+
+    func testRowSpacingCapsAtReferenceDensity() {
+        XCTAssertEqual(
+            LauncherHomeLayout.rowSpacing(
+                for: CGSize(width: 3_024, height: 1_920),
+                iconSide: 160
+            ),
+            48
+        )
+    }
 }

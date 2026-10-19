@@ -54,9 +54,9 @@ public struct AppCatalog {
         ) ?? url.deletingPathExtension().lastPathComponent
 
         let standardizedURL = url.standardizedFileURL
-        let path = standardizedURL.path().hasSuffix("/")
-            ? String(standardizedURL.path().dropLast())
-            : standardizedURL.path()
+        let path = standardizedURL.path.hasSuffix("/")
+            ? String(standardizedURL.path.dropLast())
+            : standardizedURL.path
         return CatalogApp(
             identity: AppIdentity(
                 bundleIdentifier: bundle.bundleIdentifier,
