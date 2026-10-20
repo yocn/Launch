@@ -1587,6 +1587,11 @@ func openStatusMenu() {
     if let item = extrasBar().flatMap({ kids($0).first }) { AXUIElementPerformAction(item, kAXPressAction as CFString) }
     wait(0.8)
 }
+func finderWindows() -> [AXUIElement] {
+    guard let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else { return [] }
+    let app = AXUIElementCreateApplication(finder.processIdentifier)
+    return ((attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? []).filter { !title($0).isEmpty }
+}
 func finderWindowCount() -> Int {
     guard let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else { return 0 }
     return (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []).filter {
@@ -1654,11 +1659,16 @@ check(names() == base, "C5 全部取消隐藏")
 
 // C6 在访达中显示
 let finderBefore = finderWindowCount()
+let finderWindowsBefore = finderWindows()
 rightClick(iconCenter(f[3])); wait(0.8)
 _ = press("在访达中显示"); wait(1.0)
 check(NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder", "C6 访达到前台")
 check(!panelVisible(), "C6 启动器随之隐藏")
-if finderWindowCount() > finderBefore { key(13, flags: cmd); wait(0.6) }
+// 只关测试新开的窗口；窗口可能开在外接屏上，⌘W 不一定送得到
+for window in finderWindows() where !finderWindowsBefore.contains(where: { CFEqual($0, window) }) {
+    if let close = attr(window, kAXCloseButtonAttribute) { AXUIElementPerformAction(close as! AXUIElement, kAXPressAction as CFString) }
+}
+wait(0.6)
 check(finderWindowCount() == finderBefore, "C6 已关闭打开的访达窗口")
 
 let appsAfter = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))

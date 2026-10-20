@@ -1243,6 +1243,16 @@ func settingsWindow() -> AXUIElement? { windows().first { title($0) == "Launch �
 func control(_ name: String, role wanted: String) -> AXUIElement? {
     settingsWindow().map { all($0) }?.first { role($0) == wanted && (title($0) == name || desc($0) == name) }
 }
+// 分组表单里的开关没有标题，标签是紧挨在前面的一段文字
+func toggle(_ label: String) -> AXUIElement? {
+    guard let window = settingsWindow() else { return nil }
+    var seen = false
+    for e in all(window) {
+        if role(e) == kAXStaticTextRole, (attr(e, kAXValueAttribute) as? String) == label { seen = true }
+        if seen, role(e) == kAXCheckBoxRole { return e }
+    }
+    return nil
+}
 func closeSettings() { if let w = settingsWindow(), let close = attr(w, kAXCloseButtonAttribute) { press((close as! AXUIElement)) } }
 func pref(_ key: String) -> String {
     let p = Process(); let pipe = Pipe(); p.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
@@ -1259,7 +1269,9 @@ CGWarpMouseCursorPosition(CGPoint(x: 756, y: 491)); mouse(.mouseMoved, CGPoint(x
 // S1 「…」主菜单打开设置
 openLauncher(); selectPage("第 1 页")
 let page1 = names()
-press(elements().first { role($0) == kAXButtonRole && desc($0) == "更多选项" })
+if let more = elements().first(where: { role($0) == kAXButtonRole && desc($0) == "更多选项" }).flatMap(frame) {
+    click(CGPoint(x: more.midX, y: more.midY)); wait(0.8)
+}
 check(anyMenuItem("设置…") != nil, "S1 「…」弹出主菜单")
 press(anyMenuItem("设置…"))
 check(settingsWindow() != nil && !panelVisible(), "S1 打开设置窗口并关闭启动器")
@@ -1275,6 +1287,7 @@ check(names() == page1, "S2 重新打开回到第一页")
 
 // S3 空白处右键主菜单
 let f = tiles().map(\.frame)
+guard f.count > 3 else { print("FAIL 启动器没有显示图标"); exit(1) }
 rightClick(CGPoint(x: f[0].minX - 30, y: f[0].midY)); wait(0.8)
 check(anyMenuItem("设置…") != nil, "S3 空白处右键弹出主菜单")
 press(anyMenuItem("设置…"))
@@ -1282,12 +1295,12 @@ check(settingsWindow() != nil, "S3 打开设置窗口")
 
 // S4 外观与应用开关写入
 press(control("外观", role: kAXRadioButtonRole) ?? control("外观", role: kAXButtonRole))
-press(control("隐藏图标名称", role: kAXCheckBoxRole))
+press(toggle("隐藏图标名称"))
 check(pref("hidesNames") == "1", "S4 写入隐藏名称")
 press(control("模糊壁纸", role: kAXRadioButtonRole))
 check(pref("background") == "blurredWallpaper", "S4 写入模糊壁纸")
 press(control("应用", role: kAXRadioButtonRole) ?? control("应用", role: kAXButtonRole))
-press(control("在搜索结果中显示隐藏应用", role: kAXCheckBoxRole))
+press(toggle("在搜索结果中显示隐藏应用"))
 check(pref("showsHiddenAppsInSearch") == "1", "S4 写入搜索显示隐藏应用")
 closeSettings()
 
@@ -1312,14 +1325,15 @@ if let item = extrasBar().flatMap({ kids($0).first }) { press(item) }
 check(anyMenuItem("设置…") != nil, "S6 菜单栏有「设置…」")
 press(anyMenuItem("设置…"))
 press(control("通用", role: kAXRadioButtonRole) ?? control("通用", role: kAXButtonRole))
-press(control("显示菜单栏图标", role: kAXCheckBoxRole))
+press(toggle("显示菜单栏图标"))
 check(extrasBar().map { kids($0).isEmpty } ?? true, "S6 关闭后菜单栏图标消失")
-press(control("显示菜单栏图标", role: kAXCheckBoxRole))
+press(toggle("显示菜单栏图标"))
 check(extrasBar().map { !kids($0).isEmpty } ?? false, "S6 打开后菜单栏图标恢复")
 closeSettings()
 
 let appsAfter = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-check(appsAfter.subtracting(appsBefore).subtracting([launchID]).isEmpty, "全程未启动应用")
+let launched = appsAfter.subtracting(appsBefore).subtracting([launchID])
+check(launched.isEmpty, "全程未启动应用\(launched.isEmpty ? "" : "（\(launched.sorted())）")")
 CGWarpMouseCursorPosition(originalMouse)
 print("FAILURES \(failures)")
 ```
