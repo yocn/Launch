@@ -489,9 +489,14 @@ final class AlertUninstallPrompter: UninstallPrompting {
         _ = Self.run(alert)
     }
 
-    // 启动器面板在 statusBar 层级，提示框要更高才不会被挡住
+    // 启动器面板在 statusBar 层级；runModal 会把层级重设为模态面板层级，要在模态会话里再调高
+    // 卸载流程在主线程 Task 里，模态期间主队列不会重入，只能用运行循环的模态模式执行
     private static func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
-        alert.window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+        RunLoop.main.perform(inModes: [.modalPanel]) {
+            MainActor.assumeIsolated {
+                alert.window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+            }
+        }
         return alert.runModal()
     }
 }
@@ -1021,6 +1026,15 @@ git add Sources/LaunchApp/LauncherView.swift
 git commit -m "feat(编辑): 抖动时图标摇摆并显示卸载按钮"
 ```
 
+- [ ] **Step 4: 验证中发现的问题（已修复）**
+
+macOS 26 上 SwiftUI 手势经窗口的手势环境分发，本地事件监听返回 nil 也拦不住：图标的 `Button` 与 `ItemDragController` 会各执行一次点击（单击应用调两次打开、长按文件夹松手会打开它）；× 本身没有手势，点击漏到外层被当作点空白而退出抖动。图标改为空的 `onTapGesture {}` 吞掉点击、辅助功能保留按钮动作；× 设为 `allowsHitTesting(false)`。
+
+```bash
+git add Sources/LaunchApp/LauncherView.swift
+git commit -m "fix(编辑): 图标点击只由监听处理一次，点 × 不再退出抖动"
+```
+
 ---
 
 ### Task 7: 目标机验证与文档
@@ -1143,11 +1157,11 @@ check(badges.contains { dummy.intersects($0) }, "J2 假应用显示 ×")
 if let own = button("Launch") { check(!badges.contains { own.intersects($0) }, "J2 Launch 自身不显示 ×（本页 × 共 \(badges.count) 个）") }
 click(badgePoint(dummy)); wait(0.8)
 check((dialogLayer() ?? 0) > 25, "J2 确认框层级高于面板（\(dialogLayer() ?? -1)）")
-if let cancel = dialogButton("取消") { AXUIElementPerformAction(cancel, kAXPressAction as CFString) }
+if let cancel = dialogButton("取消").flatMap(frame) { click(CGPoint(x: cancel.midX, y: cancel.midY)) }
 wait(0.6)
 check(FileManager.default.fileExists(atPath: dummyPath), "J2 取消后假应用仍在")
 click(badgePoint(dummy)); wait(0.8)
-if let confirm = dialogButton("移到废纸篓") { AXUIElementPerformAction(confirm, kAXPressAction as CFString) }
+if let confirm = dialogButton("移到废纸篓").flatMap(frame) { click(CGPoint(x: confirm.midX, y: confirm.midY)) }
 wait(2.5)
 check(!FileManager.default.fileExists(atPath: dummyPath), "J2 确认后假应用移出 ~/Applications")
 check(button("LaunchTestDummy") == nil, "J2 图标消失")

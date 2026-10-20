@@ -250,31 +250,33 @@ private struct LauncherAppTile: View {
     @State private var isHovering = false
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: layout.iconLabelSpacing) {
-                Image(nsImage: IconCache.shared.icon(for: app.identity.path))
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: layout.iconSide, height: layout.iconSide)
-                Text(app.displayName)
-                    .font(.system(size: layout.labelFontSize, weight: .medium))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
-                    .lineLimit(1)
-                    .frame(maxWidth: layout.tileWidth)
-                    .frame(height: layout.labelHeight)
-            }
-            .padding(.vertical, layout.tilePadding)
-            .frame(width: layout.tileWidth)
-            .background {
-                RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                    .fill(.white.opacity(isSelected ? 0.26 : (isHovering ? 0.15 : 0)))
-            }
+        VStack(spacing: layout.iconLabelSpacing) {
+            Image(nsImage: IconCache.shared.icon(for: app.identity.path))
+                .resizable()
+                .interpolation(.high)
+                .frame(width: layout.iconSide, height: layout.iconSide)
+            Text(app.displayName)
+                .font(.system(size: layout.labelFontSize, weight: .medium))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+                .lineLimit(1)
+                .frame(maxWidth: layout.tileWidth)
+                .frame(height: layout.labelHeight)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, layout.tilePadding)
+        .frame(width: layout.tileWidth)
+        .background {
+            RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
+                .fill(.white.opacity(isSelected ? 0.26 : (isHovering ? 0.15 : 0)))
+        }
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
+        // 鼠标点击统一由 ItemDragController 处理；SwiftUI 手势不受本地事件监听拦截，这里只吞掉点击，免得落到背景上
+        .onTapGesture {}
         .onHover { isHovering = $0 }
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(app.displayName)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { action() }
     }
 }
 
@@ -287,28 +289,30 @@ private struct LauncherFolderTile: View {
     @State private var isHovering = false
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: layout.iconLabelSpacing) {
-                FolderPreview(apps: Array(folder.apps.prefix(9)), layout: layout)
-                Text(folder.name)
-                    .font(.system(size: layout.labelFontSize, weight: .medium))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
-                    .lineLimit(1)
-                    .frame(maxWidth: layout.tileWidth)
-                    .frame(height: layout.labelHeight)
-            }
-            .padding(.vertical, layout.tilePadding)
-            .frame(width: layout.tileWidth)
-            .background {
-                RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                    .fill(.white.opacity(isSelected ? 0.26 : (isHovering ? 0.15 : 0)))
-            }
+        VStack(spacing: layout.iconLabelSpacing) {
+            FolderPreview(apps: Array(folder.apps.prefix(9)), layout: layout)
+            Text(folder.name)
+                .font(.system(size: layout.labelFontSize, weight: .medium))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+                .lineLimit(1)
+                .frame(maxWidth: layout.tileWidth)
+                .frame(height: layout.labelHeight)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, layout.tilePadding)
+        .frame(width: layout.tileWidth)
+        .background {
+            RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
+                .fill(.white.opacity(isSelected ? 0.26 : (isHovering ? 0.15 : 0)))
+        }
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
+        // 鼠标点击统一由 ItemDragController 处理；SwiftUI 手势不受本地事件监听拦截，这里只吞掉点击，免得落到背景上
+        .onTapGesture {}
         .onHover { isHovering = $0 }
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(folder.name)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { action() }
     }
 }
 
@@ -429,6 +433,8 @@ private struct UninstallBadge: View {
             .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
             .offset(x: (layout.tileWidth - layout.iconSide) / 2 - side * 0.2, y: layout.tilePadding - side * 0.2)
             .transition(.scale.combined(with: .opacity))
+            // 点击交给下面的图标吞掉，× 本身由 ItemDragController 按位置识别
+            .allowsHitTesting(false)
             .accessibilityLabel("移到废纸篓")
     }
 }
