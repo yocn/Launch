@@ -153,11 +153,11 @@ func rightClick(_ p: CGPoint) {
     mouse(.rightMouseDown, p, button: .right); usleep(60_000)
     mouse(.rightMouseUp, p, button: .right)
 }
-func drag(from a: CGPoint, to b: CGPoint, flags: CGEventFlags = [], hold: Double = 0.5) {
+func drag(from a: CGPoint, to b: CGPoint, flags: CGEventFlags = [], hold: Double = 0.5, steps: Int = 24) {
     mouse(.mouseMoved, a); usleep(150_000)
     mouse(.leftMouseDown, a, flags: flags); usleep(80_000)
-    for i in 1 ... 24 {
-        let t = CGFloat(i) / 24
+    for i in 1 ... steps {
+        let t = CGFloat(i) / CGFloat(steps)
         mouse(.leftMouseDragged, CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t), flags: flags)
         usleep(16_000)
     }
@@ -199,6 +199,9 @@ func dismissDialogs() {
 `$E/spike/main.swift`：
 
 ```swift
+import AppKit
+import ApplicationServices
+
 setvbuf(stdout, nil, _IONBF, 0)
 dismissDialogs()
 let originalMouse = CGEvent(source: nil)?.location ?? .zero
@@ -2027,6 +2030,9 @@ shasum -a 256 "$L"/layout.json* | tee "$B/sha.txt"
 `$E/m/main.swift`（`E=$(cat /tmp/launch-e2e-4b-dir)`，复用 Task 1 的 `prelude.swift`）：
 
 ```swift
+import AppKit
+import ApplicationServices
+
 setvbuf(stdout, nil, _IONBF, 0)
 dismissDialogs()
 let originalMouse = CGEvent(source: nil)?.location ?? .zero
@@ -2104,7 +2110,7 @@ check(names() == base, "M7 ⌘Z 撤销")
 
 // M8 整体拖到应用上合并
 click(iconCenter(f[0]), flags: cmd); click(iconCenter(f[1]), flags: cmd)
-drag(from: iconCenter(f[0]), to: iconCenter(f[1]), hold: 0.5)
+drag(from: iconCenter(f[0]), to: iconCenter(f[1]), hold: 0.5, steps: 4)
 var merged = Array(base.dropFirst(2)); merged[1] = "未命名"
 check(Array(names().prefix(10)) == Array(merged.prefix(10)), "M8 两项与目标合并为文件夹")
 undo()
