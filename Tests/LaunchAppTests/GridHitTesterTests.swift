@@ -56,4 +56,13 @@ final class GridHitTesterTests: XCTestCase {
         XCTAssertNil(tester.tileIndex(at: CGPoint(x: rect.minX - 10, y: rect.midY), itemCount: 3))
         XCTAssertNil(tester.tileIndex(at: CGPoint(x: rect.midX, y: rect.midY), itemCount: 1))
     }
+
+    func testTilesIntersectingRect() {
+        let first = tester.tileRect(0)
+        let ninth = tester.tileRect(8)
+        let rect = CGRect(x: first.midX, y: first.midY, width: ninth.midX - first.midX, height: ninth.midY - first.midY)
+
+        XCTAssertEqual(tester.tileIndices(intersecting: rect, itemCount: 20), [0, 1, 7, 8])
+        XCTAssertEqual(tester.tileIndices(intersecting: rect, itemCount: 8), [0, 1, 7])
+    }
 }

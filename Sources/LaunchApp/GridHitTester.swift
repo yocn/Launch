@@ -37,6 +37,10 @@ struct GridHitTester {
         (0 ..< itemCount).first { tileRect($0).contains(point) }
     }
 
+    func tileIndices(intersecting rect: CGRect, itemCount: Int) -> [Int] {
+        (0 ..< itemCount).filter { tileRect($0).intersects(rect) }
+    }
+
     func hit(_ point: CGPoint, itemCount: Int) -> GridHit {
         guard point.y >= frame.minY - layout.rowSpacing, point.y <= frame.maxY + layout.rowSpacing else {
             return .outside
