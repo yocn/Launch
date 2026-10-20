@@ -47,7 +47,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 onEscape: { [weak self] in self?.controller.handleEscape() },
                 onBackgroundClick: { [weak self] in self?.controller.handleBackgroundClick() },
                 onLaunch: { [weak self] app in self?.controller.launch(app) }
-            )
+            ),
+            skipsCursorUpdate: { [weak self] in self?.controller.model.needsPagerFrames ?? false }
         )
         controller.model.onNeedsFrames = { [weak self] in
             self?.pagerDriver.start()

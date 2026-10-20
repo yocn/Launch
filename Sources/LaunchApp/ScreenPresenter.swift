@@ -76,8 +76,10 @@ final class ScreenPresenter: LauncherPresenting {
         (panel.firstResponder as? NSTextView)?.hasMarkedText() ?? false
     }
 
-    func setContent(_ content: some View) {
-        panel.contentView = NSHostingView(rootView: content)
+    func setContent(_ content: some View, skipsCursorUpdate: @escaping () -> Bool = { false }) {
+        let view = LauncherHostingView(rootView: content)
+        view.skipsCursorUpdate = skipsCursorUpdate
+        panel.contentView = view
     }
 
     func present() {
@@ -107,3 +109,14 @@ final class ScreenPresenter: LauncherPresenting {
     }
 }
 
+// 开了辅助功能自定义指针时，每次设置光标都要同步注册到 WindowServer；内容逐帧移动时 AppKit 每帧都会触发
+private final class LauncherHostingView<Content: View>: NSHostingView<Content> {
+    var skipsCursorUpdate: () -> Bool = { false }
+
+    override func cursorUpdate(with event: NSEvent) {
+        guard !skipsCursorUpdate() else {
+            return
+        }
+        super.cursorUpdate(with: event)
+    }
+}
