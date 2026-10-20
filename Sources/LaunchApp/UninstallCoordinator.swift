@@ -55,7 +55,7 @@ final class AlertUninstallPrompter: UninstallPrompting {
         alert.informativeText = isRunning ? "退出后移到废纸篓，可以在废纸篓中恢复。" : "可以在废纸篓中恢复。"
         alert.addButton(withTitle: isRunning ? "退出并移到废纸篓" : "移到废纸篓")
         alert.addButton(withTitle: "取消")
-        return Self.run(alert) == .alertFirstButtonReturn
+        return alert.runAboveLauncher() == .alertFirstButtonReturn
     }
 
     func showUninstallError(_ message: String) {
@@ -63,17 +63,19 @@ final class AlertUninstallPrompter: UninstallPrompting {
         alert.alertStyle = .warning
         alert.messageText = "卸载失败"
         alert.informativeText = message
-        _ = Self.run(alert)
+        _ = alert.runAboveLauncher()
     }
+}
 
+extension NSAlert {
     // 启动器面板在 statusBar 层级；runModal 会把层级重设为模态面板层级，要在模态会话里再调高
-    // 卸载流程在主线程 Task 里，模态期间主队列不会重入，只能用运行循环的模态模式执行
-    private static func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
+    // 主线程 Task 内模态期间主队列不会重入，只能用运行循环的模态模式执行
+    func runAboveLauncher() -> NSApplication.ModalResponse {
         RunLoop.main.perform(inModes: [.modalPanel]) {
             MainActor.assumeIsolated {
-                alert.window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+                self.window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
             }
         }
-        return alert.runModal()
+        return runModal()
     }
 }

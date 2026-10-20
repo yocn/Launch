@@ -22,6 +22,8 @@
     <true/>
     <key>LSMinimumSystemVersion</key>
     <string>26.0</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>用于在访达中打开应用的简介窗口。</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
