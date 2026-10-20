@@ -185,7 +185,7 @@ final class LauncherModelSelectionTests: XCTestCase {
             for item in picked.reversed() {
                 model.toggleMultiSelection(item)
             }
-            model.performSelectionCommand(command)
+            model.performMenuCommand(command)
             XCTAssertTrue(model.multiSelection.isEmpty)
         }
 

@@ -54,6 +54,7 @@ final class LauncherModel {
     private(set) var renamingFolderID: String?
     private(set) var multiSelection = MultiSelection()
     private(set) var marqueeRect: CGRect?
+    private(set) var hiddenApps: Set<AppIdentity> = []
     var folderNameDraft = ""
     // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
     @ObservationIgnored private(set) var isPageDragging = false
@@ -80,7 +81,7 @@ final class LauncherModel {
     }
 
     var results: [CatalogApp] {
-        SearchService.results(for: query, in: apps, hidden: [])
+        SearchService.results(for: query, in: apps, hidden: hiddenApps)
     }
 
     var pages: [[ResolvedItem]] {
@@ -247,7 +248,56 @@ final class LauncherModel {
         )
     }
 
-    func performSelectionCommand(_ command: ItemMenuCommand) {
+    // 未选中的图标弹出自己的菜单前先清空多选
+    func contextMenu(at point: CGPoint) -> ItemMenuContent? {
+        if let selection = selectionMenu(at: point) {
+            return .selection(selection)
+        }
+        guard let press = itemPress(at: point) else {
+            return nil
+        }
+        clearMultiSelection()
+        switch press.item {
+        case .app(let app):
+            return .app(AppMenuContent(
+                app: app,
+                canOpen: !isJiggling,
+                canEdit: canEditMenuItems,
+                canUninstall: canUninstall(app)
+            ))
+        case .folder(let folder):
+            return .folder(FolderMenuContent(folder: folder, canEdit: canEditMenuItems))
+        case .empty:
+            return nil
+        }
+    }
+
+    func performMenuCommand(_ command: ItemMenuCommand) {
+        switch command {
+        case .mergeIntoNewFolder, .mergeInto, .moveToPage, .moveToNewPage, .hideSelection:
+            performSelectionCommand(command)
+        case .hide(let item):
+            if canEditMenuItems {
+                onEdit?(.hide([item]))
+            }
+        case .ungroup(let folder):
+            if canEditMenuItems {
+                onEdit?(.ungroupFolder(folder))
+            }
+        case .rename(let folder):
+            showFolder(id: folder)
+            beginRenamingFolder()
+        case .open, .revealInFinder, .showInfo, .moveToTrash:
+            break
+        }
+    }
+
+    // 搜索结果里也能隐藏，所以不要求搜索框为空
+    private var canEditMenuItems: Bool {
+        canEditLayout && layoutPages != nil && renamingFolderID == nil
+    }
+
+    private func performSelectionCommand(_ command: ItemMenuCommand) {
         let items = multiSelection.ordered(in: pages)
         guard canMultiSelect, !items.isEmpty else {
             return
@@ -860,6 +910,15 @@ final class LauncherModel {
 
     func updateApps(_ newApps: [CatalogApp]) {
         apps = newApps
+        normalizeState()
+    }
+
+    func updateHiddenApps(_ apps: [CatalogApp]) {
+        let identities = Set(apps.map(\.identity))
+        guard identities != hiddenApps else {
+            return
+        }
+        hiddenApps = identities
         normalizeState()
     }
 

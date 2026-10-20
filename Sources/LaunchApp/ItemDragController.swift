@@ -13,7 +13,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private let onUninstall: (CatalogApp) -> Void
     private let makeDragImage: (ResolvedItem, Int) -> NSImage?
     private lazy var selectionMenu = ItemMenu { [weak self] command in
-        self?.model.performSelectionCommand(command)
+        self?.model.performMenuCommand(command)
     }
     private var monitors: [Any] = []
     private var press: LauncherModel.ItemPress?
