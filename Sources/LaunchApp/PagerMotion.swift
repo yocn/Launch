@@ -45,7 +45,8 @@ struct PagerMotion: Equatable {
             let offset = PageDragResolver.displayOffset(
                 translation: dragTranslation,
                 currentPage: page,
-                pageCount: pageCount
+                pageCount: pageCount,
+                pageWidth: pageWidth
             )
             // 指针 125Hz 与屏幕 120Hz 不同步，直接取最新位置会停一帧再跳两步
             let target = CGFloat(page) - offset / pageWidth

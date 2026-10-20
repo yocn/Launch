@@ -89,7 +89,8 @@ final class LauncherModel {
         return PageDragResolver.displayOffset(
             translation: translation,
             currentPage: activePage,
-            pageCount: activePageCount
+            pageCount: activePageCount,
+            pageWidth: pageWidth
         )
     }
 
