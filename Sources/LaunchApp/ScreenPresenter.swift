@@ -27,6 +27,7 @@ final class LauncherPanel: NSPanel {
 
 @MainActor
 final class ScreenPresenter: LauncherPresenting {
+    static let itemDragType = NSPasteboard.PasteboardType("dev.yocn.launch.item")
     var onResignActive: (() -> Void)?
     private let panel: LauncherPanel
     private var resignObserver: NSObjectProtocol?
@@ -72,6 +73,24 @@ final class ScreenPresenter: LauncherPresenting {
         panel.contentView?.displayLink(target: target, selector: selector)
     }
 
+    var contentView: NSView? {
+        panel.contentView
+    }
+
+    var backingScaleFactor: CGFloat {
+        panel.backingScaleFactor
+    }
+
+    func globalPoint(fromScreen point: CGPoint) -> CGPoint? {
+        guard let contentView else {
+            return nil
+        }
+        return LauncherCoordinates.global(
+            fromWindow: panel.convertPoint(fromScreen: point),
+            contentHeight: contentView.bounds.height
+        )
+    }
+
     var isComposingText: Bool {
         (panel.firstResponder as? NSTextView)?.hasMarkedText() ?? false
     }
@@ -79,6 +98,7 @@ final class ScreenPresenter: LauncherPresenting {
     func setContent(_ content: some View, skipsCursorUpdate: @escaping () -> Bool = { false }) {
         let view = LauncherHostingView(rootView: content)
         view.skipsCursorUpdate = skipsCursorUpdate
+        view.registerForDraggedTypes([Self.itemDragType])
         panel.contentView = view
     }
 
@@ -118,5 +138,22 @@ private final class LauncherHostingView<Content: View>: NSHostingView<Content> {
             return
         }
         super.cursorUpdate(with: event)
+    }
+
+    // 只接受启动器内部的图标拖拽，拖到面板外或按 Esc 时系统会把图标飞回原位
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        Self.carriesItem(sender) ? .move : super.draggingEntered(sender)
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        Self.carriesItem(sender) ? .move : super.draggingUpdated(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        Self.carriesItem(sender) ? true : super.performDragOperation(sender)
+    }
+
+    private static func carriesItem(_ info: NSDraggingInfo) -> Bool {
+        info.draggingPasteboard.availableType(from: [ScreenPresenter.itemDragType]) != nil
     }
 }
