@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import LaunchCore
 import Observation
 
@@ -11,6 +12,22 @@ enum EscapeOutcome: Equatable {
 @MainActor
 @Observable
 final class LauncherModel {
+    struct ItemPress: Equatable {
+        let item: ResolvedItem
+        let origin: DragOrigin
+    }
+
+    struct GridEntry: Identifiable, Equatable {
+        enum Content: Equatable {
+            case item(ResolvedItem, index: Int)
+            case gap
+        }
+
+        let id: String
+        let content: Content
+        let isMergeTarget: Bool
+    }
+
     private(set) var apps: [CatalogApp]
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
@@ -22,12 +39,21 @@ final class LauncherModel {
     private(set) var folderSelectedIndex: Int?
     private(set) var gridPosition: CGFloat = 0
     private(set) var folderPosition: CGFloat = 0
+    private(set) var dragPreview: DragPreview?
     // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
     @ObservationIgnored private(set) var isPageDragging = false
     @ObservationIgnored private(set) var pageWidth: CGFloat = 0
     @ObservationIgnored private var gridMotion = PagerMotion()
     @ObservationIgnored private var folderMotion = PagerMotion()
     @ObservationIgnored var onNeedsFrames: (() -> Void)?
+    @ObservationIgnored var onEdit: ((LayoutEdit) -> Void)?
+    @ObservationIgnored var canEditLayout = false
+    @ObservationIgnored private(set) var homeLayout: LauncherHomeLayout?
+    @ObservationIgnored private(set) var gridFrame: CGRect = .zero
+    @ObservationIgnored private(set) var folderGridFrame: CGRect = .zero
+    @ObservationIgnored private var dragSession: DragSession?
+    @ObservationIgnored private var dragStartPoint: CGPoint = .zero
+    @ObservationIgnored private var pendingLayout: [[ResolvedItem]]?
 
     init(apps: [CatalogApp] = []) {
         self.apps = apps
@@ -44,9 +70,10 @@ final class LauncherModel {
         } else {
             source = [results.map(ResolvedItem.app)]
         }
-        return source.flatMap {
+        let paged = source.flatMap {
             LauncherPagination.pages($0, capacity: LauncherHomeLayout.pageCapacity)
         }
+        return dragPreview?.hasExtraPage == true ? paged + [[]] : paged
     }
 
     var visibleItems: [ResolvedItem] {
@@ -108,6 +135,258 @@ final class LauncherModel {
 
     func updatePageWidth(_ width: CGFloat) {
         pageWidth = width
+    }
+
+    var canDragItems: Bool {
+        canEditLayout && query.isEmpty && layoutPages != nil
+    }
+
+    func updateHomeLayout(_ layout: LauncherHomeLayout) {
+        homeLayout = layout
+    }
+
+    func updateGridFrame(_ frame: CGRect) {
+        gridFrame = frame
+    }
+
+    func updateFolderGridFrame(_ frame: CGRect) {
+        folderGridFrame = frame
+    }
+
+    func itemPress(at point: CGPoint) -> ItemPress? {
+        guard let homeLayout else {
+            return nil
+        }
+        if let folder = openFolder {
+            let apps = visibleFolderApps
+            let tester = GridHitTester(layout: homeLayout, frame: folderGridFrame)
+            return tester.tileIndex(at: point, itemCount: apps.count).map {
+                ItemPress(item: .app(apps[$0]), origin: .folder(id: folder.id, page: folderPage, index: $0))
+            }
+        }
+        let items = visibleItems
+        let tester = GridHitTester(layout: homeLayout, frame: gridFrame)
+        guard let index = tester.tileIndex(at: point, itemCount: items.count), items[index] != .empty else {
+            return nil
+        }
+        return ItemPress(item: items[index], origin: .grid(page: currentPage, index: index))
+    }
+
+    func frame(of origin: DragOrigin) -> CGRect? {
+        guard let homeLayout else {
+            return nil
+        }
+        switch origin {
+        case .grid(_, let index):
+            return GridHitTester(layout: homeLayout, frame: gridFrame).tileRect(index)
+        case .folder(_, _, let index):
+            return GridHitTester(layout: homeLayout, frame: folderGridFrame).tileRect(index)
+        }
+    }
+
+    func beginItemDrag(_ press: ItemPress, at point: CGPoint) {
+        guard canDragItems else {
+            return
+        }
+        selectedIndex = nil
+        folderSelectedIndex = nil
+        dragStartPoint = point
+        dragSession = DragSession(item: press.item, origin: press.origin)
+        publishDragPreview()
+    }
+
+    func updateItemDrag(at point: CGPoint, now: TimeInterval) {
+        guard var session = dragSession else {
+            return
+        }
+        let events = session.update(
+            hit: dragHit(at: point, preview: session.preview),
+            outsideFolder: isOutsideFolder(point),
+            now: now
+        )
+        dragSession = session
+        for event in events {
+            switch event {
+            case .leaveFolder:
+                closeFolder()
+            case .turnPage(let direction):
+                if direction == .next, currentPage >= pages.count - 1 {
+                    guard dragSession?.hasExtraPage == false else {
+                        continue
+                    }
+                    dragSession?.addExtraPage()
+                    publishDragPreview()
+                }
+                setGridPage(clampedPage(currentPage + (direction == .next ? 1 : -1)), animated: true)
+            }
+        }
+        publishDragPreview()
+    }
+
+    func endItemDrag(at point: CGPoint, now: TimeInterval) {
+        guard let session = dragSession else {
+            return
+        }
+        let preview = session.preview
+        let edit = session.dropTarget(for: dragHit(at: point, preview: preview))
+            .flatMap { layoutEdit(for: $0, preview: preview) }
+        finishItemDrag()
+        if let edit {
+            onEdit?(edit)
+        }
+    }
+
+    func cancelItemDrag() {
+        finishItemDrag()
+    }
+
+    func gridEntries(page: Int, items: [ResolvedItem], area: DragArea) -> [GridEntry] {
+        let preview = dragPreview
+        let entries = preview?.entries(
+            page: page,
+            itemCount: items.count,
+            capacity: LauncherHomeLayout.pageCapacity,
+            in: area
+        ) ?? items.indices.map(PreviewEntry.item)
+        var seen = Set<String>()
+        return entries.map { entry in
+            switch entry {
+            case .gap:
+                return GridEntry(id: "drag-gap", content: .gap, isMergeTarget: false)
+            case .item(let index):
+                let base = Self.entryID(items[index], index: index)
+                let id = seen.insert(base).inserted ? base : "\(base)#\(index)"
+                let isMergeTarget = preview?.area == area && preview?.target == .merge(page: page, index: index)
+                return GridEntry(id: id, content: .item(items[index], index: index), isMergeTarget: isMergeTarget)
+            }
+        }
+    }
+
+    static func entryID(_ item: ResolvedItem, index: Int) -> String {
+        switch item {
+        case .app(let app):
+            "app:" + app.identity.stableKey
+        case .folder(let folder):
+            "folder:" + folder.id
+        case .empty:
+            "empty:\(index)"
+        }
+    }
+
+    private func finishItemDrag() {
+        dragSession = nil
+        dragPreview = nil
+        if let pendingLayout {
+            self.pendingLayout = nil
+            updateLayout(pendingLayout)
+        } else {
+            normalizeState()
+        }
+    }
+
+    private func publishDragPreview() {
+        let preview = dragSession?.preview
+        if preview != dragPreview {
+            dragPreview = preview
+        }
+    }
+
+    private func dragHit(at point: CGPoint, preview: DragPreview) -> DragHit {
+        guard let homeLayout else {
+            return .none
+        }
+        let page: Int
+        let itemCount: Int
+        let tester: GridHitTester
+        if preview.area == .folder {
+            guard let folder = openFolder else {
+                return .none
+            }
+            let folderPages = folderPages
+            page = folderPage
+            itemCount = folderPages.indices.contains(page) ? folderPages[page].count : 0
+            tester = GridHitTester(
+                layout: homeLayout,
+                frame: folderGridFrame,
+                rowCount: homeLayout.folderRowCount(memberCount: folder.apps.count)
+            )
+        } else {
+            let gridPages = pages
+            page = currentPage
+            itemCount = gridPages.indices.contains(page) ? gridPages[page].count : 0
+            tester = GridHitTester(layout: homeLayout, frame: gridFrame)
+        }
+        let entries = preview.entries(
+            page: page,
+            itemCount: itemCount,
+            capacity: LauncherHomeLayout.pageCapacity,
+            in: preview.area
+        )
+        return preview.hit(
+            for: tester.hit(point, itemCount: entries.count),
+            entries: entries,
+            itemCount: itemCount,
+            page: page,
+            in: preview.area
+        )
+    }
+
+    private func isOutsideFolder(_ point: CGPoint) -> Bool {
+        guard openFolder != nil, let homeLayout else {
+            return false
+        }
+        let panel = folderGridFrame.insetBy(
+            dx: homeLayout.horizontalInset - homeLayout.folderPanelOutset,
+            dy: -homeLayout.folderPanelPadding
+        )
+        return !panel.contains(point)
+    }
+
+    private func layoutEdit(for target: DragTarget, preview: DragPreview) -> LayoutEdit? {
+        guard let itemID = preview.item.layoutID else {
+            return nil
+        }
+        if preview.area == .folder {
+            guard case .folder(let folderID, _, _) = preview.origin,
+                  case .app(let app) = preview.item,
+                  case .insert(let page, let index) = target else {
+                return nil
+            }
+            let before = Self.folderAnchor(pages: folderPages, page: page, index: index, moving: app)
+            return .reorderInFolder(folder: folderID, app: app.identity.stableKey, before: before)
+        }
+        let gridPages = pages
+        let dropTarget: LayoutDropTarget
+        switch target {
+        case .merge(let page, let index):
+            guard gridPages.indices.contains(page),
+                  gridPages[page].indices.contains(index),
+                  let targetID = gridPages[page][index].layoutID else {
+                return nil
+            }
+            dropTarget = .merge(targetID)
+        case .insert(let page, let index):
+            if preview.hasExtraPage, page == gridPages.count - 1 {
+                dropTarget = .newPage
+            } else {
+                var items = gridPages.indices.contains(page) ? gridPages[page] : []
+                if let source = preview.sourceIndex(onPage: page, in: .grid) {
+                    items.remove(at: source)
+                }
+                dropTarget = .insert(page: page, before: index < items.count ? items[index].layoutID : nil)
+            }
+        }
+        if case .folder(let folderID, _, _) = preview.origin, case .app(let app) = preview.item {
+            return .moveOutOfFolder(app: app.identity.stableKey, folder: folderID, to: dropTarget)
+        }
+        return .move(itemID, to: dropTarget)
+    }
+
+    private static func folderAnchor(pages: [[CatalogApp]], page: Int, index: Int, moving: CatalogApp) -> String? {
+        let trimmed = pages.map { $0.filter { $0 != moving } }
+        let members = Array(trimmed.joined())
+        let offset = trimmed.prefix(page).reduce(0) { $0 + $1.count } + index
+        return offset < members.count ? members[offset].identity.stableKey : nil
     }
 
     func dragPage(by translation: CGFloat) {
@@ -314,6 +593,10 @@ final class LauncherModel {
     }
 
     func updateLayout(_ pages: [[ResolvedItem]]) {
+        guard dragSession == nil else {
+            pendingLayout = pages
+            return
+        }
         layoutPages = pages
         normalizeState()
     }
