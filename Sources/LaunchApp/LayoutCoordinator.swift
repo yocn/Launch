@@ -21,6 +21,8 @@ final class LayoutCoordinator {
             .appending(path: "Launch/layout.json")
     }
 
+    static let undoLimit = 20
+
     var onLayoutChange: (([[ResolvedItem]]) -> Void)?
 
     private let store: LayoutStore
@@ -33,6 +35,7 @@ final class LayoutCoordinator {
     private var isSettingUp = false
     private var isReadOnly = false
     private var hasReportedSaveError = false
+    private var undoStack: [LayoutDocument] = []
 
     init(
         store: LayoutStore,
@@ -52,6 +55,36 @@ final class LayoutCoordinator {
 
     var canRestore: Bool {
         store.hasBackup
+    }
+
+    var isEditable: Bool {
+        document != nil && !isReadOnly
+    }
+
+    func apply(_ edit: LayoutEdit) {
+        guard isEditable, let document else {
+            return
+        }
+        let edited = LayoutEditor.apply(edit, to: document, catalog: catalog, pageCapacity: pageCapacity)
+        guard edited != document else {
+            return
+        }
+        undoStack.append(document)
+        if undoStack.count > Self.undoLimit {
+            undoStack.removeFirst()
+        }
+        self.document = edited
+        save(edited)
+        publish()
+    }
+
+    func undo() {
+        guard isEditable, let previous = undoStack.popLast() else {
+            return
+        }
+        document = previous
+        save(previous)
+        publish()
     }
 
     func start() {
@@ -89,6 +122,7 @@ final class LayoutCoordinator {
             document = result.document
             isReadOnly = false
             needsSetup = false
+            undoStack.removeAll()
             publish()
         } catch {
             prompter.showError("导入失败：\(error.localizedDescription)")
@@ -104,6 +138,7 @@ final class LayoutCoordinator {
             document = try store.load()
             isReadOnly = false
             needsSetup = false
+            undoStack.removeAll()
             publish()
         } catch {
             prompter.showError("恢复失败：\(error.localizedDescription)")

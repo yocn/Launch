@@ -178,6 +178,88 @@ final class LayoutCoordinatorTests: XCTestCase {
     }
 
     @MainActor
+    func testApplyEditSavesPublishesAndUndoRestores() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: apps.map { .app($0.identity) })]))
+        let (coordinator, published) = makeCoordinator(store, FakePrompter(), FakeLaunchpad())
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        coordinator.apply(.move(
+            .app(apps[2].identity.stableKey),
+            to: .insert(page: 0, before: .app(apps[0].identity.stableKey))
+        ))
+
+        XCTAssertEqual(published.last, [[.app(apps[2]), .app(apps[0]), .app(apps[1])]])
+        XCTAssertEqual(try store.load()?.pages.first?.slots, [apps[2], apps[0], apps[1]].map { .app($0.identity) })
+
+        coordinator.undo()
+
+        XCTAssertEqual(published.last, [apps.map(ResolvedItem.app)])
+        XCTAssertEqual(try store.load()?.pages.first?.slots, apps.map { .app($0.identity) })
+    }
+
+    @MainActor
+    func testUndoKeepsAtMostTwentySteps() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: apps.map { .app($0.identity) })]))
+        let (coordinator, published) = makeCoordinator(store, FakePrompter(), FakeLaunchpad())
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+        var states = [published.last]
+
+        for _ in 0 ..< 25 {
+            guard case .app(let first)? = published.last?.first?.first else {
+                return XCTFail("expected app")
+            }
+            coordinator.apply(.move(.app(first.identity.stableKey), to: .insert(page: 0, before: nil)))
+            states.append(published.last)
+        }
+        for _ in 0 ..< 25 {
+            coordinator.undo()
+        }
+
+        XCTAssertEqual(published.last, states[5])
+    }
+
+    @MainActor
+    func testEditsAreIgnoredWhenLayoutIsReadOnly() async throws {
+        let store = try temporaryStore()
+        try FileManager.default.createDirectory(
+            at: store.fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("not json".utf8).write(to: store.fileURL)
+        let (coordinator, published) = makeCoordinator(store, FakePrompter(), FakeLaunchpad())
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+        let count = published.values.count
+
+        coordinator.apply(.move(.app(apps[0].identity.stableKey), to: .insert(page: 0, before: nil)))
+
+        XCTAssertFalse(coordinator.isEditable)
+        XCTAssertEqual(published.values.count, count)
+        XCTAssertEqual(try Data(contentsOf: store.fileURL), Data("not json".utf8))
+    }
+
+    @MainActor
+    func testImportClearsUndoHistory() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: [.app(apps[2].identity)])]))
+        let snapshot = LaunchpadSnapshot(pages: [[.app(launchpadApp(apps[0]))]])
+        let (coordinator, published) = makeCoordinator(store, FakePrompter(), FakeLaunchpad(snapshot: snapshot))
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+        coordinator.apply(.move(.app(apps[0].identity.stableKey), to: .insert(page: 0, before: nil)))
+
+        await coordinator.importFromLaunchpad()
+        let imported = published.last
+        coordinator.undo()
+
+        XCTAssertEqual(published.last, imported)
+    }
+
+    @MainActor
     private func makeCoordinator(
         _ store: LayoutStore,
         _ prompter: FakePrompter,
