@@ -21,6 +21,7 @@ struct AppMenuContent: Equatable {
     let canOpen: Bool
     let canEdit: Bool
     let canUninstall: Bool
+    var isHidden = false
 }
 
 struct FolderMenuContent: Equatable {
@@ -32,6 +33,7 @@ enum ItemMenuContent: Equatable {
     case selection(SelectionMenuContent)
     case app(AppMenuContent)
     case folder(FolderMenuContent)
+    case main
 }
 
 enum ItemMenuCommand: Equatable {
@@ -47,6 +49,8 @@ enum ItemMenuCommand: Equatable {
     case moveToTrash(CatalogApp)
     case rename(folder: String)
     case ungroup(folder: String)
+    case openSettings
+    case unhide(CatalogApp)
 }
 
 @MainActor
@@ -69,6 +73,8 @@ final class ItemMenu: NSObject {
             addAppItems(app, to: menu)
         case .folder(let folder):
             addFolderItems(folder, to: menu)
+        case .main:
+            menu.addItem(item("设置…", .openSettings))
         }
         return menu
     }
@@ -105,7 +111,11 @@ final class ItemMenu: NSObject {
         menu.addItem(item("在访达中显示", .revealInFinder(app)))
         menu.addItem(item("显示简介", .showInfo(app)))
         menu.addItem(.separator())
-        menu.addItem(item("隐藏", .hide(.app(app.identity.stableKey)), isEnabled: content.canEdit))
+        if content.isHidden {
+            menu.addItem(item("取消隐藏", .unhide(app), isEnabled: content.canEdit))
+        } else {
+            menu.addItem(item("隐藏", .hide(.app(app.identity.stableKey)), isEnabled: content.canEdit))
+        }
         if content.canUninstall {
             menu.addItem(item("移到废纸篓…", .moveToTrash(app)))
         }

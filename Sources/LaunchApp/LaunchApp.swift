@@ -156,6 +156,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             appActions.showInfo(app)
         case .moveToTrash(let app):
             uninstall(app)
+        case .unhide(let app):
+            layoutCoordinator.unhide(app)
         default:
             controller.model.performMenuCommand(command)
         }

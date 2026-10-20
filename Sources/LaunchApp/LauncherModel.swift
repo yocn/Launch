@@ -287,7 +287,7 @@ final class LauncherModel {
         case .rename(let folder):
             showFolder(id: folder)
             beginRenamingFolder()
-        case .open, .revealInFinder, .showInfo, .moveToTrash:
+        case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide:
             break
         }
     }
@@ -314,7 +314,7 @@ final class LauncherModel {
             edit = .moveGroup(items, to: .newPage)
         case .hideSelection:
             edit = .hide(items)
-        case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup:
+        case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide:
             return
         }
         clearMultiSelection()
