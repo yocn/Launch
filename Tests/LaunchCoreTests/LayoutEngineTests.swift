@@ -106,4 +106,43 @@ final class LayoutEngineTests: XCTestCase {
 
         XCTAssertEqual(result.hiddenApps, [zoom.identity])
     }
+
+    func testHiddenAppsStayPlacedButInvisible() {
+        let folder = LayoutFolder(id: "f", name: "效率", apps: [notes.identity, zoom.identity])
+        let document = LayoutDocument(
+            pages: [LayoutPage(slots: [.app(mail.identity), .folder(folder)])],
+            hiddenApps: [zoom.identity, mail.identity]
+        )
+
+        let result = LayoutEngine.reconcile(layout: document, catalog: [mail, notes, zoom], pageCapacity: 35)
+
+        XCTAssertEqual(result.pages, [[.folder(ResolvedFolder(id: "f", name: "效率", apps: [notes]))]])
+        XCTAssertEqual(result.appendedApps, [])
+        XCTAssertEqual(result.hiddenApps, [mail, zoom])
+    }
+
+    func testFolderWithOnlyHiddenMembersDisappears() {
+        let folder = LayoutFolder(id: "f", name: "效率", apps: [notes.identity])
+        let document = LayoutDocument(
+            pages: [LayoutPage(slots: [.app(mail.identity), .folder(folder)])],
+            hiddenApps: [notes.identity]
+        )
+
+        let result = LayoutEngine.reconcile(layout: document, catalog: [mail, notes], pageCapacity: 35)
+
+        XCTAssertEqual(result.pages, [[.app(mail)]])
+    }
+
+    func testHiddenAppMatchesMovedInstall() {
+        let saved = AppIdentity(bundleIdentifier: mail.identity.bundleIdentifier, path: "/Old/Mail.app")
+        let document = LayoutDocument(
+            pages: [LayoutPage(slots: [.app(mail.identity), .app(notes.identity)])],
+            hiddenApps: [saved]
+        )
+
+        let result = LayoutEngine.reconcile(layout: document, catalog: [mail, notes], pageCapacity: 35)
+
+        XCTAssertEqual(result.pages, [[.app(notes)]])
+        XCTAssertEqual(result.hiddenApps, [mail])
+    }
 }
