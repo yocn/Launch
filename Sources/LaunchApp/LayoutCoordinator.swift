@@ -36,6 +36,7 @@ final class LayoutCoordinator {
     private var isReadOnly = false
     private var hasReportedSaveError = false
     private var undoStack: [LayoutDocument] = []
+    private(set) var hiddenApps: [CatalogApp] = []
 
     init(
         store: LayoutStore,
@@ -87,6 +88,15 @@ final class LayoutCoordinator {
         publish()
     }
 
+    func unhide(_ app: CatalogApp) {
+        apply(.unhide([app.identity]))
+    }
+
+    // 未安装的隐藏应用也一并取消
+    func unhideAll() {
+        apply(.unhide(document?.hiddenApps ?? []))
+    }
+
     func start() {
         do {
             document = try store.load()
@@ -118,8 +128,13 @@ final class LayoutCoordinator {
             guard prompter.confirmReimport(result.summary) else {
                 return
             }
-            try store.replace(with: result.document)
-            document = result.document
+            let document = LayoutDocument(
+                schemaVersion: result.document.schemaVersion,
+                pages: result.document.pages,
+                hiddenApps: self.document?.hiddenApps ?? []
+            )
+            try store.replace(with: document)
+            self.document = document
             isReadOnly = false
             needsSetup = false
             undoStack.removeAll()
@@ -166,6 +181,7 @@ final class LayoutCoordinator {
     private func publish() {
         guard let document else {
             let fallback = LayoutEngine.defaultDocument(catalog: catalog, pageCapacity: pageCapacity)
+            hiddenApps = []
             onLayoutChange?(LayoutEngine.reconcile(layout: fallback, catalog: catalog, pageCapacity: pageCapacity).pages)
             return
         }
@@ -174,6 +190,7 @@ final class LayoutCoordinator {
             self.document = reconciled.document
             save(reconciled.document)
         }
+        hiddenApps = reconciled.hiddenApps
         onLayoutChange?(reconciled.pages)
     }
 

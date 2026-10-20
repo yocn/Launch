@@ -260,6 +260,48 @@ final class LayoutCoordinatorTests: XCTestCase {
     }
 
     @MainActor
+    func testHidingPublishesHiddenAppsAndUnhideRestores() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: apps.map { .app($0.identity) })]))
+        let (coordinator, published) = makeCoordinator(store, FakePrompter(), FakeLaunchpad())
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        coordinator.apply(.hide([.app(apps[1].identity.stableKey), .app(apps[2].identity.stableKey)]))
+        XCTAssertEqual(published.last, [[.app(apps[0])]])
+        XCTAssertEqual(coordinator.hiddenApps, [apps[1], apps[2]])
+        XCTAssertEqual(try store.load()?.hiddenApps, [apps[1].identity, apps[2].identity])
+
+        coordinator.unhide(apps[2])
+        XCTAssertEqual(published.last, [[.app(apps[0]), .app(apps[2])]])
+
+        coordinator.unhideAll()
+        XCTAssertEqual(published.last, [apps.map(ResolvedItem.app)])
+        XCTAssertEqual(coordinator.hiddenApps, [])
+
+        coordinator.undo()
+        XCTAssertEqual(coordinator.hiddenApps, [apps[1]])
+    }
+
+    @MainActor
+    func testReimportKeepsHiddenApps() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(
+            pages: [LayoutPage(slots: [.app(apps[2].identity)])],
+            hiddenApps: [apps[1].identity]
+        ))
+        let snapshot = LaunchpadSnapshot(pages: [[.app(launchpadApp(apps[0]))]])
+        let (coordinator, published) = makeCoordinator(store, FakePrompter(), FakeLaunchpad(snapshot: snapshot))
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+
+        await coordinator.importFromLaunchpad()
+
+        XCTAssertEqual(published.last, [[.app(apps[0]), .app(apps[2])]])
+        XCTAssertEqual(coordinator.hiddenApps, [apps[1]])
+    }
+
+    @MainActor
     private func makeCoordinator(
         _ store: LayoutStore,
         _ prompter: FakePrompter,
