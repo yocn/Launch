@@ -755,7 +755,8 @@ final class ItemMenuTests: XCTestCase {
 
     func testSelectionMenu() {
         var chosen: [ItemMenuCommand] = []
-        let menu = ItemMenu { chosen.append($0) }.makeMenu(.selection(SelectionMenuContent(
+        let builder = ItemMenu { chosen.append($0) }
+        let menu = builder.makeMenu(.selection(SelectionMenuContent(
             count: 3,
             folders: [.init(id: "f", name: "效率")],
             pageCount: 2
@@ -788,7 +789,8 @@ final class ItemMenuTests: XCTestCase {
     func testAppMenu() {
         var chosen: [ItemMenuCommand] = []
         let app = makeApps(count: 1)[0]
-        let menu = ItemMenu { chosen.append($0) }.makeMenu(.app(AppMenuContent(
+        let builder = ItemMenu { chosen.append($0) }
+        let menu = builder.makeMenu(.app(AppMenuContent(
             app: app,
             canOpen: false,
             canEdit: true,
@@ -816,7 +818,8 @@ final class ItemMenuTests: XCTestCase {
     func testFolderMenu() {
         var chosen: [ItemMenuCommand] = []
         let folder = ResolvedFolder(id: "f", name: "效率", apps: makeApps(count: 2))
-        let menu = ItemMenu { chosen.append($0) }.makeMenu(.folder(FolderMenuContent(folder: folder, canEdit: true)))
+        let builder = ItemMenu { chosen.append($0) }
+        let menu = builder.makeMenu(.folder(FolderMenuContent(folder: folder, canEdit: true)))
 
         XCTAssertEqual(menu.items.map(\.title), ["打开", "", "重命名", "取消分组", "隐藏"])
         for index in [0, 2, 3, 4] {
