@@ -75,8 +75,13 @@ final class LauncherController {
     }
 
     func handleBackgroundClick() {
+        guard !model.isModifiedClick else {
+            return
+        }
         if model.openFolderID != nil {
             model.closeFolder()
+        } else if !model.multiSelection.isEmpty {
+            model.clearMultiSelection()
         } else if model.isJiggling {
             model.endJiggling()
         } else {

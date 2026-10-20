@@ -258,6 +258,61 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testBackgroundClickClearsSelectionBeforeJigglingAndClosing() {
+        let apps = makeApps(count: 3)
+        let (controller, presenter) = makeController(apps: apps)
+        controller.show()
+        controller.model.updateLayout([apps.map(ResolvedItem.app)])
+        controller.model.canEditLayout = true
+        controller.model.beginJiggling()
+        controller.model.toggleMultiSelection(.app(apps[1].identity.stableKey))
+
+        controller.handleBackgroundClick()
+        XCTAssertTrue(controller.model.multiSelection.isEmpty)
+        XCTAssertTrue(controller.model.isJiggling)
+
+        controller.handleBackgroundClick()
+        XCTAssertFalse(controller.model.isJiggling)
+        XCTAssertTrue(presenter.isVisible)
+
+        controller.handleBackgroundClick()
+        XCTAssertFalse(presenter.isVisible)
+    }
+
+    @MainActor
+    func testModifiedBackgroundClickIsIgnored() {
+        let (controller, presenter) = makeController()
+        controller.show()
+        controller.model.isModifiedClick = true
+
+        controller.handleBackgroundClick()
+
+        XCTAssertTrue(presenter.isVisible)
+    }
+
+    @MainActor
+    func testReturnOnlyClearsSelection() {
+        let apps = makeApps(count: 3)
+        var opened: [URL] = []
+        let (controller, _) = makeController(apps: apps) { url in
+            opened.append(url)
+            return true
+        }
+        controller.show()
+        controller.model.updateLayout([apps.map(ResolvedItem.app)])
+        controller.model.canEditLayout = true
+        controller.handle(.move(.right))
+        controller.model.toggleMultiSelection(.app(apps[2].identity.stableKey))
+
+        controller.handle(.activate)
+        XCTAssertTrue(opened.isEmpty)
+        XCTAssertTrue(controller.model.multiSelection.isEmpty)
+
+        controller.handle(.activate)
+        XCTAssertEqual(opened.count, 1)
+    }
+
+    @MainActor
     private func makeController(
         apps: [CatalogApp] = [],
         iconCache: IconCache = IconCache { _ in NSImage() },
