@@ -49,7 +49,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         presenter: presenter,
         onActivate: { [weak self] item in self?.activate(item) },
         onUninstall: { [weak self] app in self?.uninstall(app) },
-        makeDragImage: { [weak self] item in self?.dragImage(for: item) }
+        makeDragImage: { [weak self] item, count in self?.dragImage(for: item, count: count) }
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -140,11 +140,11 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func dragImage(for item: ResolvedItem) -> NSImage? {
+    private func dragImage(for item: ResolvedItem, count: Int) -> NSImage? {
         guard let layout = controller.model.homeLayout else {
             return nil
         }
-        return DragCardRenderer.image(for: item, layout: layout, scale: presenter.backingScaleFactor)
+        return DragCardRenderer.image(for: item, count: count, layout: layout, scale: presenter.backingScaleFactor)
     }
 
     private func hasHotKeyConflict() -> Bool {

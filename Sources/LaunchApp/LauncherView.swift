@@ -510,8 +510,8 @@ private struct FolderTitle: View {
 
 @MainActor
 enum DragCardRenderer {
-    static func image(for item: ResolvedItem, layout: LauncherHomeLayout, scale: CGFloat) -> NSImage? {
-        let renderer = ImageRenderer(content: DragCard(item: item, layout: layout))
+    static func image(for item: ResolvedItem, count: Int, layout: LauncherHomeLayout, scale: CGFloat) -> NSImage? {
+        let renderer = ImageRenderer(content: DragCard(item: item, count: count, layout: layout))
         renderer.scale = scale
         return renderer.nsImage
     }
@@ -519,6 +519,7 @@ enum DragCardRenderer {
 
 private struct DragCard: View {
     let item: ResolvedItem
+    let count: Int
     let layout: LauncherHomeLayout
 
     var body: some View {
@@ -539,6 +540,16 @@ private struct DragCard: View {
         }
         .padding(.vertical, layout.tilePadding)
         .frame(width: layout.tileWidth)
+        .overlay(alignment: .topTrailing) {
+            if count > 1 {
+                Text("\(count)")
+                    .font(.system(size: layout.labelFontSize, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, layout.uninstallBadgeSide * 0.25)
+                    .frame(minWidth: layout.uninstallBadgeSide, minHeight: layout.uninstallBadgeSide)
+                    .background(Capsule().fill(.red))
+            }
+        }
     }
 
     private func label(_ text: String) -> some View {

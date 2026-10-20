@@ -11,10 +11,15 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private let presenter: ScreenPresenter
     private let onActivate: (ResolvedItem) -> Void
     private let onUninstall: (CatalogApp) -> Void
-    private let makeDragImage: (ResolvedItem) -> NSImage?
+    private let makeDragImage: (ResolvedItem, Int) -> NSImage?
+    private lazy var selectionMenu = SelectionMenu { [weak self] command in
+        self?.model.performSelectionCommand(command)
+    }
     private var monitors: [Any] = []
     private var press: LauncherModel.ItemPress?
     private var badgePress: CatalogApp?
+    private var marqueePoint: CGPoint?
+    private var isMarqueeing = false
     private var didLongPress = false
     private var longPressTimer: Timer?
     private var pressPoint: CGPoint = .zero
@@ -26,7 +31,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
         presenter: ScreenPresenter,
         onActivate: @escaping (ResolvedItem) -> Void,
         onUninstall: @escaping (CatalogApp) -> Void,
-        makeDragImage: @escaping (ResolvedItem) -> NSImage?
+        makeDragImage: @escaping (ResolvedItem, Int) -> NSImage?
     ) {
         self.model = model
         self.presenter = presenter
@@ -45,7 +50,10 @@ final class ItemDragController: NSObject, NSDraggingSource {
         let up = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
             self?.mouseUp(event) ?? event
         }
-        monitors = [down, drag, up].compactMap { $0 }
+        let rightDown = NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { [weak self] event in
+            self?.rightMouseDown(event) ?? event
+        }
+        monitors = [down, drag, up, rightDown].compactMap { $0 }
     }
 
     private func globalPoint(of event: NSEvent) -> CGPoint? {
@@ -58,9 +66,20 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private func mouseDown(_ event: NSEvent) -> NSEvent? {
         press = nil
         badgePress = nil
+        marqueePoint = nil
         cancelLongPress()
         guard let point = globalPoint(of: event) else {
             return event
+        }
+        let flags = event.modifierFlags
+        model.isModifiedClick = flags.contains(.command) || flags.contains(.control)
+        if flags.contains(.control) {
+            return contextClick(at: point, event: event)
+        }
+        if flags.contains(.command), model.beginMarquee(at: point) {
+            marqueePoint = point
+            isMarqueeing = false
+            return nil
         }
         if let app = model.uninstallTarget(at: point) {
             badgePress = app
@@ -77,6 +96,14 @@ final class ItemDragController: NSObject, NSDraggingSource {
     }
 
     private func mouseDragged(_ event: NSEvent) -> NSEvent? {
+        if let start = marqueePoint {
+            if let point = globalPoint(of: event),
+               isMarqueeing || hypot(point.x - start.x, point.y - start.y) > Self.dragThreshold {
+                isMarqueeing = true
+                model.updateMarquee(to: point)
+            }
+            return nil
+        }
         if badgePress != nil {
             return nil
         }
@@ -97,6 +124,11 @@ final class ItemDragController: NSObject, NSDraggingSource {
     }
 
     private func mouseUp(_ event: NSEvent) -> NSEvent? {
+        if marqueePoint != nil {
+            marqueePoint = nil
+            model.endMarquee()
+            return nil
+        }
         if let app = badgePress {
             badgePress = nil
             onUninstall(app)
@@ -107,10 +139,27 @@ final class ItemDragController: NSObject, NSDraggingSource {
         }
         self.press = nil
         cancelLongPress()
-        if !didLongPress {
+        if !didLongPress, !model.clearMultiSelection() {
             onActivate(press.item)
         }
         return nil
+    }
+
+    private func rightMouseDown(_ event: NSEvent) -> NSEvent? {
+        guard let point = globalPoint(of: event) else {
+            return event
+        }
+        return contextClick(at: point, event: event)
+    }
+
+    // 本期只有选中项有菜单；落在其他图标上也吞掉，免得 ⌃ 单击启动应用
+    private func contextClick(at point: CGPoint, event: NSEvent) -> NSEvent? {
+        if let content = model.selectionMenu(at: point), let view = presenter.contentView {
+            let location = view.convert(event.locationInWindow, from: nil)
+            selectionMenu.makeMenu(content).popUp(positioning: nil, at: location, in: view)
+            return nil
+        }
+        return model.itemPress(at: point) == nil ? event : nil
     }
 
     private func startLongPress() {
@@ -145,7 +194,10 @@ final class ItemDragController: NSObject, NSDraggingSource {
         pasteboardItem.setString("item", forType: ScreenPresenter.itemDragType)
         let draggingItem = NSDraggingItem(pasteboardWriter: pasteboardItem)
         let windowFrame = LauncherCoordinates.window(fromGlobal: frame, contentHeight: view.bounds.height)
-        draggingItem.setDraggingFrame(view.convert(windowFrame, from: nil), contents: makeDragImage(press.item))
+        draggingItem.setDraggingFrame(
+            view.convert(windowFrame, from: nil),
+            contents: makeDragImage(press.item, model.dragCount(for: press))
+        )
         let session = view.beginDraggingSession(with: [draggingItem], event: event, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = true
         session.draggingFormation = .none
