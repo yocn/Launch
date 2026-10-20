@@ -7,12 +7,13 @@ enum LauncherHideReason: Equatable {
     case backgroundClick
     case launchedApp
     case resignedActive
+    case settings
 
     var restoresPreviousApp: Bool {
         switch self {
         case .toggle, .escape, .backgroundClick:
             true
-        case .launchedApp, .resignedActive:
+        case .launchedApp, .resignedActive, .settings:
             false
         }
     }
@@ -32,6 +33,7 @@ final class LauncherController {
     private let iconCache: IconCache
     private let openApplication: (URL) -> Bool
     var onUndoLayoutEdit: (() -> Void)?
+    var onOpenSettings: (() -> Void)?
 
     init(
         model: LauncherModel,
@@ -110,6 +112,8 @@ final class LauncherController {
             model.endPageDrag(predictedTranslation: predictedTranslation, velocity: velocity)
         case .undoLayoutEdit:
             onUndoLayoutEdit?()
+        case .openSettings:
+            onOpenSettings?()
         }
     }
 

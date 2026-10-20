@@ -8,6 +8,7 @@ enum LauncherCommand: Equatable {
     case dragPage(CGFloat)
     case endPageDrag(predictedTranslation: CGFloat, velocity: CGFloat)
     case undoLayoutEdit
+    case openSettings
 }
 
 enum KeyCommandMapper {
@@ -39,6 +40,8 @@ enum KeyCommandMapper {
             return .nextPage
         case (6, [.command]) where canUndoLayout:
             return .undoLayoutEdit
+        case (43, [.command]):
+            return .openSettings
         default:
             return nil
         }
