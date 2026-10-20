@@ -122,4 +122,81 @@ final class LayoutEditorTests: XCTestCase {
         XCTAssertEqual(ResolvedItem.folder(ResolvedFolder(id: "f", name: "x", apps: [a])).layoutID, .folder("f"))
         XCTAssertNil(ResolvedItem.empty.layoutID)
     }
+
+    func testMergeAppOntoAppCreatesUntitledFolderAtTargetPosition() {
+        let result = apply(.move(id(c), to: .merge(id(a))), [[slot(a), slot(b), slot(c)]])
+
+        XCTAssertEqual(result, [[folder("new", [a, c], name: "未命名"), slot(b)]])
+    }
+
+    func testMergeAppIntoFolderAppendsMember() {
+        let result = apply(.move(id(c), to: .merge(.folder("f"))), [[folder("f", [a, b]), slot(c)]])
+
+        XCTAssertEqual(result, [[folder("f", [a, b, c])]])
+    }
+
+    func testFolderCannotMergeIntoAnything() {
+        let pages = [[folder("f", [a, b]), slot(c)]]
+
+        XCTAssertEqual(apply(.move(.folder("f"), to: .merge(id(c))), pages), pages)
+    }
+
+    func testReorderInsideFolder() {
+        let pages = [[folder("f", [a, b, c])]]
+
+        XCTAssertEqual(apply(.reorderInFolder(folder: "f", app: key(c), before: key(a)), pages), [[folder("f", [c, a, b])]])
+        XCTAssertEqual(apply(.reorderInFolder(folder: "f", app: key(a), before: nil), pages), [[folder("f", [b, c, a])]])
+    }
+
+    func testMoveOutOfFolderToGrid() {
+        let result = apply(
+            .moveOutOfFolder(app: key(b), folder: "f", to: .insert(page: 0, before: id(d))),
+            [[folder("f", [a, b, c]), slot(d)]]
+        )
+
+        XCTAssertEqual(result, [[folder("f", [a, c]), slot(b), slot(d)]])
+    }
+
+    func testFolderDissolvesWhenOneMemberLeft() {
+        let result = apply(
+            .moveOutOfFolder(app: key(a), folder: "f", to: .insert(page: 0, before: nil)),
+            [[folder("f", [a, b]), slot(c)]]
+        )
+
+        XCTAssertEqual(result, [[slot(b), slot(c), slot(a)]])
+    }
+
+    func testDroppingBackOnSourceFolderMovesMemberToEnd() {
+        let result = apply(
+            .moveOutOfFolder(app: key(a), folder: "f", to: .merge(.folder("f"))),
+            [[folder("f", [a, b, c])]]
+        )
+
+        XCTAssertEqual(result, [[folder("f", [b, c, a])]])
+    }
+
+    func testInsertBeforeDissolvedFolderUsesRemainingApp() {
+        let result = apply(
+            .moveOutOfFolder(app: key(a), folder: "f", to: .insert(page: 0, before: .folder("f"))),
+            [[slot(c), folder("f", [a, b])]]
+        )
+
+        XCTAssertEqual(result, [[slot(c), slot(a), slot(b)]])
+    }
+
+    func testMissingMemberCountsWhenDissolving() {
+        let result = apply(
+            .moveOutOfFolder(app: key(a), folder: "f", to: .insert(page: 0, before: nil)),
+            [[.folder(LayoutFolder(id: "f", name: "效率", apps: [a.identity, gone])), slot(b)]]
+        )
+
+        XCTAssertEqual(result, [[.app(gone), slot(b), slot(a)]])
+    }
+
+    func testRenameFolderTrimsAndDefaults() {
+        let pages = [[folder("f", [a, b])]]
+
+        XCTAssertEqual(apply(.renameFolder(folder: "f", name: "  工具 "), pages), [[folder("f", [a, b], name: "工具")]])
+        XCTAssertEqual(apply(.renameFolder(folder: "f", name: "  "), pages), [[folder("f", [a, b], name: "未命名")]])
+    }
 }

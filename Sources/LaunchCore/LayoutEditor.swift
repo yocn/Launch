@@ -209,14 +209,58 @@ private struct Editor {
     }
 
     mutating func moveOut(app: String, folder folderID: String, to target: LayoutDropTarget) -> Bool {
-        false
+        guard let location = locate(.folder(folderID)),
+              case .folder(let folder) = pages[location.page][location.slot],
+              let member = folder.apps.firstIndex(where: { key(of: $0) == app }) else {
+            return false
+        }
+        if target == .merge(.folder(folderID)) {
+            return reorder(folder: folderID, app: app, before: nil)
+        }
+        let page = documentPage(for: target)
+        var apps = folder.apps
+        let identity = apps.remove(at: member)
+        var target = target
+        switch apps.count {
+        case 0:
+            pages[location.page].remove(at: location.slot)
+        case 1:
+            pages[location.page][location.slot] = .app(apps[0])
+            // 文件夹解散后，以它为插入锚点的目标改由剩下的应用接替
+            if case .insert(let visiblePage, .folder(folderID)?) = target {
+                target = .insert(page: visiblePage, before: key(of: apps[0]).map(LayoutItemID.app))
+            }
+        default:
+            pages[location.page][location.slot] = .folder(LayoutFolder(id: folder.id, name: folder.name, apps: apps))
+        }
+        return place(.app(identity), at: target, page: page)
     }
 
     mutating func reorder(folder folderID: String, app: String, before: String?) -> Bool {
-        false
+        guard let location = locate(.folder(folderID)),
+              case .folder(let folder) = pages[location.page][location.slot],
+              let member = folder.apps.firstIndex(where: { key(of: $0) == app }) else {
+            return false
+        }
+        var apps = folder.apps
+        let identity = apps.remove(at: member)
+        let index = before.flatMap { anchor in apps.firstIndex { key(of: $0) == anchor } } ?? apps.endIndex
+        apps.insert(identity, at: index)
+        pages[location.page][location.slot] = .folder(LayoutFolder(id: folder.id, name: folder.name, apps: apps))
+        return true
     }
 
     mutating func rename(folder folderID: String, name: String) -> Bool {
-        false
+        guard let location = locate(.folder(folderID)),
+              case .folder(let folder) = pages[location.page][location.slot] else {
+            return false
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        pages[location.page][location.slot] = .folder(LayoutFolder(
+            id: folder.id,
+            name: trimmed.isEmpty ? LayoutEditor.untitledFolderName : trimmed,
+            apps: folder.apps
+        ))
+        return true
     }
 }
