@@ -18,6 +18,9 @@ public enum LayoutEdit: Equatable, Sendable {
     case moveOutOfFolder(app: String, folder: String, to: LayoutDropTarget)
     case reorderInFolder(folder: String, app: String, before: String?)
     case renameFolder(folder: String, name: String)
+    case hide([LayoutItemID])
+    case unhide([AppIdentity])
+    case ungroupFolder(String)
 }
 
 extension ResolvedItem {
@@ -45,39 +48,58 @@ public enum LayoutEditor {
     ) -> LayoutDocument {
         var editor = Editor(document: document, catalog: catalog, capacity: pageCapacity, newFolderID: makeFolderID())
         let base = editor.pages
-        guard editor.perform(edit), editor.pages != base else {
+        let baseHidden = editor.hidden
+        guard editor.perform(edit), editor.pages != base || editor.hidden != baseHidden else {
             return document
         }
         return LayoutDocument(
             schemaVersion: document.schemaVersion,
             pages: editor.pages.map { LayoutPage(slots: $0) },
-            hiddenApps: document.hiddenApps
+            hiddenApps: editor.hidden
         )
     }
 }
 
 private struct Editor {
     var pages: [[LayoutSlot]]
+    var hidden: [AppIdentity] {
+        didSet {
+            hiddenKeys = resolver.keys(of: hidden)
+        }
+    }
     let resolver: CatalogResolver
     let capacity: Int
     let newFolderID: String
+    var hiddenKeys: Set<String>
+    let appsByKey: [String: CatalogApp]
 
     init(document: LayoutDocument, catalog: [CatalogApp], capacity: Int, newFolderID: String) {
         let resolver = CatalogResolver(catalog: catalog)
+        let hiddenKeys = resolver.keys(of: document.hiddenApps)
         self.resolver = resolver
         self.capacity = capacity
         self.newFolderID = newFolderID
+        hidden = document.hiddenApps
+        self.hiddenKeys = hiddenKeys
+        appsByKey = Dictionary(catalog.map { ($0.identity.stableKey, $0) }, uniquingKeysWith: { first, _ in first })
         pages = document.pages
-            .flatMap { Self.split($0.slots.filter { $0 != .empty }, resolver: resolver, capacity: capacity) }
+            .flatMap {
+                Self.split($0.slots.filter { $0 != .empty }, resolver: resolver, hidden: hiddenKeys, capacity: capacity)
+            }
             .filter { !$0.isEmpty }
     }
 
     // 可见项超过容量的旧页先拆开，使可见页与界面分页一一对应
-    static func split(_ slots: [LayoutSlot], resolver: CatalogResolver, capacity: Int) -> [[LayoutSlot]] {
+    static func split(
+        _ slots: [LayoutSlot],
+        resolver: CatalogResolver,
+        hidden: Set<String>,
+        capacity: Int
+    ) -> [[LayoutSlot]] {
         var result: [[LayoutSlot]] = [[]]
         var visible = 0
         for slot in slots {
-            if itemID(of: slot, resolver: resolver) != nil {
+            if itemID(of: slot, resolver: resolver, hidden: hidden) != nil {
                 if visible == capacity {
                     result.append([])
                     visible = 0
@@ -89,19 +111,26 @@ private struct Editor {
         return result
     }
 
-    static func itemID(of slot: LayoutSlot, resolver: CatalogResolver) -> LayoutItemID? {
+    // 隐藏应用与未安装应用一样不可见
+    static func itemID(of slot: LayoutSlot, resolver: CatalogResolver, hidden: Set<String>) -> LayoutItemID? {
         switch slot {
         case .app(let identity):
-            resolver.app(for: identity).map { .app($0.identity.stableKey) }
+            guard let key = resolver.app(for: identity)?.identity.stableKey, !hidden.contains(key) else {
+                return nil
+            }
+            return .app(key)
         case .folder(let folder):
-            folder.apps.contains { resolver.app(for: $0) != nil } ? .folder(folder.id) : nil
+            let isVisible = folder.apps.contains { identity in
+                resolver.app(for: identity).map { !hidden.contains($0.identity.stableKey) } ?? false
+            }
+            return isVisible ? .folder(folder.id) : nil
         case .empty:
-            nil
+            return nil
         }
     }
 
     func itemID(of slot: LayoutSlot) -> LayoutItemID? {
-        Self.itemID(of: slot, resolver: resolver)
+        Self.itemID(of: slot, resolver: resolver, hidden: hiddenKeys)
     }
 
     func key(of identity: AppIdentity) -> String? {
@@ -143,6 +172,12 @@ private struct Editor {
             reorder(folder: folder, app: app, before: before)
         case .renameFolder(let folder, let name):
             rename(folder: folder, name: name)
+        case .hide(let items):
+            hide(items)
+        case .unhide(let identities):
+            unhide(identities)
+        case .ungroupFolder(let folder):
+            ungroup(folder: folder)
         }
     }
 
@@ -369,5 +404,54 @@ private struct Editor {
         case .empty:
             []
         }
+    }
+
+    // 文件夹按全部成员（含未安装）隐藏；应用按身份查找，文件夹内的也能找到
+    mutating func hide(_ items: [LayoutItemID]) -> Bool {
+        var identities: [AppIdentity] = []
+        for item in items {
+            switch item {
+            case .app(let key):
+                if let app = appsByKey[key] {
+                    identities.append(app.identity)
+                }
+            case .folder:
+                if let location = locate(item), case .folder(let folder) = pages[location.page][location.slot] {
+                    identities += folder.apps
+                }
+            }
+        }
+        var keys = hiddenKeys
+        var next = hidden
+        for identity in identities where !next.contains(identity) {
+            if let key = key(of: identity) {
+                guard keys.insert(key).inserted else {
+                    continue
+                }
+            }
+            next.append(identity)
+        }
+        hidden = next
+        return true
+    }
+
+    mutating func unhide(_ identities: [AppIdentity]) -> Bool {
+        let keys = resolver.keys(of: identities)
+        hidden = hidden.filter { identity in
+            !identities.contains(identity) && key(of: identity).map(keys.contains) != true
+        }
+        return true
+    }
+
+    mutating func ungroup(folder folderID: String) -> Bool {
+        guard let location = locate(.folder(folderID)),
+              case .folder(let folder) = pages[location.page][location.slot] else {
+            return false
+        }
+        pages[location.page].remove(at: location.slot)
+        pages[location.page].append(contentsOf: folder.apps.map(LayoutSlot.app))
+        cascade(from: location.page)
+        pages = pages.filter { !$0.isEmpty }
+        return true
     }
 }

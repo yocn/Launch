@@ -297,4 +297,81 @@ final class LayoutEditorTests: XCTestCase {
 
         XCTAssertEqual(result.hiddenApps, [gone])
     }
+
+    private func applyDocument(
+        _ edit: LayoutEdit,
+        _ pages: [[LayoutSlot]],
+        hidden: [AppIdentity] = [],
+        capacity: Int = 35
+    ) -> LayoutDocument {
+        LayoutEditor.apply(
+            edit,
+            to: LayoutDocument(pages: pages.map { LayoutPage(slots: $0) }, hiddenApps: hidden),
+            catalog: catalog,
+            pageCapacity: capacity,
+            makeFolderID: { "new" }
+        )
+    }
+
+    func testHideAppAndFolderMembersKeepsPositions() {
+        let pages = [[slot(a), folder("f", [b, c]), slot(d)]]
+
+        let result = applyDocument(.hide([id(a), .folder("f")]), pages)
+
+        XCTAssertEqual(result.pages.map(\.slots), pages)
+        XCTAssertEqual(result.hiddenApps, [a.identity, b.identity, c.identity])
+    }
+
+    func testHideFolderMemberByKey() {
+        let result = applyDocument(.hide([id(b)]), [[folder("f", [b, c])]])
+
+        XCTAssertEqual(result.hiddenApps, [b.identity])
+    }
+
+    func testHidingHiddenAppChangesNothing() {
+        let document = LayoutDocument(pages: [LayoutPage(slots: [slot(a), slot(b)])], hiddenApps: [a.identity])
+
+        XCTAssertEqual(
+            LayoutEditor.apply(.hide([id(a)]), to: document, catalog: catalog, pageCapacity: 35),
+            document
+        )
+    }
+
+    func testHiddenAppsTakeNoCapacityAndCannotAnchor() {
+        let result = applyDocument(
+            .move(id(d), to: .insert(page: 0, before: id(b))),
+            [[slot(a), slot(b), slot(c)], [slot(d)]],
+            hidden: [b.identity],
+            capacity: 3
+        )
+
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), slot(b), slot(c), slot(d)]])
+    }
+
+    func testUnhideRestoresOriginalPosition() {
+        let pages = [[slot(a), slot(b), slot(c)]]
+
+        let result = applyDocument(.unhide([b.identity]), pages, hidden: [b.identity, c.identity])
+
+        XCTAssertEqual(result.pages.map(\.slots), pages)
+        XCTAssertEqual(result.hiddenApps, [c.identity])
+    }
+
+    func testUnhideMatchesMovedInstall() {
+        let moved = AppIdentity(bundleIdentifier: b.identity.bundleIdentifier, path: "/Old/B.app")
+
+        let result = applyDocument(.unhide([b.identity]), [[slot(a), slot(b)]], hidden: [moved])
+
+        XCTAssertEqual(result.hiddenApps, [])
+    }
+
+    func testUngroupAppendsMembersToPageEndAndCascades() {
+        let result = applyDocument(
+            .ungroupFolder("f"),
+            [[folder("f", [b, c]), slot(a), .app(gone)], [slot(d)]],
+            capacity: 2
+        )
+
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), .app(gone), slot(b)], [slot(c), slot(d)]])
+    }
 }
