@@ -66,9 +66,14 @@ final class AlertUninstallPrompter: UninstallPrompting {
         _ = Self.run(alert)
     }
 
-    // 启动器面板在 statusBar 层级，提示框要更高才不会被挡住
+    // 启动器面板在 statusBar 层级；runModal 会把层级重设为模态面板层级，要在模态会话里再调高
+    // 卸载流程在主线程 Task 里，模态期间主队列不会重入，只能用运行循环的模态模式执行
     private static func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
-        alert.window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+        RunLoop.main.perform(inModes: [.modalPanel]) {
+            MainActor.assumeIsolated {
+                alert.window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+            }
+        }
         return alert.runModal()
     }
 }
