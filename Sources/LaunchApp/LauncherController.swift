@@ -53,6 +53,7 @@ final class LauncherController {
         }
         model.prepareForPresentation()
         presenter.present()
+        model.setPresented(true)
     }
 
     func toggle() {
@@ -67,6 +68,7 @@ final class LauncherController {
         guard presenter.isVisible else {
             return
         }
+        model.setPresented(false)
         presenter.dismiss(restoringPreviousApp: reason.restoresPreviousApp)
     }
 

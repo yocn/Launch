@@ -54,6 +54,7 @@ final class LauncherModel {
     private(set) var renamingFolderID: String?
     private(set) var multiSelection = MultiSelection()
     private(set) var marqueeRect: CGRect?
+    private(set) var isPresented = false
     private(set) var hiddenApps: [CatalogApp] = []
     private(set) var wallpaper: Wallpaper?
     var showsHiddenAppsInSearch = false
@@ -932,6 +933,10 @@ final class LauncherModel {
 
     func updateWallpaper(_ wallpaper: Wallpaper?) {
         self.wallpaper = wallpaper
+    }
+
+    func setPresented(_ presented: Bool) {
+        isPresented = presented
     }
 
     func updateLayout(_ pages: [[ResolvedItem]]) {

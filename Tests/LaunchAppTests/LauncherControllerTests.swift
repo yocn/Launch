@@ -325,6 +325,22 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testPresentedStateFollowsShowAndHide() {
+        let (controller, presenter) = makeController()
+        XCTAssertFalse(controller.model.isPresented)
+
+        controller.show()
+        XCTAssertTrue(controller.model.isPresented)
+
+        controller.hide(.escape)
+        XCTAssertFalse(controller.model.isPresented)
+
+        controller.show()
+        XCTAssertTrue(controller.model.isPresented)
+        XCTAssertEqual(presenter.presentCount, 2)
+    }
+
+    @MainActor
     private func makeController(
         apps: [CatalogApp] = [],
         iconCache: IconCache = IconCache { _ in NSImage() },
