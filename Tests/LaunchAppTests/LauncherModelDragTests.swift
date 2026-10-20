@@ -270,4 +270,19 @@ final class LauncherModelDragTests: XCTestCase {
 
         XCTAssertNil(model.renamingFolderID)
     }
+
+    @MainActor
+    func testPageDragIsIgnoredWhileDraggingItem() {
+        let apps = makeApps(count: 40)
+        let (model, _) = makeModel(pages: [Array(apps[0 ..< 35]).map(ResolvedItem.app), Array(apps[35...]).map(ResolvedItem.app)])
+
+        begin(model, at: center(0))
+        model.dragPage(by: -25)
+        model.cancelItemDrag()
+        model.endPageDrag(predictedTranslation: -900, velocity: -3000)
+
+        XCTAssertFalse(model.needsPagerFrames)
+        XCTAssertEqual(model.gridPosition, 0)
+        XCTAssertEqual(model.currentPage, 0)
+    }
 }

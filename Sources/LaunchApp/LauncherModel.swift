@@ -393,6 +393,10 @@ final class LauncherModel {
     }
 
     func dragPage(by translation: CGFloat) {
+        // 发起图标拖拽的那次拖动事件也会被转给 SwiftUI 翻页手势，且它永远收不到结束
+        guard dragSession == nil else {
+            return
+        }
         isPageDragging = true
         if openFolder != nil {
             folderMotion.updateDrag(translation: translation)
@@ -403,6 +407,9 @@ final class LauncherModel {
     }
 
     func endPageDrag(predictedTranslation: CGFloat, velocity: CGFloat = 0) {
+        guard isPageDragging else {
+            return
+        }
         let target = PageDragResolver.targetPage(
             currentPage: activePage,
             pageCount: activePageCount,
