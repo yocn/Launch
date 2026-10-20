@@ -77,6 +77,8 @@ final class LauncherController {
     func handleBackgroundClick() {
         if model.openFolderID != nil {
             model.closeFolder()
+        } else if model.isJiggling {
+            model.endJiggling()
         } else {
             hide(.backgroundClick)
         }
@@ -107,7 +109,7 @@ final class LauncherController {
     }
 
     func launch(_ app: CatalogApp) {
-        guard openApplication(URL(fileURLWithPath: app.identity.path)) else {
+        guard !model.isJiggling, openApplication(URL(fileURLWithPath: app.identity.path)) else {
             return
         }
         hide(.launchedApp)

@@ -222,6 +222,42 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testBackgroundClickStopsJigglingBeforeClosing() {
+        let apps = makeApps(count: 3)
+        let (controller, presenter) = makeController(apps: apps)
+        controller.show()
+        controller.model.updateLayout([apps.map(ResolvedItem.app)])
+        controller.model.canEditLayout = true
+        controller.model.beginJiggling()
+
+        controller.handleBackgroundClick()
+        XCTAssertFalse(controller.model.isJiggling)
+        XCTAssertTrue(presenter.isVisible)
+
+        controller.handleBackgroundClick()
+        XCTAssertFalse(presenter.isVisible)
+    }
+
+    @MainActor
+    func testLaunchIsIgnoredWhileJiggling() {
+        let apps = makeApps(count: 3)
+        var opened: [URL] = []
+        let (controller, presenter) = makeController(apps: apps, openApplication: { url in
+            opened.append(url)
+            return true
+        })
+        controller.show()
+        controller.model.updateLayout([apps.map(ResolvedItem.app)])
+        controller.model.canEditLayout = true
+        controller.model.beginJiggling()
+
+        controller.launch(apps[0])
+
+        XCTAssertTrue(opened.isEmpty)
+        XCTAssertTrue(presenter.isVisible)
+    }
+
+    @MainActor
     private func makeController(
         apps: [CatalogApp] = [],
         iconCache: IconCache = IconCache { _ in NSImage() },
