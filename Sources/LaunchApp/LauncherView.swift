@@ -370,7 +370,24 @@ private struct GridCell<ItemView: View>: View {
                     from: model.landing?.entryID == entry.id ? model.landing?.from : nil,
                     onFinished: { model.clearLanding() }
                 ))
+                .overlay(alignment: .topLeading) {
+                    let showsBadge = showsUninstallBadge(for: item)
+                    ZStack {
+                        if showsBadge {
+                            UninstallBadge(layout: layout)
+                        }
+                    }
+                    .animation(.spring(response: 0.3, dampingFraction: 0.55), value: showsBadge)
+                }
+                .modifier(JiggleModifier(isActive: model.isJiggling, seed: entry.id.hashValue))
         }
+    }
+
+    private func showsUninstallBadge(for item: ResolvedItem) -> Bool {
+        guard model.isJiggling, case .app(let app) = item else {
+            return false
+        }
+        return model.canUninstall(app)
     }
 }
 
@@ -396,6 +413,43 @@ private struct LandingModifier: ViewModifier {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: onFinished)
             }
             .offset(offset ?? .zero)
+    }
+}
+
+private struct UninstallBadge: View {
+    let layout: LauncherHomeLayout
+
+    var body: some View {
+        let side = layout.uninstallBadgeSide
+        Image(systemName: "xmark")
+            .font(.system(size: side * 0.42, weight: .bold))
+            .foregroundStyle(.black.opacity(0.75))
+            .frame(width: side, height: side)
+            .background(Circle().fill(.white.opacity(0.92)))
+            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .offset(x: (layout.tileWidth - layout.iconSide) / 2 - side * 0.2, y: layout.tilePadding - side * 0.2)
+            .transition(.scale.combined(with: .opacity))
+            .accessibilityLabel("移到废纸篓")
+    }
+}
+
+// 抖动时各图标以略有差异的周期左右摇摆
+private struct JiggleModifier: ViewModifier {
+    let isActive: Bool
+    let seed: Int
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isActive {
+            let period = 0.11 + Double(((seed % 5) + 5) % 5) * 0.008
+            content.phaseAnimator([-1.0, 1.0]) { view, phase in
+                view.rotationEffect(.degrees(phase * 2))
+            } animation: { _ in
+                .easeInOut(duration: period)
+            }
+        } else {
+            content
+        }
     }
 }
 
