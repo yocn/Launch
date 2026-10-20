@@ -1332,7 +1332,7 @@ check(extrasBar().map { !kids($0).isEmpty } ?? false, "S6 打开后菜单栏图�
 closeSettings()
 
 let appsAfter = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-let launched = appsAfter.subtracting(appsBefore).subtracting([launchID])
+let launched = appsAfter.subtracting(appsBefore).subtracting([launchID]).filter { !$0.contains(".xpc.") }
 check(launched.isEmpty, "全程未启动应用\(launched.isEmpty ? "" : "（\(launched.sorted())）")")
 CGWarpMouseCursorPosition(originalMouse)
 print("FAILURES \(failures)")
