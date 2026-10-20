@@ -27,12 +27,18 @@ struct LauncherView: View {
     @FocusState private var searchFieldIsFocused: Bool
     @State private var folderFrames: [String: CGRect] = [:]
     @State private var dragTracker = PageDragTracker()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     nonisolated private static let contentSpace = "launcher-content"
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
                 LauncherBackground(model: model, settings: settings)
+                    .opacity(model.isPresented ? 1 : 0)
+                    .animation(
+                        PresentationTransition.backgroundAnimation(presented: model.isPresented),
+                        value: model.isPresented
+                    )
                     .ignoresSafeArea()
                     .onTapGesture(perform: onBackgroundClick)
 
@@ -59,6 +65,12 @@ struct LauncherView: View {
                 }
                 .frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 .coordinateSpace(.named(Self.contentSpace))
+                .animation(PresentationTransition.scaleAnimation(presented: model.isPresented)) {
+                    $0.scaleEffect(model.isPresented || reduceMotion ? 1 : PresentationTransition.hiddenScale)
+                }
+                .animation(PresentationTransition.opacityAnimation(presented: model.isPresented)) {
+                    $0.opacity(model.isPresented ? 1 : 0)
+                }
                 .onChange(of: layout, initial: true) {
                     model.updateHomeLayout(layout)
                 }

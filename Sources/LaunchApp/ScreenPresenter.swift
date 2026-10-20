@@ -31,6 +31,7 @@ final class ScreenPresenter: LauncherPresenting {
     var onResignActive: (() -> Void)?
     private let panel: LauncherPanel
     private var resignObserver: NSObjectProtocol?
+    private let dismissal = DelayedDismissal()
 
     init() {
         panel = LauncherPanel(
@@ -63,8 +64,9 @@ final class ScreenPresenter: LauncherPresenting {
 
     var onPresent: ((NSScreen) -> Void)?
 
+    // 隐藏动画进行中视为已关闭，此时再次唤起会从当前状态反向
     var isVisible: Bool {
-        panel.isVisible
+        panel.isVisible && !dismissal.isPending
     }
 
     func isLauncherWindow(_ window: NSWindow?) -> Bool {
@@ -105,6 +107,8 @@ final class ScreenPresenter: LauncherPresenting {
     }
 
     func present() {
+        dismissal.cancel()
+        panel.ignoresMouseEvents = false
         guard let screen = targetScreen() else {
             return
         }
@@ -115,10 +119,18 @@ final class ScreenPresenter: LauncherPresenting {
         panel.makeKeyAndOrderFront(nil)
     }
 
+    // 等隐藏动画播完再收起；立即切回之前的应用会把动画打断
     func dismiss(restoringPreviousApp: Bool) {
-        panel.orderOut(nil)
-        if restoringPreviousApp {
-            NSApp.hide(nil)
+        panel.ignoresMouseEvents = true
+        dismissal.start(after: PresentationTransition.hideDuration) { [weak self] in
+            guard let self else {
+                return
+            }
+            panel.orderOut(nil)
+            panel.ignoresMouseEvents = false
+            if restoringPreviousApp {
+                NSApp.hide(nil)
+            }
         }
     }
 
