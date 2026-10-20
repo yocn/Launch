@@ -39,10 +39,16 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private lazy var pagerDriver = PagerDriver(model: controller.model) { [weak self] target, selector in
         self?.presenter.makeDisplayLink(target: target, selector: selector)
     }
+    private lazy var uninstallCoordinator = UninstallCoordinator(
+        uninstaller: AppUninstaller(),
+        prompter: AlertUninstallPrompter(),
+        onRemoved: { [weak self] in self?.catalogWatcher?.rescan() }
+    )
     private lazy var itemDragController = ItemDragController(
         model: controller.model,
         presenter: presenter,
         onActivate: { [weak self] item in self?.activate(item) },
+        onUninstall: { [weak self] app in self?.uninstall(app) },
         makeDragImage: { [weak self] item in self?.dragImage(for: item) }
     )
 
@@ -74,6 +80,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         }
         controller.onUndoLayoutEdit = { [weak self] in
             self?.layoutCoordinator.undo()
+        }
+        controller.model.canUninstall = { [weak self] app in
+            self?.uninstallCoordinator.canUninstall(app) ?? false
         }
         layoutCoordinator.start()
         inputMonitor.start(
@@ -112,6 +121,12 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         controller.show()
         return false
+    }
+
+    private func uninstall(_ app: CatalogApp) {
+        Task {
+            await uninstallCoordinator.uninstall(app)
+        }
     }
 
     private func activate(_ item: ResolvedItem) {

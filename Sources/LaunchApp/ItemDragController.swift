@@ -1,17 +1,22 @@
 import AppKit
 import LaunchCore
 
-// 图标上的鼠标事件全部由这里接管：点击自行执行，移动超过阈值即发起系统拖拽会话
+// 图标上的鼠标事件全部由这里接管：点击自行执行，长按进入抖动，移动超过阈值即发起系统拖拽会话
 @MainActor
 final class ItemDragController: NSObject, NSDraggingSource {
     private static let dragThreshold: CGFloat = 4
+    private static let longPressDuration: TimeInterval = 0.5
 
     private let model: LauncherModel
     private let presenter: ScreenPresenter
     private let onActivate: (ResolvedItem) -> Void
+    private let onUninstall: (CatalogApp) -> Void
     private let makeDragImage: (ResolvedItem) -> NSImage?
     private var monitors: [Any] = []
     private var press: LauncherModel.ItemPress?
+    private var badgePress: CatalogApp?
+    private var didLongPress = false
+    private var longPressTimer: Timer?
     private var pressPoint: CGPoint = .zero
     private var lastPoint: CGPoint = .zero
     private var timer: Timer?
@@ -20,11 +25,13 @@ final class ItemDragController: NSObject, NSDraggingSource {
         model: LauncherModel,
         presenter: ScreenPresenter,
         onActivate: @escaping (ResolvedItem) -> Void,
+        onUninstall: @escaping (CatalogApp) -> Void,
         makeDragImage: @escaping (ResolvedItem) -> NSImage?
     ) {
         self.model = model
         self.presenter = presenter
         self.onActivate = onActivate
+        self.onUninstall = onUninstall
         self.makeDragImage = makeDragImage
     }
 
@@ -50,15 +57,29 @@ final class ItemDragController: NSObject, NSDraggingSource {
 
     private func mouseDown(_ event: NSEvent) -> NSEvent? {
         press = nil
-        guard let point = globalPoint(of: event), let hit = model.itemPress(at: point) else {
+        badgePress = nil
+        cancelLongPress()
+        guard let point = globalPoint(of: event) else {
+            return event
+        }
+        if let app = model.uninstallTarget(at: point) {
+            badgePress = app
+            return nil
+        }
+        guard let hit = model.itemPress(at: point) else {
             return event
         }
         press = hit
         pressPoint = point
+        didLongPress = false
+        startLongPress()
         return nil
     }
 
     private func mouseDragged(_ event: NSEvent) -> NSEvent? {
+        if badgePress != nil {
+            return nil
+        }
         guard let press else {
             return event
         }
@@ -68,6 +89,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
         }
         // 拖拽被 Esc 取消后仍会收到松开事件，提前清掉点击候选
         self.press = nil
+        cancelLongPress()
         if model.canDragItems {
             beginSession(press, event: event)
         }
@@ -75,12 +97,44 @@ final class ItemDragController: NSObject, NSDraggingSource {
     }
 
     private func mouseUp(_ event: NSEvent) -> NSEvent? {
+        if let app = badgePress {
+            badgePress = nil
+            onUninstall(app)
+            return nil
+        }
         guard let press else {
             return event
         }
         self.press = nil
-        onActivate(press.item)
+        cancelLongPress()
+        if !didLongPress {
+            onActivate(press.item)
+        }
         return nil
+    }
+
+    private func startLongPress() {
+        let timer = Timer(timeInterval: Self.longPressDuration, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.longPressFired()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        longPressTimer = timer
+    }
+
+    private func longPressFired() {
+        longPressTimer = nil
+        guard press != nil, model.canDragItems else {
+            return
+        }
+        didLongPress = true
+        model.beginJiggling()
+    }
+
+    private func cancelLongPress() {
+        longPressTimer?.invalidate()
+        longPressTimer = nil
     }
 
     private func beginSession(_ press: LauncherModel.ItemPress, event: NSEvent) {

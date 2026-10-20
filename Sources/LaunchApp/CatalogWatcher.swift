@@ -69,7 +69,7 @@ final class CatalogWatcher {
         self.stream = stream
     }
 
-    private func rescan() {
+    func rescan() {
         let roots = roots
         let scan = scan
         let onChange = onChange
