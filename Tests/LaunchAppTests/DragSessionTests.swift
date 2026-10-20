@@ -122,4 +122,54 @@ final class DragSessionTests: XCTestCase {
         XCTAssertEqual(confirmed(.merge(page: 0, index: 4)).dropTarget(for: .target(.merge(page: 0, index: 4))), .merge(page: 0, index: 4))
         XCTAssertEqual(confirmed(.insert(page: 0, index: 1)).dropTarget(for: .none), .insert(page: 0, index: 1))
     }
+
+    private func groupSession(target: DragTarget? = nil) -> DragSession {
+        var session = DragSession(item: .app(app), origin: .grid(page: 0, index: 1), group: [0: [1, 3], 1: [0]])
+        if let target {
+            _ = session.update(hit: .target(target), outsideFolder: false, now: 0)
+            _ = session.update(hit: .target(target), outsideFolder: false, now: 1)
+        }
+        return session
+    }
+
+    func testGroupPreviewRemovesPickedItemsOnEveryPage() {
+        let preview = groupSession().preview
+
+        XCTAssertEqual(preview.count, 3)
+        XCTAssertEqual(preview.entries(page: 0, itemCount: 5, capacity: 35, in: .grid), [.item(0), .item(2), .item(4)])
+        XCTAssertEqual(preview.entries(page: 1, itemCount: 2, capacity: 35, in: .grid), [.item(1)])
+    }
+
+    func testGroupPreviewOpensOneGapPerItemAtInsertion() {
+        let preview = groupSession(target: .insert(page: 0, index: 1)).preview
+
+        XCTAssertEqual(
+            preview.entries(page: 0, itemCount: 5, capacity: 35, in: .grid),
+            [.item(0), .gap, .gap, .gap, .item(2), .item(4)]
+        )
+        XCTAssertEqual(preview.entries(page: 0, itemCount: 5, capacity: 4, in: .grid), [.item(0), .gap, .gap, .gap])
+    }
+
+    func testGroupHitSkipsPickedItemsAndGapsKeepTarget() {
+        let preview = groupSession(target: .insert(page: 0, index: 1)).preview
+        let entries = preview.entries(page: 0, itemCount: 5, capacity: 35, in: .grid)
+
+        XCTAssertEqual(preview.hit(for: .item(4, .leading), entries: entries, itemCount: 5, page: 0, in: .grid), .target(.insert(page: 0, index: 1)))
+        XCTAssertEqual(preview.hit(for: .item(5, .trailing), entries: entries, itemCount: 5, page: 0, in: .grid), .target(.insert(page: 0, index: 3)))
+        XCTAssertEqual(preview.hit(for: .item(3, .leading), entries: entries, itemCount: 5, page: 0, in: .grid), .target(.insert(page: 0, index: 1)))
+        XCTAssertEqual(preview.hit(for: .item(4, .center), entries: entries, itemCount: 5, page: 0, in: .grid), .target(.merge(page: 0, index: 2)))
+        XCTAssertEqual(preview.hit(for: .end, entries: entries, itemCount: 5, page: 0, in: .grid), .target(.insert(page: 0, index: 3)))
+    }
+
+    func testGroupLedByFolderCanMerge() {
+        let folder = ResolvedItem.folder(ResolvedFolder(id: "f", name: "x", apps: [app]))
+        let preview = DragSession(item: folder, origin: .grid(page: 0, index: 0), group: [0: [0, 1]]).preview
+        let entries = preview.entries(page: 0, itemCount: 4, capacity: 35, in: .grid)
+
+        XCTAssertEqual(preview.hit(for: .item(0, .center), entries: entries, itemCount: 4, page: 0, in: .grid), .target(.merge(page: 0, index: 2)))
+    }
+
+    func testGroupDropTreatsUnconfirmedMergeAsInsert() {
+        XCTAssertEqual(groupSession().dropTarget(for: .target(.merge(page: 0, index: 4))), .insert(page: 0, index: 2))
+    }
 }

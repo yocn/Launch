@@ -44,11 +44,24 @@ enum PreviewEntry: Equatable {
 struct DragPreview: Equatable {
     let item: ResolvedItem
     let origin: DragOrigin
+    // 一起拖动时各页被拿起项的位置（含按住的那个）；单项拖拽为空
+    let group: [Int: [Int]]
     let area: DragArea
     let target: DragTarget?
     let hasExtraPage: Bool
 
+    var isGroup: Bool {
+        !group.isEmpty
+    }
+
+    var count: Int {
+        isGroup ? group.values.reduce(0) { $0 + $1.count } : 1
+    }
+
     var canMerge: Bool {
+        if isGroup {
+            return true
+        }
         if case .app = item {
             return true
         }
@@ -66,7 +79,17 @@ struct DragPreview: Equatable {
         }
     }
 
+    func sourceIndices(onPage page: Int, in pageArea: DragArea) -> [Int] {
+        guard isGroup else {
+            return sourceIndex(onPage: page, in: pageArea).map { [$0] } ?? []
+        }
+        return pageArea == .grid ? group[page] ?? [] : []
+    }
+
     func entries(page: Int, itemCount: Int, capacity: Int, in pageArea: DragArea) -> [PreviewEntry] {
+        if isGroup {
+            return groupEntries(page: page, itemCount: itemCount, capacity: capacity, in: pageArea)
+        }
         var entries = (0 ..< itemCount).map(PreviewEntry.item)
         let source = sourceIndex(onPage: page, in: pageArea)
         let isActive = pageArea == area
@@ -88,23 +111,37 @@ struct DragPreview: Equatable {
         return entries
     }
 
+    private func groupEntries(page: Int, itemCount: Int, capacity: Int, in pageArea: DragArea) -> [PreviewEntry] {
+        let sources = Set(sourceIndices(onPage: page, in: pageArea))
+        var entries = (0 ..< itemCount).filter { !sources.contains($0) }.map(PreviewEntry.item)
+        if pageArea == area, case .insert(let targetPage, let index)? = target, targetPage == page {
+            entries.insert(contentsOf: repeatElement(.gap, count: count), at: min(index, entries.count))
+            return Array(entries.prefix(capacity))
+        }
+        return entries
+    }
+
     func hit(for gridHit: GridHit, entries: [PreviewEntry], itemCount: Int, page: Int, in pageArea: DragArea) -> DragHit {
-        let source = sourceIndex(onPage: page, in: pageArea)
+        let sources = sourceIndices(onPage: page, in: pageArea)
         switch gridHit {
         case .outside:
             return .none
         case .edge(let direction):
             return pageArea == .grid ? .edge(direction) : .none
         case .end:
-            return .target(.insert(page: page, index: itemCount - (source == nil ? 0 : 1)))
+            return .target(.insert(page: page, index: itemCount - sources.count))
         case .item(let cell, let zone):
             guard case .item(let index) = entries[cell] else {
+                // 一组空位都代表当前插入位置
+                if isGroup, pageArea == area, let target, case .insert = target, target.page == page {
+                    return .target(target)
+                }
                 return .target(.insert(page: page, index: cell))
             }
             if zone == .center, canMerge, pageArea == .grid {
                 return .target(.merge(page: page, index: index))
             }
-            let remaining = source.map { index > $0 ? index - 1 : index } ?? index
+            let remaining = index - sources.filter { $0 < index }.count
             return .target(.insert(page: page, index: zone == .trailing ? remaining + 1 : remaining))
         }
     }
@@ -119,6 +156,7 @@ struct DragSession {
 
     let item: ResolvedItem
     let origin: DragOrigin
+    let group: [Int: [Int]]
     private(set) var area: DragArea
     private(set) var target: DragTarget?
     private(set) var hasExtraPage = false
@@ -129,9 +167,10 @@ struct DragSession {
     private var edgeTurns = 0
     private var outsideFolderSince: TimeInterval?
 
-    init(item: ResolvedItem, origin: DragOrigin) {
+    init(item: ResolvedItem, origin: DragOrigin, group: [Int: [Int]] = [:]) {
         self.item = item
         self.origin = origin
+        self.group = group
         if case .folder = origin {
             area = .folder
         } else {
@@ -140,7 +179,7 @@ struct DragSession {
     }
 
     var preview: DragPreview {
-        DragPreview(item: item, origin: origin, area: area, target: target, hasExtraPage: hasExtraPage)
+        DragPreview(item: item, origin: origin, group: group, area: area, target: target, hasExtraPage: hasExtraPage)
     }
 
     mutating func addExtraPage() {
@@ -192,8 +231,8 @@ struct DragSession {
         guard hitTarget != target, case .merge(let page, let index) = hitTarget else {
             return hitTarget
         }
-        let source = preview.sourceIndex(onPage: page, in: area)
-        return .insert(page: page, index: source.map { index > $0 ? index - 1 : index } ?? index)
+        let sources = preview.sourceIndices(onPage: page, in: area)
+        return .insert(page: page, index: index - sources.filter { $0 < index }.count)
     }
 
     private mutating func updateTarget(hit: DragHit, now: TimeInterval) {
