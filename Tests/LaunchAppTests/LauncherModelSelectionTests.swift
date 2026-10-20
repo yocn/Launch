@@ -179,7 +179,7 @@ final class LauncherModelSelectionTests: XCTestCase {
             [makeFolder(id: "f", name: "效率", apps: [apps[3]]), .app(apps[2])],
         ])
         let picked: [LayoutItemID] = [id(apps[1]), .folder("f"), id(apps[2])]
-        let commands: [SelectionCommand] = [.mergeIntoNewFolder, .mergeInto(folder: "f"), .moveToPage(0), .moveToNewPage]
+        let commands: [ItemMenuCommand] = [.mergeIntoNewFolder, .mergeInto(folder: "f"), .moveToPage(0), .moveToNewPage]
 
         for command in commands {
             for item in picked.reversed() {

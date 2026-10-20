@@ -247,7 +247,7 @@ final class LauncherModel {
         )
     }
 
-    func performSelectionCommand(_ command: SelectionCommand) {
+    func performSelectionCommand(_ command: ItemMenuCommand) {
         let items = multiSelection.ordered(in: pages)
         guard canMultiSelect, !items.isEmpty else {
             return
@@ -262,6 +262,10 @@ final class LauncherModel {
             edit = .moveGroup(items, to: .insert(page: page, before: nil))
         case .moveToNewPage:
             edit = .moveGroup(items, to: .newPage)
+        case .hideSelection:
+            edit = .hide(items)
+        case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup:
+            return
         }
         clearMultiSelection()
         selectedIndex = nil

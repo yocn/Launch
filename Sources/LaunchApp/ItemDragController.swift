@@ -12,7 +12,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private let onActivate: (ResolvedItem) -> Void
     private let onUninstall: (CatalogApp) -> Void
     private let makeDragImage: (ResolvedItem, Int) -> NSImage?
-    private lazy var selectionMenu = SelectionMenu { [weak self] command in
+    private lazy var selectionMenu = ItemMenu { [weak self] command in
         self?.model.performSelectionCommand(command)
     }
     private var monitors: [Any] = []
@@ -156,7 +156,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private func contextClick(at point: CGPoint, event: NSEvent) -> NSEvent? {
         if let content = model.selectionMenu(at: point), let view = presenter.contentView {
             let location = view.convert(event.locationInWindow, from: nil)
-            selectionMenu.makeMenu(content).popUp(positioning: nil, at: location, in: view)
+            selectionMenu.makeMenu(.selection(content)).popUp(positioning: nil, at: location, in: view)
             return nil
         }
         return model.itemPress(at: point) == nil ? event : nil
