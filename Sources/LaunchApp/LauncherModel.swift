@@ -29,6 +29,11 @@ final class LauncherModel {
         let isMergeTarget: Bool
     }
 
+    struct Landing: Equatable {
+        let entryID: String
+        let from: CGRect
+    }
+
     private(set) var apps: [CatalogApp]
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
@@ -41,6 +46,7 @@ final class LauncherModel {
     private(set) var gridPosition: CGFloat = 0
     private(set) var folderPosition: CGFloat = 0
     private(set) var dragPreview: DragPreview?
+    private(set) var landing: Landing?
     private(set) var renamingFolderID: String?
     var folderNameDraft = ""
     // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
@@ -231,12 +237,22 @@ final class LauncherModel {
             return
         }
         let preview = session.preview
-        let edit = session.dropTarget(for: dragHit(at: point, preview: preview))
-            .flatMap { layoutEdit(for: $0, preview: preview) }
+        let target = session.dropTarget(for: dragHit(at: point, preview: preview))
+        let edit = target.flatMap { layoutEdit(for: $0, preview: preview) }
+        if edit != nil, case .insert? = target, let frame = frame(of: preview.origin) {
+            landing = Landing(
+                entryID: Self.entryID(preview.item, index: 0),
+                from: frame.offsetBy(dx: point.x - dragStartPoint.x, dy: point.y - dragStartPoint.y)
+            )
+        }
         finishItemDrag()
         if let edit {
             onEdit?(edit)
         }
+    }
+
+    func clearLanding() {
+        landing = nil
     }
 
     func cancelItemDrag() {

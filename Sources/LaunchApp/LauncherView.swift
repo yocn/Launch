@@ -366,7 +366,36 @@ private struct GridCell<ItemView: View>: View {
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
                     }
                 }
+                .modifier(LandingModifier(
+                    from: model.landing?.entryID == entry.id ? model.landing?.from : nil,
+                    onFinished: { model.clearLanding() }
+                ))
         }
+    }
+}
+
+// 新位置的格子先偏移到松手处，再缓动回自身位置
+private struct LandingModifier: ViewModifier {
+    let from: CGRect?
+    let onFinished: @MainActor @Sendable () -> Void
+
+    @State private var offset: CGSize?
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .global)
+            } action: { frame in
+                guard let from, offset == nil else {
+                    return
+                }
+                offset = CGSize(width: from.minX - frame.minX, height: from.minY - frame.minY)
+                withAnimation(.easeOut(duration: 0.2)) {
+                    offset = .zero
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: onFinished)
+            }
+            .offset(offset ?? .zero)
     }
 }
 

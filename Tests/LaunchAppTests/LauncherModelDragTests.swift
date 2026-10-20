@@ -285,4 +285,35 @@ final class LauncherModelDragTests: XCTestCase {
         XCTAssertEqual(model.gridPosition, 0)
         XCTAssertEqual(model.currentPage, 0)
     }
+
+    @MainActor
+    func testInsertDropRecordsLandingFromPointerOffset() {
+        let apps = makeApps(count: 5)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let start = center(4)
+
+        begin(model, at: start)
+        model.endItemDrag(at: leading(1), now: 0)
+
+        XCTAssertEqual(model.landing?.entryID, "app:" + apps[4].identity.stableKey)
+        XCTAssertEqual(
+            model.landing?.from,
+            tile(4).offsetBy(dx: leading(1).x - start.x, dy: leading(1).y - start.y)
+        )
+        model.clearLanding()
+        XCTAssertNil(model.landing)
+    }
+
+    @MainActor
+    func testMergeDropHasNoLanding() {
+        let apps = makeApps(count: 5)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+
+        begin(model, at: center(0))
+        model.updateItemDrag(at: center(3), now: 0)
+        model.updateItemDrag(at: center(3), now: 0.15)
+        model.endItemDrag(at: center(3), now: 0.2)
+
+        XCTAssertNil(model.landing)
+    }
 }
