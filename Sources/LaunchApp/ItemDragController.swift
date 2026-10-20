@@ -11,9 +11,10 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private let presenter: ScreenPresenter
     private let onActivate: (ResolvedItem) -> Void
     private let onUninstall: (CatalogApp) -> Void
+    private let onMenuCommand: (ItemMenuCommand) -> Void
     private let makeDragImage: (ResolvedItem, Int) -> NSImage?
-    private lazy var selectionMenu = ItemMenu { [weak self] command in
-        self?.model.performMenuCommand(command)
+    private lazy var itemMenu = ItemMenu { [weak self] command in
+        self?.onMenuCommand(command)
     }
     private var monitors: [Any] = []
     private var press: LauncherModel.ItemPress?
@@ -31,12 +32,14 @@ final class ItemDragController: NSObject, NSDraggingSource {
         presenter: ScreenPresenter,
         onActivate: @escaping (ResolvedItem) -> Void,
         onUninstall: @escaping (CatalogApp) -> Void,
+        onMenuCommand: @escaping (ItemMenuCommand) -> Void,
         makeDragImage: @escaping (ResolvedItem, Int) -> NSImage?
     ) {
         self.model = model
         self.presenter = presenter
         self.onActivate = onActivate
         self.onUninstall = onUninstall
+        self.onMenuCommand = onMenuCommand
         self.makeDragImage = makeDragImage
     }
 
@@ -152,14 +155,13 @@ final class ItemDragController: NSObject, NSDraggingSource {
         return contextClick(at: point, event: event)
     }
 
-    // 本期只有选中项有菜单；落在其他图标上也吞掉，免得 ⌃ 单击启动应用
     private func contextClick(at point: CGPoint, event: NSEvent) -> NSEvent? {
-        if let content = model.selectionMenu(at: point), let view = presenter.contentView {
-            let location = view.convert(event.locationInWindow, from: nil)
-            selectionMenu.makeMenu(.selection(content)).popUp(positioning: nil, at: location, in: view)
-            return nil
+        guard let content = model.contextMenu(at: point), let view = presenter.contentView else {
+            return event
         }
-        return model.itemPress(at: point) == nil ? event : nil
+        let location = view.convert(event.locationInWindow, from: nil)
+        itemMenu.makeMenu(content).popUp(positioning: nil, at: location, in: view)
+        return nil
     }
 
     private func startLongPress() {

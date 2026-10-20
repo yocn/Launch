@@ -36,6 +36,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var catalogWatcher: CatalogWatcher?
     private let inputMonitor = LauncherInputMonitor()
+    private let appActions = AppActions()
     private lazy var pagerDriver = PagerDriver(model: controller.model) { [weak self] target, selector in
         self?.presenter.makeDisplayLink(target: target, selector: selector)
     }
@@ -49,6 +50,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         presenter: presenter,
         onActivate: { [weak self] item in self?.activate(item) },
         onUninstall: { [weak self] app in self?.uninstall(app) },
+        onMenuCommand: { [weak self] command in self?.performMenuCommand(command) },
         makeDragImage: { [weak self] item, count in self?.dragImage(for: item, count: count) }
     )
 
@@ -73,6 +75,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             controller.model.canEditLayout = layoutCoordinator.isEditable
+            controller.model.updateHiddenApps(layoutCoordinator.hiddenApps)
             controller.model.updateLayout(pages)
         }
         controller.model.onEdit = { [weak self] edit in
@@ -104,7 +107,10 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                     Task { await self?.layoutCoordinator.importFromLaunchpad() }
                 },
                 canRestore: { [weak self] in self?.layoutCoordinator.canRestore ?? false },
-                restoreLayout: { [weak self] in self?.layoutCoordinator.restoreBackup() }
+                restoreLayout: { [weak self] in self?.layoutCoordinator.restoreBackup() },
+                hiddenApps: { [weak self] in self?.layoutCoordinator.hiddenApps ?? [] },
+                unhide: { [weak self] app in self?.layoutCoordinator.unhide(app) },
+                unhideAll: { [weak self] in self?.layoutCoordinator.unhideAll() }
             ),
             hasHotKeyConflict: { [weak self] in self?.hasHotKeyConflict() ?? false },
             onOpen: { [weak self] in self?.controller.show() }
@@ -137,6 +143,21 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             controller.model.showFolder(id: folder.id)
         case .empty:
             break
+        }
+    }
+
+    private func performMenuCommand(_ command: ItemMenuCommand) {
+        switch command {
+        case .open(let item):
+            activate(item)
+        case .revealInFinder(let app):
+            appActions.revealInFinder(app)
+        case .showInfo(let app):
+            appActions.showInfo(app)
+        case .moveToTrash(let app):
+            uninstall(app)
+        default:
+            controller.model.performMenuCommand(command)
         }
     }
 
