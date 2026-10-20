@@ -23,7 +23,7 @@ final class PageScrollInterpreterTests: XCTestCase {
         XCTAssertEqual(interpreter.interpret(trackpad(-10, 0, .began, at: 0)), .drag(-10))
         XCTAssertEqual(interpreter.interpret(trackpad(-20, 0, .changed, at: 0.01)), .drag(-30))
         XCTAssertEqual(interpreter.interpret(trackpad(-20, 0, .changed, at: 0.02)), .drag(-50))
-        guard case .endDrag(let predicted)? = interpreter.interpret(trackpad(0, 0, .ended, at: 0.03)) else {
+        guard case .endDrag(let predicted, _)? = interpreter.interpret(trackpad(0, 0, .ended, at: 0.03)) else {
             return XCTFail("expected endDrag")
         }
 

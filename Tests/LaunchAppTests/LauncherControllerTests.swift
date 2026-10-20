@@ -204,7 +204,7 @@ final class LauncherControllerTests: XCTestCase {
 
         controller.handle(.dragPage(-500))
         XCTAssertEqual(controller.model.pageDragOffset, -500)
-        controller.handle(.endPageDrag(predictedTranslation: -500))
+        controller.handle(.endPageDrag(predictedTranslation: -500, velocity: 0))
 
         XCTAssertEqual(controller.model.currentPage, 1)
     }

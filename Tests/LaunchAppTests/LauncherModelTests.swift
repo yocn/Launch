@@ -277,6 +277,54 @@ final class LauncherModelTests: XCTestCase {
     }
 
     @MainActor
+    func testPageTurnCommitsPageAndAnimatesPositionOnFrames() {
+        let model = LauncherModel(apps: makeApps(count: 40))
+        model.updatePageWidth(1000)
+        var frameRequests = 0
+        model.onNeedsFrames = { frameRequests += 1 }
+
+        model.turnPage(.next)
+        XCTAssertEqual(model.currentPage, 1)
+        XCTAssertEqual(model.gridPosition, 0)
+        XCTAssertTrue(model.needsPagerFrames)
+        XCTAssertEqual(frameRequests, 1)
+
+        for _ in 0 ..< 120 {
+            model.advancePager(by: 1.0 / 120)
+        }
+        XCTAssertEqual(model.gridPosition, 1, accuracy: 0.0001)
+        XCTAssertFalse(model.needsPagerFrames)
+    }
+
+    @MainActor
+    func testDragPositionUpdatesOnlyWhenFramesAdvance() {
+        let model = LauncherModel(apps: makeApps(count: 40))
+        model.updatePageWidth(1000)
+
+        model.dragPage(by: -250)
+        XCTAssertEqual(model.gridPosition, 0)
+
+        model.advancePager(by: 1.0 / 120)
+        XCTAssertEqual(model.gridPosition, 0.25, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func testQueryChangeJumpsWithoutAnimation() {
+        let model = LauncherModel(apps: makeApps(count: 40))
+        model.updatePageWidth(1000)
+        model.turnPage(.next)
+        for _ in 0 ..< 120 {
+            model.advancePager(by: 1.0 / 120)
+        }
+
+        model.setQuery("App")
+
+        XCTAssertEqual(model.currentPage, 0)
+        XCTAssertEqual(model.gridPosition, 0)
+        XCTAssertFalse(model.needsPagerFrames)
+    }
+
+    @MainActor
     func testShrinkingResultsClampsSelection() {
         let model = LauncherModel(apps: makeApps(count: 3))
         model.moveSelection(.right)

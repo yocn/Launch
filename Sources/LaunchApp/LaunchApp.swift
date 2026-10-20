@@ -36,6 +36,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var catalogWatcher: CatalogWatcher?
     private let inputMonitor = LauncherInputMonitor()
+    private lazy var pagerDriver = PagerDriver(model: controller.model) { [weak self] target, selector in
+        self?.presenter.makeDisplayLink(target: target, selector: selector)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         presenter.setContent(
@@ -46,6 +49,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 onLaunch: { [weak self] app in self?.controller.launch(app) }
             )
         )
+        controller.model.onNeedsFrames = { [weak self] in
+            self?.pagerDriver.start()
+        }
         presenter.onResignActive = { [weak self] in
             self?.controller.hide(.resignedActive)
         }

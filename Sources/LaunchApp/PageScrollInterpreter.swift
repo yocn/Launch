@@ -9,7 +9,7 @@ enum PageDirection: Equatable {
 enum ScrollAction: Equatable {
     case turn(PageDirection)
     case drag(CGFloat)
-    case endDrag(predictedTranslation: CGFloat)
+    case endDrag(predictedTranslation: CGFloat, velocity: CGFloat)
 }
 
 struct ScrollSample: Equatable {
@@ -79,7 +79,8 @@ struct PageScrollInterpreter {
         case .horizontal:
             recentDeltas = Array((recentDeltas + [(sample.deltaX, sample.timestamp)]).suffix(4))
             if sample.phase == .ended {
-                return .endDrag(predictedTranslation: gestureX + velocity() * flingDuration)
+                let speed = velocity()
+                return .endDrag(predictedTranslation: gestureX + speed * flingDuration, velocity: speed)
             }
             return .drag(gestureX)
         case .vertical:

@@ -20,9 +20,14 @@ final class LauncherModel {
     private(set) var openFolderID: String?
     private(set) var folderPage = 0
     private(set) var folderSelectedIndex: Int?
-    private(set) var isPageDragging = false
-    private(set) var pageDragTranslation: CGFloat = 0
-    private(set) var pageWidth: CGFloat = 0
+    private(set) var gridPosition: CGFloat = 0
+    private(set) var folderPosition: CGFloat = 0
+    // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
+    @ObservationIgnored private(set) var isPageDragging = false
+    @ObservationIgnored private(set) var pageWidth: CGFloat = 0
+    @ObservationIgnored private var gridMotion = PagerMotion()
+    @ObservationIgnored private var folderMotion = PagerMotion()
+    @ObservationIgnored var onNeedsFrames: (() -> Void)?
 
     init(apps: [CatalogApp] = []) {
         self.apps = apps
@@ -80,11 +85,16 @@ final class LauncherModel {
     }
 
     var pageDragOffset: CGFloat {
-        PageDragResolver.displayOffset(
-            translation: pageDragTranslation,
+        let translation = (openFolder != nil ? folderMotion : gridMotion).dragTranslation ?? 0
+        return PageDragResolver.displayOffset(
+            translation: translation,
             currentPage: activePage,
             pageCount: activePageCount
         )
+    }
+
+    var needsPagerFrames: Bool {
+        gridMotion.isActive || folderMotion.isActive
     }
 
     private var activePage: Int {
@@ -101,10 +111,15 @@ final class LauncherModel {
 
     func dragPage(by translation: CGFloat) {
         isPageDragging = true
-        pageDragTranslation = translation
+        if openFolder != nil {
+            folderMotion.updateDrag(translation: translation)
+        } else {
+            gridMotion.updateDrag(translation: translation)
+        }
+        onNeedsFrames?()
     }
 
-    func endPageDrag(predictedTranslation: CGFloat) {
+    func endPageDrag(predictedTranslation: CGFloat, velocity: CGFloat = 0) {
         let target = PageDragResolver.targetPage(
             currentPage: activePage,
             pageCount: activePageCount,
@@ -112,14 +127,57 @@ final class LauncherModel {
             pageWidth: pageWidth
         )
         isPageDragging = false
-        pageDragTranslation = 0
-        guard target != activePage else {
-            return
-        }
+        let pagesPerSecond = pageWidth > 0 ? -velocity / pageWidth : 0
         if openFolder != nil {
-            selectFolderPage(target)
+            folderMotion.release(velocity: pagesPerSecond)
+            if target != folderPage {
+                folderPage = target
+                folderSelectedIndex = nil
+            }
         } else {
-            selectPage(target)
+            gridMotion.release(velocity: pagesPerSecond)
+            if target != currentPage {
+                currentPage = target
+                selectedIndex = nil
+            }
+        }
+        onNeedsFrames?()
+    }
+
+    func advancePager(by dt: CGFloat) {
+        if gridMotion.isActive {
+            gridMotion.advance(page: currentPage, pageCount: pages.count, pageWidth: pageWidth, dt: dt)
+            if gridPosition != gridMotion.position {
+                gridPosition = gridMotion.position
+            }
+        }
+        if folderMotion.isActive {
+            folderMotion.advance(page: folderPage, pageCount: folderPages.count, pageWidth: pageWidth, dt: dt)
+            if folderPosition != folderMotion.position {
+                folderPosition = folderMotion.position
+            }
+        }
+    }
+
+    private func setGridPage(_ page: Int, animated: Bool) {
+        currentPage = page
+        if animated {
+            gridMotion.settle()
+            onNeedsFrames?()
+        } else {
+            gridMotion.jump(to: page)
+            gridPosition = CGFloat(page)
+        }
+    }
+
+    private func setFolderPage(_ page: Int, animated: Bool) {
+        folderPage = page
+        if animated {
+            folderMotion.settle()
+            onNeedsFrames?()
+        } else {
+            folderMotion.jump(to: page)
+            folderPosition = CGFloat(page)
         }
     }
 
@@ -128,7 +186,7 @@ final class LauncherModel {
             return
         }
         query = newQuery
-        currentPage = 0
+        setGridPage(0, animated: false)
         if newQuery.isEmpty {
             selectedIndex = nil
         } else {
@@ -139,12 +197,12 @@ final class LauncherModel {
 
     func selectPage(_ index: Int) {
         closeFolder()
-        currentPage = clampedPage(index)
+        setGridPage(clampedPage(index), animated: true)
         selectedIndex = nil
     }
 
     func selectFolderPage(_ index: Int) {
-        folderPage = LauncherPagination.normalizedPageIndex(index, pageCount: folderPages.count)
+        setFolderPage(LauncherPagination.normalizedPageIndex(index, pageCount: folderPages.count), animated: true)
         folderSelectedIndex = nil
     }
 
@@ -159,13 +217,13 @@ final class LauncherModel {
 
     func showFolder(id: String) {
         openFolderID = id
-        folderPage = 0
+        setFolderPage(0, animated: false)
         folderSelectedIndex = nil
     }
 
     func closeFolder() {
         openFolderID = nil
-        folderPage = 0
+        setFolderPage(0, animated: false)
         folderSelectedIndex = nil
     }
 
@@ -179,7 +237,9 @@ final class LauncherModel {
                 pageSizes: folderPages.map(\.count),
                 columns: LauncherHomeLayout.columnCount
             ) {
-                folderPage = next.page
+                if next.page != folderPage {
+                    setFolderPage(next.page, animated: true)
+                }
                 folderSelectedIndex = next.index
             }
             return
@@ -192,7 +252,9 @@ final class LauncherModel {
             pageSizes: pages.map(\.count),
             columns: LauncherHomeLayout.columnCount
         ) {
-            currentPage = next.page
+            if next.page != currentPage {
+                setGridPage(next.page, animated: true)
+            }
             selectedIndex = next.index
         }
     }
@@ -223,7 +285,7 @@ final class LauncherModel {
         closeFolder()
         setQuery("")
         selectedIndex = nil
-        currentPage = clampedPage(currentPage)
+        setGridPage(clampedPage(currentPage), animated: false)
         presentationCount += 1
     }
 
@@ -256,12 +318,18 @@ final class LauncherModel {
     }
 
     private func normalizeState() {
-        currentPage = clampedPage(currentPage)
+        let page = clampedPage(currentPage)
+        if page != currentPage {
+            setGridPage(page, animated: false)
+        }
         selectedIndex = clampedSelection(selectedIndex, count: visibleItems.count)
         if openFolderID != nil, openFolder == nil {
             closeFolder()
         } else if openFolder != nil {
-            folderPage = LauncherPagination.normalizedPageIndex(folderPage, pageCount: folderPages.count)
+            let page = LauncherPagination.normalizedPageIndex(folderPage, pageCount: folderPages.count)
+            if page != folderPage {
+                setFolderPage(page, animated: false)
+            }
             folderSelectedIndex = clampedSelection(folderSelectedIndex, count: visibleFolderApps.count)
         }
     }

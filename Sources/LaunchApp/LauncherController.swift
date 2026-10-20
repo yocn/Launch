@@ -98,8 +98,8 @@ final class LauncherController {
             model.turnPage(.previous)
         case .dragPage(let translation):
             model.dragPage(by: translation)
-        case .endPageDrag(let predictedTranslation):
-            model.endPageDrag(predictedTranslation: predictedTranslation)
+        case .endPageDrag(let predictedTranslation, let velocity):
+            model.endPageDrag(predictedTranslation: predictedTranslation, velocity: velocity)
         }
     }
 

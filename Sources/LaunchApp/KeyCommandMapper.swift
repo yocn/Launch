@@ -6,7 +6,7 @@ enum LauncherCommand: Equatable {
     case nextPage
     case previousPage
     case dragPage(CGFloat)
-    case endPageDrag(predictedTranslation: CGFloat)
+    case endPageDrag(predictedTranslation: CGFloat, velocity: CGFloat)
 }
 
 enum KeyCommandMapper {

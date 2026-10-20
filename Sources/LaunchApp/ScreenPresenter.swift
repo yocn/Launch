@@ -68,6 +68,10 @@ final class ScreenPresenter: LauncherPresenting {
         window === panel
     }
 
+    func makeDisplayLink(target: Any, selector: Selector) -> CADisplayLink? {
+        panel.contentView?.displayLink(target: target, selector: selector)
+    }
+
     var isComposingText: Bool {
         (panel.firstResponder as? NSTextView)?.hasMarkedText() ?? false
     }
@@ -102,3 +106,4 @@ final class ScreenPresenter: LauncherPresenting {
         return screens.indices.contains(index) ? screens[index] : nil
     }
 }
+

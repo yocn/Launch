@@ -92,13 +92,7 @@ struct LauncherView: View {
                 )
                 .foregroundStyle(.white)
             } else {
-                PageOffset(
-                    model: model,
-                    page: model.currentPage,
-                    pageCount: model.pages.count,
-                    pageWidth: layout.contentSize.width,
-                    followsDrag: model.openFolder == nil
-                ) {
+                PageOffset(model: model, pager: .grid, pageWidth: layout.contentSize.width) {
                 HStack(spacing: 0) {
                     ForEach(Array(model.pages.enumerated()), id: \.offset) { pageIndex, items in
                         LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
@@ -349,13 +343,7 @@ private struct FolderOverlay: View {
                 .font(.system(size: layout.folderTitleFontSize, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(height: layout.folderTitleHeight)
-            PageOffset(
-                model: model,
-                page: model.folderPage,
-                pageCount: pages.count,
-                pageWidth: layout.contentSize.width,
-                followsDrag: true
-            ) {
+            PageOffset(model: model, pager: .folder, pageWidth: layout.contentSize.width) {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, apps in
                     LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
@@ -465,7 +453,10 @@ private struct PageDragArea: ViewModifier {
                         model.dragPage(by: value.translation.width)
                     }
                     .onEnded { value in
-                        model.endPageDrag(predictedTranslation: value.predictedEndTranslation.width)
+                        model.endPageDrag(
+                            predictedTranslation: value.predictedEndTranslation.width,
+                            velocity: value.velocity.width
+                        )
                         tracker.isDragging = false
                         tracker.lastDragEnd = ProcessInfo.processInfo.systemUptime
                     }
@@ -473,26 +464,20 @@ private struct PageDragArea: ViewModifier {
     }
 }
 
-// 只有这一层读取拖动位移，拖动时不重建页面内容
+// 只有这一层读取逐帧变化的翻页位置，翻页时不重建页面内容
 private struct PageOffset<Content: View>: View {
+    enum Pager {
+        case grid
+        case folder
+    }
+
     let model: LauncherModel
-    let page: Int
-    let pageCount: Int
+    let pager: Pager
     let pageWidth: CGFloat
-    let followsDrag: Bool
     @ViewBuilder let content: Content
 
     var body: some View {
-        let drag = followsDrag
-            ? PageDragResolver.displayOffset(
-                translation: model.pageDragTranslation,
-                currentPage: page,
-                pageCount: pageCount
-            )
-            : 0
-        content
-            .offset(x: -CGFloat(page) * pageWidth + drag)
-            .animation(.easeOut(duration: 0.3), value: page)
-            .animation(.easeOut(duration: 0.3), value: model.isPageDragging)
+        let position = pager == .grid ? model.gridPosition : model.folderPosition
+        content.offset(x: -position * pageWidth)
     }
 }

@@ -31,8 +31,8 @@ final class LauncherInputMonitor {
                 onCommand(direction == .next ? .nextPage : .previousPage)
             case .drag(let translation)?:
                 onCommand(.dragPage(translation))
-            case .endDrag(let predictedTranslation)?:
-                onCommand(.endPageDrag(predictedTranslation: predictedTranslation))
+            case .endDrag(let predictedTranslation, let velocity)?:
+                onCommand(.endPageDrag(predictedTranslation: predictedTranslation, velocity: velocity))
             case nil:
                 break
             }
