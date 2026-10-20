@@ -92,6 +92,13 @@ struct LauncherView: View {
                 )
                 .foregroundStyle(.white)
             } else {
+                PageOffset(
+                    model: model,
+                    page: model.currentPage,
+                    pageCount: model.pages.count,
+                    pageWidth: layout.contentSize.width,
+                    followsDrag: model.openFolder == nil
+                ) {
                 HStack(spacing: 0) {
                     ForEach(Array(model.pages.enumerated()), id: \.offset) { pageIndex, items in
                         LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
@@ -108,8 +115,7 @@ struct LauncherView: View {
                         .allowsHitTesting(pageIndex == model.currentPage)
                     }
                 }
-                .offset(x: -CGFloat(model.currentPage) * layout.contentSize.width
-                    + (model.openFolder == nil ? model.pageDragOffset : 0))
+                }
                 .frame(width: layout.contentSize.width, height: layout.gridHeight, alignment: .topLeading)
                 .clipped()
                 .modifier(PageDragArea(model: model, tracker: dragTracker))
@@ -118,8 +124,6 @@ struct LauncherView: View {
                         onBackgroundClick()
                     }
                 }
-                .animation(.easeOut(duration: 0.3), value: model.currentPage)
-                .animation(.easeOut(duration: 0.3), value: model.isPageDragging)
             }
 
             Spacer(minLength: 0)
@@ -345,6 +349,13 @@ private struct FolderOverlay: View {
                 .font(.system(size: layout.folderTitleFontSize, weight: .medium))
                 .foregroundStyle(.white)
                 .frame(height: layout.folderTitleHeight)
+            PageOffset(
+                model: model,
+                page: model.folderPage,
+                pageCount: pages.count,
+                pageWidth: layout.contentSize.width,
+                followsDrag: true
+            ) {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, apps in
                     LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
@@ -365,7 +376,7 @@ private struct FolderOverlay: View {
                     .allowsHitTesting(pageIndex == model.folderPage)
                 }
             }
-            .offset(x: -CGFloat(model.folderPage) * layout.contentSize.width + model.pageDragOffset)
+            }
             .frame(
                 width: layout.contentSize.width,
                 height: layout.folderGridHeight(memberCount: folder.apps.count),
@@ -373,8 +384,6 @@ private struct FolderOverlay: View {
             )
             .clipped()
             .modifier(PageDragArea(model: model, tracker: dragTracker))
-            .animation(.easeOut(duration: 0.3), value: model.folderPage)
-            .animation(.easeOut(duration: 0.3), value: model.isPageDragging)
             .padding(.vertical, layout.folderPanelPadding)
             .background {
                 RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
@@ -461,5 +470,29 @@ private struct PageDragArea: ViewModifier {
                         tracker.lastDragEnd = ProcessInfo.processInfo.systemUptime
                     }
             )
+    }
+}
+
+// 只有这一层读取拖动位移，拖动时不重建页面内容
+private struct PageOffset<Content: View>: View {
+    let model: LauncherModel
+    let page: Int
+    let pageCount: Int
+    let pageWidth: CGFloat
+    let followsDrag: Bool
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        let drag = followsDrag
+            ? PageDragResolver.displayOffset(
+                translation: model.pageDragTranslation,
+                currentPage: page,
+                pageCount: pageCount
+            )
+            : 0
+        content
+            .offset(x: -CGFloat(page) * pageWidth + drag)
+            .animation(.easeOut(duration: 0.3), value: page)
+            .animation(.easeOut(duration: 0.3), value: model.isPageDragging)
     }
 }
