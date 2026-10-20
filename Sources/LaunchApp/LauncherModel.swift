@@ -6,6 +6,7 @@ import Observation
 enum EscapeOutcome: Equatable {
     case cancelledRename
     case closedFolder
+    case stoppedJiggling
     case clearedQuery
     case close
 }
@@ -47,6 +48,7 @@ final class LauncherModel {
     private(set) var folderPosition: CGFloat = 0
     private(set) var dragPreview: DragPreview?
     private(set) var landing: Landing?
+    private(set) var isJiggling = false
     private(set) var renamingFolderID: String?
     var folderNameDraft = ""
     // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
@@ -57,6 +59,7 @@ final class LauncherModel {
     @ObservationIgnored var onNeedsFrames: (() -> Void)?
     @ObservationIgnored var onEdit: ((LayoutEdit) -> Void)?
     @ObservationIgnored var canEditLayout = false
+    @ObservationIgnored var canUninstall: (CatalogApp) -> Bool = { _ in false }
     @ObservationIgnored private(set) var homeLayout: LauncherHomeLayout?
     @ObservationIgnored private(set) var gridFrame: CGRect = .zero
     @ObservationIgnored private(set) var folderGridFrame: CGRect = .zero
@@ -496,6 +499,7 @@ final class LauncherModel {
         if newQuery.isEmpty {
             selectedIndex = nil
         } else {
+            isJiggling = false
             closeFolder()
             selectedIndex = visibleItems.isEmpty ? nil : 0
         }
@@ -545,6 +549,29 @@ final class LauncherModel {
 
     func cancelRenamingFolder() {
         renamingFolderID = nil
+    }
+
+    func beginJiggling() {
+        guard canDragItems else {
+            return
+        }
+        isJiggling = true
+    }
+
+    func endJiggling() {
+        isJiggling = false
+    }
+
+    func uninstallTarget(at point: CGPoint) -> CatalogApp? {
+        guard isJiggling,
+              let homeLayout,
+              let press = itemPress(at: point),
+              case .app(let app) = press.item,
+              canUninstall(app),
+              let tile = frame(of: press.origin) else {
+            return nil
+        }
+        return homeLayout.uninstallBadgeFrame(inTile: tile).insetBy(dx: -6, dy: -6).contains(point) ? app : nil
     }
 
     func closeFolder() {
@@ -609,6 +636,7 @@ final class LauncherModel {
     }
 
     func prepareForPresentation() {
+        isJiggling = false
         closeFolder()
         setQuery("")
         selectedIndex = nil
@@ -630,6 +658,10 @@ final class LauncherModel {
                 return false
             }
             return .closedFolder
+        }
+        if isJiggling {
+            endJiggling()
+            return .stoppedJiggling
         }
         guard !query.isEmpty else {
             return .close

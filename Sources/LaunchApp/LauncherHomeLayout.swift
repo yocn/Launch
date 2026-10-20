@@ -76,6 +76,17 @@ struct LauncherHomeLayout: Equatable {
     var folderTitleFontSize: CGFloat { 22 * sizeScale }
     var folderTitleHeight: CGFloat { 28 * sizeScale }
     var folderTitleSpacing: CGFloat { 30 * sizeScale }
+    var uninstallBadgeSide: CGFloat { iconSide * 0.3 }
+
+    func uninstallBadgeFrame(inTile tile: CGRect) -> CGRect {
+        let side = uninstallBadgeSide
+        return CGRect(
+            x: tile.midX - iconSide / 2 - side * 0.2,
+            y: tile.minY + tilePadding - side * 0.2,
+            width: side,
+            height: side
+        )
+    }
 
     func folderRowCount(memberCount: Int) -> Int {
         let rows = (memberCount + Self.columnCount - 1) / Self.columnCount
