@@ -86,6 +86,29 @@ final class LayoutStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.load())
     }
 
+    func testLoadsLayoutWithoutHiddenApps() throws {
+        let store = try temporaryStore()
+        try FileManager.default.createDirectory(
+            at: store.fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(#"{"schemaVersion":1,"pages":[{"slots":[{"empty":{}}]}]}"#.utf8).write(to: store.fileURL)
+
+        XCTAssertEqual(try store.load(), LayoutDocument(pages: [LayoutPage(slots: [.empty])]))
+    }
+
+    func testSaveKeepsHiddenApps() throws {
+        let store = try temporaryStore()
+        let document = LayoutDocument(
+            pages: [LayoutPage(slots: [.empty])],
+            hiddenApps: [AppIdentity(bundleIdentifier: "com.example.a", path: "/Applications/A.app")]
+        )
+
+        try store.save(document)
+
+        XCTAssertEqual(try store.load(), document)
+    }
+
     private func temporaryStore() throws -> LayoutStore {
         let directory = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)

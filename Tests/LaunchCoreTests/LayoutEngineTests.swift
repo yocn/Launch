@@ -98,4 +98,12 @@ final class LayoutEngineTests: XCTestCase {
             LayoutPage(slots: [.app(zoom.identity)]),
         ])
     }
+
+    func testAppendingKeepsHiddenApps() {
+        let document = LayoutDocument(pages: [], hiddenApps: [zoom.identity])
+
+        let result = LayoutEngine.appending([mail.identity], to: document, pageCapacity: 35)
+
+        XCTAssertEqual(result.hiddenApps, [zoom.identity])
+    }
 }

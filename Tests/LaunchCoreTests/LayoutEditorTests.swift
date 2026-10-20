@@ -284,4 +284,17 @@ final class LayoutEditorTests: XCTestCase {
 
         XCTAssertEqual(apply(.mergeIntoNewFolder([id(a)]), pages), pages)
     }
+
+    func testEditKeepsHiddenApps() {
+        let document = LayoutDocument(pages: [LayoutPage(slots: [slot(a), slot(b)])], hiddenApps: [gone])
+
+        let result = LayoutEditor.apply(
+            .move(id(b), to: .insert(page: 0, before: id(a))),
+            to: document,
+            catalog: catalog,
+            pageCapacity: 35
+        )
+
+        XCTAssertEqual(result.hiddenApps, [gone])
+    }
 }

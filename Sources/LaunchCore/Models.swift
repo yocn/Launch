@@ -58,13 +58,30 @@ public struct LayoutDocument: Codable, Equatable, Sendable {
 
     public let schemaVersion: Int
     public let pages: [LayoutPage]
+    public let hiddenApps: [AppIdentity]
 
     public init(
         schemaVersion: Int = LayoutDocument.currentVersion,
-        pages: [LayoutPage] = []
+        pages: [LayoutPage] = [],
+        hiddenApps: [AppIdentity] = []
     ) {
         self.schemaVersion = schemaVersion
         self.pages = pages
+        self.hiddenApps = hiddenApps
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case pages
+        case hiddenApps
+    }
+
+    // 早期文件没有 hiddenApps
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        pages = try container.decode([LayoutPage].self, forKey: .pages)
+        hiddenApps = try container.decodeIfPresent([AppIdentity].self, forKey: .hiddenApps) ?? []
     }
 }
 

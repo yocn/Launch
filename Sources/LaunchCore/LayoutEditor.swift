@@ -50,7 +50,8 @@ public enum LayoutEditor {
         }
         return LayoutDocument(
             schemaVersion: document.schemaVersion,
-            pages: editor.pages.map { LayoutPage(slots: $0) }
+            pages: editor.pages.map { LayoutPage(slots: $0) },
+            hiddenApps: document.hiddenApps
         )
     }
 }

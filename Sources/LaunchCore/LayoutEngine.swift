@@ -64,7 +64,8 @@ public enum LayoutEngine {
         }
         return LayoutDocument(
             schemaVersion: document.schemaVersion,
-            pages: pages.map { LayoutPage(slots: $0) }
+            pages: pages.map { LayoutPage(slots: $0) },
+            hiddenApps: document.hiddenApps
         )
     }
 
