@@ -185,7 +185,7 @@ final class AppUninstallerTests: XCTestCase {
         let uninstaller = makeUninstaller(root: root, recorder: recorder)
 
         try uninstaller.moveToTrash(app)
-        XCTAssertEqual(recorder.urls.map { $0.path(percentEncoded: false) }, [app.identity.path])
+        XCTAssertEqual(recorder.urls, [URL(fileURLWithPath: app.identity.path)])
 
         let system = CatalogApp(identity: AppIdentity(bundleIdentifier: nil, path: "/System/Applications/Calculator.app"), displayName: "计算器")
         XCTAssertThrowsError(try uninstaller.moveToTrash(system)) { error in
