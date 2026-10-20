@@ -55,6 +55,9 @@ struct LauncherView: View {
                 }
                 .frame(width: layout.contentSize.width, height: layout.contentSize.height)
                 .coordinateSpace(.named(Self.contentSpace))
+                .onChange(of: layout, initial: true) {
+                    model.updateHomeLayout(layout)
+                }
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.width
                 } action: { width in
@@ -70,6 +73,11 @@ struct LauncherView: View {
         }
         .onChange(of: model.presentationCount) {
             searchFieldIsFocused = true
+        }
+        .onChange(of: model.renamingFolderID) { _, folderID in
+            if folderID == nil {
+                searchFieldIsFocused = true
+            }
         }
     }
 
@@ -96,12 +104,14 @@ struct LauncherView: View {
                 HStack(spacing: 0) {
                     ForEach(Array(model.pages.enumerated()), id: \.offset) { pageIndex, items in
                         LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
-                            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                                itemView(
-                                    item,
-                                    layout: layout,
-                                    isSelected: pageIndex == model.currentPage && index == model.selectedIndex
-                                )
+                            ForEach(model.gridEntries(page: pageIndex, items: items, area: .grid)) { entry in
+                                GridCell(model: model, entry: entry, layout: layout) { item, index in
+                                    itemView(
+                                        item,
+                                        layout: layout,
+                                        isSelected: pageIndex == model.currentPage && index == model.selectedIndex
+                                    )
+                                }
                             }
                         }
                         .padding(.horizontal, layout.horizontalInset)
@@ -109,9 +119,15 @@ struct LauncherView: View {
                         .allowsHitTesting(pageIndex == model.currentPage)
                     }
                 }
+                .animation(.easeOut(duration: 0.25), value: model.dragPreview)
                 }
                 .frame(width: layout.contentSize.width, height: layout.gridHeight, alignment: .topLeading)
                 .clipped()
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    proxy.frame(in: .global)
+                } action: { frame in
+                    model.updateGridFrame(frame)
+                }
                 .modifier(PageDragArea(model: model, tracker: dragTracker))
                 .onTapGesture {
                     if !dragTracker.suppressesTap {
@@ -328,6 +344,123 @@ private struct FolderPreview: View {
     }
 }
 
+private struct GridCell<ItemView: View>: View {
+    let model: LauncherModel
+    let entry: LauncherModel.GridEntry
+    let layout: LauncherHomeLayout
+    @ViewBuilder let itemView: (ResolvedItem, Int) -> ItemView
+
+    var body: some View {
+        switch entry.content {
+        case .gap:
+            Color.clear
+                .frame(width: layout.tileWidth, height: layout.tileHeight)
+        case .item(let item, let index):
+            itemView(item, index)
+                .background(alignment: .top) {
+                    if entry.isMergeTarget {
+                        RoundedRectangle(cornerRadius: layout.folderCornerRadius * 1.2, style: .continuous)
+                            .fill(.white.opacity(0.24))
+                            .frame(width: layout.iconSide * 1.2, height: layout.iconSide * 1.2)
+                            .padding(.top, layout.tilePadding - layout.iconSide * 0.1)
+                            .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    }
+                }
+        }
+    }
+}
+
+private struct FolderTitle: View {
+    let model: LauncherModel
+    let folder: ResolvedFolder
+    let layout: LauncherHomeLayout
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        Group {
+            if model.renamingFolderID == folder.id {
+                TextField("", text: Binding(
+                    get: { model.folderNameDraft },
+                    set: { model.folderNameDraft = $0 }
+                ))
+                .textFieldStyle(.plain)
+                .multilineTextAlignment(.center)
+                .focused($isFocused)
+                .onSubmit {
+                    model.finishRenamingFolder()
+                }
+                .onChange(of: isFocused) { _, focused in
+                    if !focused {
+                        model.finishRenamingFolder()
+                    }
+                }
+                .onAppear {
+                    // 刚出现时输入框还不在响应链里，同步设置焦点会被忽略
+                    DispatchQueue.main.async {
+                        isFocused = true
+                        DispatchQueue.main.async {
+                            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                        }
+                    }
+                }
+            } else {
+                Text(folder.name)
+                    .onTapGesture {
+                        model.beginRenamingFolder()
+                    }
+            }
+        }
+        .font(.system(size: layout.folderTitleFontSize, weight: .medium))
+        .foregroundStyle(.white)
+        .frame(width: layout.tileWidth * 3, height: layout.folderTitleHeight)
+    }
+}
+
+@MainActor
+enum DragCardRenderer {
+    static func image(for item: ResolvedItem, layout: LauncherHomeLayout, scale: CGFloat) -> NSImage? {
+        let renderer = ImageRenderer(content: DragCard(item: item, layout: layout))
+        renderer.scale = scale
+        return renderer.nsImage
+    }
+}
+
+private struct DragCard: View {
+    let item: ResolvedItem
+    let layout: LauncherHomeLayout
+
+    var body: some View {
+        VStack(spacing: layout.iconLabelSpacing) {
+            switch item {
+            case .app(let app):
+                Image(nsImage: IconCache.shared.icon(for: app.identity.path))
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: layout.iconSide, height: layout.iconSide)
+                label(app.displayName)
+            case .folder(let folder):
+                FolderPreview(apps: Array(folder.apps.prefix(9)), layout: layout)
+                label(folder.name)
+            case .empty:
+                EmptyView()
+            }
+        }
+        .padding(.vertical, layout.tilePadding)
+        .frame(width: layout.tileWidth)
+    }
+
+    private func label(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: layout.labelFontSize, weight: .medium))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+            .lineLimit(1)
+            .frame(maxWidth: layout.tileWidth)
+            .frame(height: layout.labelHeight)
+    }
+}
+
 private struct FolderOverlay: View {
     let model: LauncherModel
     let folder: ResolvedFolder
@@ -339,22 +472,23 @@ private struct FolderOverlay: View {
     var body: some View {
         let pages = model.folderPages
         VStack(spacing: layout.folderTitleSpacing) {
-            Text(folder.name)
-                .font(.system(size: layout.folderTitleFontSize, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(height: layout.folderTitleHeight)
+            FolderTitle(model: model, folder: folder, layout: layout)
             PageOffset(model: model, pager: .folder, pageWidth: layout.contentSize.width) {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, apps in
                     LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
-                        ForEach(Array(apps.enumerated()), id: \.offset) { index, app in
-                            LauncherAppTile(
-                                app: app,
-                                layout: layout,
-                                isSelected: pageIndex == model.folderPage && index == model.folderSelectedIndex
-                            ) {
-                                if !dragTracker.suppressesTap {
-                                    onLaunch(app)
+                        ForEach(model.gridEntries(page: pageIndex, items: apps.map(ResolvedItem.app), area: .folder)) { entry in
+                            GridCell(model: model, entry: entry, layout: layout) { item, index in
+                                if case .app(let app) = item {
+                                    LauncherAppTile(
+                                        app: app,
+                                        layout: layout,
+                                        isSelected: pageIndex == model.folderPage && index == model.folderSelectedIndex
+                                    ) {
+                                        if !dragTracker.suppressesTap {
+                                            onLaunch(app)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -364,6 +498,7 @@ private struct FolderOverlay: View {
                     .allowsHitTesting(pageIndex == model.folderPage)
                 }
             }
+            .animation(.easeOut(duration: 0.25), value: model.dragPreview)
             }
             .frame(
                 width: layout.contentSize.width,
@@ -371,6 +506,11 @@ private struct FolderOverlay: View {
                 alignment: .topLeading
             )
             .clipped()
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .global)
+            } action: { frame in
+                model.updateFolderGridFrame(frame)
+            }
             .modifier(PageDragArea(model: model, tracker: dragTracker))
             .padding(.vertical, layout.folderPanelPadding)
             .background {

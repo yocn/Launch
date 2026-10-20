@@ -39,6 +39,12 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private lazy var pagerDriver = PagerDriver(model: controller.model) { [weak self] target, selector in
         self?.presenter.makeDisplayLink(target: target, selector: selector)
     }
+    private lazy var itemDragController = ItemDragController(
+        model: controller.model,
+        presenter: presenter,
+        onActivate: { [weak self] item in self?.activate(item) },
+        makeDragImage: { [weak self] item in self?.dragImage(for: item) }
+    )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         presenter.setContent(
@@ -57,7 +63,17 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             self?.controller.hide(.resignedActive)
         }
         layoutCoordinator.onLayoutChange = { [weak self] pages in
-            self?.controller.model.updateLayout(pages)
+            guard let self else {
+                return
+            }
+            controller.model.canEditLayout = layoutCoordinator.isEditable
+            controller.model.updateLayout(pages)
+        }
+        controller.model.onEdit = { [weak self] edit in
+            self?.layoutCoordinator.apply(edit)
+        }
+        controller.onUndoLayoutEdit = { [weak self] in
+            self?.layoutCoordinator.undo()
         }
         layoutCoordinator.start()
         inputMonitor.start(
@@ -67,6 +83,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             canUndoLayout: { [weak self] in self?.controller.model.query.isEmpty ?? false },
             onCommand: { [weak self] command in self?.controller.handle(command) }
         )
+        itemDragController.start()
         HotKeyService.register { [weak self] in
             self?.controller.toggle()
         }
@@ -95,6 +112,24 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         controller.show()
         return false
+    }
+
+    private func activate(_ item: ResolvedItem) {
+        switch item {
+        case .app(let app):
+            controller.launch(app)
+        case .folder(let folder):
+            controller.model.showFolder(id: folder.id)
+        case .empty:
+            break
+        }
+    }
+
+    private func dragImage(for item: ResolvedItem) -> NSImage? {
+        guard let layout = controller.model.homeLayout else {
+            return nil
+        }
+        return DragCardRenderer.image(for: item, layout: layout, scale: presenter.backingScaleFactor)
     }
 
     private func hasHotKeyConflict() -> Bool {
