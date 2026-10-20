@@ -63,6 +63,9 @@ struct LauncherView: View {
                 } action: { width in
                     model.updatePageWidth(width)
                 }
+
+                MarqueeOverlay(model: model)
+                    .ignoresSafeArea()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.easeOut(duration: 0.25), value: model.openFolderID)
@@ -363,6 +366,12 @@ private struct GridCell<ItemView: View>: View {
                 .frame(width: layout.tileWidth, height: layout.tileHeight)
         case .item(let item, let index):
             itemView(item, index)
+                .background {
+                    if entry.isPicked {
+                        RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
+                            .fill(.white.opacity(0.32))
+                    }
+                }
                 .background(alignment: .top) {
                     if entry.isMergeTarget {
                         RoundedRectangle(cornerRadius: layout.folderCornerRadius * 1.2, style: .continuous)
@@ -370,6 +379,11 @@ private struct GridCell<ItemView: View>: View {
                             .frame(width: layout.iconSide * 1.2, height: layout.iconSide * 1.2)
                             .padding(.top, layout.tilePadding - layout.iconSide * 0.1)
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if entry.isPicked {
+                        SelectionCheck(layout: layout)
                     }
                 }
                 .modifier(LandingModifier(
@@ -438,6 +452,46 @@ private struct UninstallBadge: View {
             // 点击交给下面的图标吞掉，× 本身由 ItemDragController 按位置识别
             .allowsHitTesting(false)
             .accessibilityLabel("移到废纸篓")
+    }
+}
+
+private struct SelectionCheck: View {
+    let layout: LauncherHomeLayout
+
+    var body: some View {
+        let side = layout.uninstallBadgeSide
+        Image(systemName: "checkmark")
+            .font(.system(size: side * 0.42, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: side, height: side)
+            .background(Circle().fill(.blue))
+            .overlay(Circle().stroke(.white, lineWidth: 1.5))
+            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .offset(x: -((layout.tileWidth - layout.iconSide) / 2 - side * 0.2), y: layout.tilePadding - side * 0.2)
+            .allowsHitTesting(false)
+            .accessibilityLabel("已选中")
+    }
+}
+
+// 只有这一层读取选框矩形，拖动选框时不重建网格
+private struct MarqueeOverlay: View {
+    let model: LauncherModel
+
+    var body: some View {
+        GeometryReader { proxy in
+            if let rect = model.marqueeRect {
+                let origin = proxy.frame(in: .global).origin
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(.white.opacity(0.12))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(.white.opacity(0.6), lineWidth: 1)
+                    }
+                    .frame(width: rect.width, height: rect.height)
+                    .position(x: rect.midX - origin.x, y: rect.midY - origin.y)
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
