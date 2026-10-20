@@ -54,7 +54,10 @@ final class LauncherModel {
     private(set) var renamingFolderID: String?
     private(set) var multiSelection = MultiSelection()
     private(set) var marqueeRect: CGRect?
-    private(set) var hiddenApps: Set<AppIdentity> = []
+    private(set) var hiddenApps: [CatalogApp] = []
+    private(set) var wallpaper: Wallpaper?
+    var showsHiddenAppsInSearch = false
+    @ObservationIgnored var reopensAtFirstPage = false
     var folderNameDraft = ""
     // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
     @ObservationIgnored private(set) var isPageDragging = false
@@ -81,7 +84,8 @@ final class LauncherModel {
     }
 
     var results: [CatalogApp] {
-        SearchService.results(for: query, in: apps, hidden: hiddenApps)
+        let hidden = showsHiddenAppsInSearch ? [] : Set(hiddenApps.map(\.identity))
+        return SearchService.results(for: query, in: apps, hidden: hidden)
     }
 
     var pages: [[ResolvedItem]] {
@@ -254,7 +258,7 @@ final class LauncherModel {
             return .selection(selection)
         }
         guard let press = itemPress(at: point) else {
-            return nil
+            return .main
         }
         clearMultiSelection()
         switch press.item {
@@ -263,7 +267,8 @@ final class LauncherModel {
                 app: app,
                 canOpen: !isJiggling,
                 canEdit: canEditMenuItems,
-                canUninstall: canUninstall(app)
+                canUninstall: canUninstall(app),
+                isHidden: isHiddenApp(app)
             ))
         case .folder(let folder):
             return .folder(FolderMenuContent(folder: folder, canEdit: canEditMenuItems))
@@ -875,7 +880,7 @@ final class LauncherModel {
         closeFolder()
         setQuery("")
         selectedIndex = nil
-        setGridPage(clampedPage(currentPage), animated: false)
+        setGridPage(reopensAtFirstPage ? 0 : clampedPage(currentPage), animated: false)
         presentationCount += 1
     }
 
@@ -914,12 +919,19 @@ final class LauncherModel {
     }
 
     func updateHiddenApps(_ apps: [CatalogApp]) {
-        let identities = Set(apps.map(\.identity))
-        guard identities != hiddenApps else {
+        guard apps != hiddenApps else {
             return
         }
-        hiddenApps = identities
+        hiddenApps = apps
         normalizeState()
+    }
+
+    func isHiddenApp(_ app: CatalogApp) -> Bool {
+        hiddenApps.contains(app)
+    }
+
+    func updateWallpaper(_ wallpaper: Wallpaper?) {
+        self.wallpaper = wallpaper
     }
 
     func updateLayout(_ pages: [[ResolvedItem]]) {

@@ -45,7 +45,7 @@ final class LauncherModelMenuTests: XCTestCase {
         XCTAssertEqual(model.contextMenu(at: center(0)), .app(AppMenuContent(app: apps[0], canOpen: true, canEdit: true, canUninstall: false)))
         XCTAssertEqual(model.contextMenu(at: center(1)), .app(AppMenuContent(app: apps[1], canOpen: true, canEdit: true, canUninstall: true)))
         XCTAssertEqual(model.contextMenu(at: center(2)), .folder(FolderMenuContent(folder: folder, canEdit: true)))
-        XCTAssertNil(model.contextMenu(at: CGPoint(x: 5, y: 5)))
+        XCTAssertEqual(model.contextMenu(at: CGPoint(x: 5, y: 5)), .main)
 
         model.beginJiggling()
         model.canEditLayout = false
