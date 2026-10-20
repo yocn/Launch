@@ -8,14 +8,18 @@ final class LauncherInputMonitor {
     func start(
         isLauncherWindow: @escaping (NSWindow?) -> Bool,
         isComposingText: @escaping () -> Bool,
+        isEditingText: @escaping () -> Bool,
+        canUndoLayout: @escaping () -> Bool,
         onCommand: @escaping (LauncherCommand) -> Void
     ) {
         let keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard isLauncherWindow(event.window),
+                  !isEditingText(),
                   let command = KeyCommandMapper.command(
                     keyCode: event.keyCode,
                     modifiers: event.modifierFlags,
-                    isComposingText: isComposingText()
+                    isComposingText: isComposingText(),
+                    canUndoLayout: canUndoLayout()
                   ) else {
                 return event
             }

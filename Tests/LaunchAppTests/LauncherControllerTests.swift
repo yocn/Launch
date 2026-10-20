@@ -210,6 +210,18 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testUndoCommandForwardsToHandler() {
+        let (controller, _) = makeController(apps: makeApps(count: 3))
+        controller.show()
+        var undos = 0
+        controller.onUndoLayoutEdit = { undos += 1 }
+
+        controller.handle(.undoLayoutEdit)
+
+        XCTAssertEqual(undos, 1)
+    }
+
+    @MainActor
     private func makeController(
         apps: [CatalogApp] = [],
         iconCache: IconCache = IconCache { _ in NSImage() },

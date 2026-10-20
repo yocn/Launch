@@ -37,4 +37,13 @@ final class KeyCommandMapperTests: XCTestCase {
         XCTAssertNil(map(124, arrowFlags.union(.option)))
         XCTAssertNil(map(0))
     }
+
+    func testCommandZUndoesLayoutOnlyWhenAllowed() {
+        XCTAssertEqual(
+            KeyCommandMapper.command(keyCode: 6, modifiers: [.command], isComposingText: false, canUndoLayout: true),
+            .undoLayoutEdit
+        )
+        XCTAssertNil(KeyCommandMapper.command(keyCode: 6, modifiers: [.command], isComposingText: false, canUndoLayout: false))
+        XCTAssertNil(KeyCommandMapper.command(keyCode: 6, modifiers: [.command], isComposingText: true, canUndoLayout: true))
+    }
 }

@@ -31,6 +31,7 @@ final class LauncherController {
     private let presenter: LauncherPresenting
     private let iconCache: IconCache
     private let openApplication: (URL) -> Bool
+    var onUndoLayoutEdit: (() -> Void)?
 
     init(
         model: LauncherModel,
@@ -100,6 +101,8 @@ final class LauncherController {
             model.dragPage(by: translation)
         case .endPageDrag(let predictedTranslation, let velocity):
             model.endPageDrag(predictedTranslation: predictedTranslation, velocity: velocity)
+        case .undoLayoutEdit:
+            onUndoLayoutEdit?()
         }
     }
 

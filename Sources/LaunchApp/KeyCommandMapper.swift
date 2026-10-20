@@ -7,13 +7,15 @@ enum LauncherCommand: Equatable {
     case previousPage
     case dragPage(CGFloat)
     case endPageDrag(predictedTranslation: CGFloat, velocity: CGFloat)
+    case undoLayoutEdit
 }
 
 enum KeyCommandMapper {
     static func command(
         keyCode: UInt16,
         modifiers: NSEvent.ModifierFlags,
-        isComposingText: Bool
+        isComposingText: Bool,
+        canUndoLayout: Bool = false
     ) -> LauncherCommand? {
         guard !isComposingText else {
             return nil
@@ -35,6 +37,8 @@ enum KeyCommandMapper {
             return .previousPage
         case (124, [.command]):
             return .nextPage
+        case (6, [.command]) where canUndoLayout:
+            return .undoLayoutEdit
         default:
             return nil
         }

@@ -63,6 +63,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         inputMonitor.start(
             isLauncherWindow: { [weak self] window in self?.presenter.isLauncherWindow(window) ?? false },
             isComposingText: { [weak self] in self?.presenter.isComposingText ?? false },
+            isEditingText: { [weak self] in self?.controller.model.renamingFolderID != nil },
+            canUndoLayout: { [weak self] in self?.controller.model.query.isEmpty ?? false },
             onCommand: { [weak self] command in self?.controller.handle(command) }
         )
         HotKeyService.register { [weak self] in

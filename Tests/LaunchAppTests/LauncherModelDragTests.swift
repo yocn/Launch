@@ -222,4 +222,52 @@ final class LauncherModelDragTests: XCTestCase {
         begin(model, at: center(0))
         XCTAssertNil(model.dragPreview)
     }
+
+    @MainActor
+    func testRenamingCommitsDraftOnSubmitAndWhenFolderCloses() {
+        let apps = makeApps(count: 2)
+        let (model, log) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
+        model.showFolder(id: "f")
+
+        model.beginRenamingFolder()
+        XCTAssertEqual(model.folderNameDraft, "效率")
+        model.folderNameDraft = "工具"
+        model.finishRenamingFolder()
+        XCTAssertNil(model.renamingFolderID)
+
+        model.beginRenamingFolder()
+        model.folderNameDraft = "常用"
+        model.closeFolder()
+
+        XCTAssertEqual(log.edits, [
+            .renameFolder(folder: "f", name: "工具"),
+            .renameFolder(folder: "f", name: "常用"),
+        ])
+    }
+
+    @MainActor
+    func testEscapeCancelsRenameBeforeClosingFolder() {
+        let apps = makeApps(count: 2)
+        let (model, log) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
+        model.showFolder(id: "f")
+        model.beginRenamingFolder()
+        model.folderNameDraft = "x"
+
+        XCTAssertEqual(model.handleEscape(), .cancelledRename)
+        XCTAssertEqual(model.openFolderID, "f")
+        XCTAssertEqual(model.handleEscape(), .closedFolder)
+        XCTAssertTrue(log.edits.isEmpty)
+    }
+
+    @MainActor
+    func testRenameAndDragAreDisabledWhileLayoutIsNotEditable() {
+        let apps = makeApps(count: 2)
+        let (model, _) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
+        model.showFolder(id: "f")
+        model.canEditLayout = false
+
+        model.beginRenamingFolder()
+
+        XCTAssertNil(model.renamingFolderID)
+    }
 }

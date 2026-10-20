@@ -4,6 +4,7 @@ import LaunchCore
 import Observation
 
 enum EscapeOutcome: Equatable {
+    case cancelledRename
     case closedFolder
     case clearedQuery
     case close
@@ -40,6 +41,8 @@ final class LauncherModel {
     private(set) var gridPosition: CGFloat = 0
     private(set) var folderPosition: CGFloat = 0
     private(set) var dragPreview: DragPreview?
+    private(set) var renamingFolderID: String?
+    var folderNameDraft = ""
     // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
     @ObservationIgnored private(set) var isPageDragging = false
     @ObservationIgnored private(set) var pageWidth: CGFloat = 0
@@ -138,7 +141,7 @@ final class LauncherModel {
     }
 
     var canDragItems: Bool {
-        canEditLayout && query.isEmpty && layoutPages != nil
+        canEditLayout && query.isEmpty && layoutPages != nil && renamingFolderID == nil
     }
 
     func updateHomeLayout(_ layout: LauncherHomeLayout) {
@@ -501,7 +504,28 @@ final class LauncherModel {
         folderSelectedIndex = nil
     }
 
+    func beginRenamingFolder() {
+        guard canEditLayout, let folder = openFolder else {
+            return
+        }
+        folderNameDraft = folder.name
+        renamingFolderID = folder.id
+    }
+
+    func finishRenamingFolder() {
+        guard let folderID = renamingFolderID else {
+            return
+        }
+        renamingFolderID = nil
+        onEdit?(.renameFolder(folder: folderID, name: folderNameDraft))
+    }
+
+    func cancelRenamingFolder() {
+        renamingFolderID = nil
+    }
+
     func closeFolder() {
+        finishRenamingFolder()
         openFolderID = nil
         setFolderPage(0, animated: false)
         folderSelectedIndex = nil
@@ -570,6 +594,10 @@ final class LauncherModel {
     }
 
     func handleEscape() -> EscapeOutcome {
+        if renamingFolderID != nil {
+            cancelRenamingFolder()
+            return .cancelledRename
+        }
         if let folderID = openFolderID {
             closeFolder()
             selectedIndex = visibleItems.firstIndex { item in
