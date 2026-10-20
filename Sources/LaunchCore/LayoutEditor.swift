@@ -13,6 +13,8 @@ public enum LayoutDropTarget: Equatable, Sendable {
 
 public enum LayoutEdit: Equatable, Sendable {
     case move(LayoutItemID, to: LayoutDropTarget)
+    case moveGroup([LayoutItemID], to: LayoutDropTarget)
+    case mergeIntoNewFolder([LayoutItemID])
     case moveOutOfFolder(app: String, folder: String, to: LayoutDropTarget)
     case reorderInFolder(folder: String, app: String, before: String?)
     case renameFolder(folder: String, name: String)
@@ -130,6 +132,10 @@ private struct Editor {
         switch edit {
         case .move(let item, let target):
             move(item, to: target)
+        case .moveGroup(let items, let target):
+            moveGroup(items, to: target)
+        case .mergeIntoNewFolder(let items):
+            mergeIntoNewFolder(items)
         case .moveOutOfFolder(let app, let folder, let target):
             moveOut(app: app, folder: folder, to: target)
         case .reorderInFolder(let folder, let app, let before):
@@ -196,14 +202,14 @@ private struct Editor {
     mutating func cascade(from start: Int) {
         var page = start
         while page < pages.count, visibleCount(page) > capacity {
-            guard let last = pages[page].lastIndex(where: { itemID(of: $0) != nil }) else {
-                break
+            var overflow: [LayoutSlot] = []
+            while visibleCount(page) > capacity, let last = pages[page].lastIndex(where: { itemID(of: $0) != nil }) {
+                overflow.insert(pages[page].remove(at: last), at: 0)
             }
-            let overflow = pages[page].remove(at: last)
             if page + 1 == pages.count {
                 pages.append([])
             }
-            pages[page + 1].insert(overflow, at: 0)
+            pages[page + 1].insert(contentsOf: overflow, at: 0)
             page += 1
         }
     }
@@ -262,5 +268,105 @@ private struct Editor {
             apps: folder.apps
         ))
         return true
+    }
+
+    mutating func moveGroup(_ items: [LayoutItemID], to target: LayoutDropTarget) -> Bool {
+        switch target {
+        case .merge(let into):
+            return merge(items.filter { $0 != into }, into: into)
+        case .insert(_, let before?) where items.contains(before):
+            return false
+        default:
+            break
+        }
+        let page = documentPage(for: target)
+        let slots = remove(items)
+        guard !slots.isEmpty else {
+            return false
+        }
+        let start: Int
+        if let page {
+            var index = pages[page].endIndex
+            if case .insert(_, let before?) = target, let anchor = locate(before), anchor.page == page {
+                index = anchor.slot
+            }
+            pages[page].insert(contentsOf: slots, at: index)
+            start = page
+        } else {
+            pages.append(slots)
+            start = pages.count - 1
+        }
+        cascade(from: start)
+        pages = pages.filter { !$0.isEmpty }
+        return true
+    }
+
+    mutating func mergeIntoNewFolder(_ items: [LayoutItemID]) -> Bool {
+        let present = items.filter { locate($0) != nil }
+        guard present.count >= 2, let first = locate(present[0]) else {
+            return false
+        }
+        let head = Self.apps(in: pages[first.page][first.slot])
+        let members = head + remove(Array(present.dropFirst())).flatMap(Self.apps(in:))
+        guard let anchor = locate(present[0]) else {
+            return false
+        }
+        pages[anchor.page][anchor.slot] = .folder(LayoutFolder(
+            id: newFolderID,
+            name: LayoutEditor.untitledFolderName,
+            apps: members
+        ))
+        pages = pages.filter { !$0.isEmpty }
+        return true
+    }
+
+    // 选中的文件夹拆开，成员（含未安装应用）并入目标
+    mutating func merge(_ items: [LayoutItemID], into target: LayoutItemID) -> Bool {
+        guard locate(target) != nil else {
+            return false
+        }
+        let members = remove(items).flatMap(Self.apps(in:))
+        guard !members.isEmpty, let anchor = locate(target) else {
+            return false
+        }
+        switch pages[anchor.page][anchor.slot] {
+        case .app(let identity):
+            pages[anchor.page][anchor.slot] = .folder(LayoutFolder(
+                id: newFolderID,
+                name: LayoutEditor.untitledFolderName,
+                apps: [identity] + members
+            ))
+        case .folder(let folder):
+            pages[anchor.page][anchor.slot] = .folder(LayoutFolder(
+                id: folder.id,
+                name: folder.name,
+                apps: folder.apps + members
+            ))
+        case .empty:
+            return false
+        }
+        pages = pages.filter { !$0.isEmpty }
+        return true
+    }
+
+    mutating func remove(_ items: [LayoutItemID]) -> [LayoutSlot] {
+        var removed: [LayoutSlot] = []
+        for item in items {
+            if let location = locate(item) {
+                removed.append(pages[location.page].remove(at: location.slot))
+            }
+        }
+        return removed
+    }
+
+    static func apps(in slot: LayoutSlot) -> [AppIdentity] {
+        switch slot {
+        case .app(let identity):
+            [identity]
+        case .folder(let folder):
+            folder.apps
+        case .empty:
+            []
+        }
     }
 }

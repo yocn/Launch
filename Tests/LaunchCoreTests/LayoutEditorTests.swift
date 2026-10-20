@@ -199,4 +199,89 @@ final class LayoutEditorTests: XCTestCase {
         XCTAssertEqual(apply(.renameFolder(folder: "f", name: "  工具 "), pages), [[folder("f", [a, b], name: "工具")]])
         XCTAssertEqual(apply(.renameFolder(folder: "f", name: "  "), pages), [[folder("f", [a, b], name: "未命名")]])
     }
+
+    func testGroupInsertKeepsGroupOrderBeforeAnchor() {
+        let result = apply(
+            .moveGroup([id(a), id(e)], to: .insert(page: 0, before: id(c))),
+            [[slot(a), slot(b), slot(c), slot(d), slot(e)]]
+        )
+
+        XCTAssertEqual(result, [[slot(b), slot(a), slot(e), slot(c), slot(d)]])
+    }
+
+    func testGroupInsertAtEndOfAnotherPage() {
+        let result = apply(
+            .moveGroup([id(a), id(c)], to: .insert(page: 1, before: nil)),
+            [[slot(a), slot(b)], [slot(c), slot(d)]]
+        )
+
+        XCTAssertEqual(result, [[slot(b)], [slot(d), slot(a), slot(c)]])
+    }
+
+    func testGroupOverflowMovesInBulk() {
+        let result = apply(
+            .moveGroup([id(d), id(e)], to: .insert(page: 0, before: id(a))),
+            [[slot(a), slot(b)], [slot(c), slot(d)], [slot(e)]],
+            capacity: 2
+        )
+
+        XCTAssertEqual(result, [[slot(d), slot(e)], [slot(a), slot(b)], [slot(c)]])
+    }
+
+    func testGroupToNewPageOverflowsIntoFollowingPage() {
+        let result = apply(
+            .moveGroup([id(a), id(b), id(c)], to: .newPage),
+            [[slot(a), slot(b)], [slot(c), slot(d)]],
+            capacity: 2
+        )
+
+        XCTAssertEqual(result, [[slot(d)], [slot(a), slot(b)], [slot(c)]])
+    }
+
+    func testGroupInsertAnchoredOnGroupMemberIsIgnored() {
+        let pages = [[slot(a), slot(b), slot(c)]]
+
+        XCTAssertEqual(apply(.moveGroup([id(a), id(b)], to: .insert(page: 0, before: id(b))), pages), pages)
+    }
+
+    func testGroupMergeIntoAppFlattensSelectedFolders() {
+        let result = apply(
+            .moveGroup([.folder("f"), id(e)], to: .merge(id(a))),
+            [[slot(a), folder("f", [b, c]), slot(d), slot(e)]]
+        )
+
+        XCTAssertEqual(result, [[folder("new", [a, b, c, e], name: "未命名"), slot(d)]])
+    }
+
+    func testGroupMergeIntoSelectedFolderAppendsOthers() {
+        let result = apply(
+            .moveGroup([.folder("f"), id(b), .folder("g")], to: .merge(.folder("f"))),
+            [[folder("f", [a]), slot(b), folder("g", [c, d])]]
+        )
+
+        XCTAssertEqual(result, [[folder("f", [a, b, c, d])]])
+    }
+
+    func testGroupMergeKeepsMissingMembersOfFlattenedFolder() {
+        let g = LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", apps: [c.identity, gone]))
+
+        let result = apply(.moveGroup([.folder("g")], to: .merge(id(a))), [[slot(a), g]])
+
+        XCTAssertEqual(result, [[.folder(LayoutFolder(id: "new", name: "未命名", apps: [a.identity, c.identity, gone]))]])
+    }
+
+    func testMergeIntoNewFolderTakesFirstItemPosition() {
+        let result = apply(
+            .mergeIntoNewFolder([id(b), .folder("f")]),
+            [[slot(a), slot(b), slot(c)], [slot(d), folder("f", [e])]]
+        )
+
+        XCTAssertEqual(result, [[slot(a), folder("new", [b, e], name: "未命名"), slot(c)], [slot(d)]])
+    }
+
+    func testMergeIntoNewFolderNeedsTwoItems() {
+        let pages = [[slot(a), slot(b)]]
+
+        XCTAssertEqual(apply(.mergeIntoNewFolder([id(a)]), pages), pages)
+    }
 }
