@@ -14,21 +14,42 @@ final class PagerMotionTests: XCTestCase {
         return positions
     }
 
-    func testDragFollowsTranslationOncePerFrame() {
+    func testDragChasesTranslationAndConverges() {
         var motion = PagerMotion()
         motion.updateDrag(translation: -250)
 
         motion.advance(page: 0, pageCount: 3, pageWidth: 1000, dt: frame)
+        XCTAssertGreaterThan(motion.position, 0)
+        XCTAssertLessThan(motion.position, 0.25)
 
+        _ = run(&motion, page: 0, seconds: 0.25)
         XCTAssertEqual(motion.position, 0.25, accuracy: 0.0001)
         XCTAssertTrue(motion.isActive)
+    }
+
+    func testUnevenPointerEventsStillMoveEveryFrame() {
+        var motion = PagerMotion()
+        var translation: CGFloat = 0
+        var steps: [CGFloat] = []
+        for delta: CGFloat in Array(repeating: [10, 0, 20, 10, 10, 0, 20, 10], count: 6).joined() {
+            translation -= delta
+            let before = motion.position
+            motion.updateDrag(translation: translation)
+            motion.advance(page: 0, pageCount: 3, pageWidth: 1000, dt: frame)
+            steps.append((motion.position - before) * 1000)
+        }
+
+        for step in steps.dropFirst(10) {
+            XCTAssertGreaterThan(step, 5)
+            XCTAssertLessThan(step, 15)
+        }
     }
 
     func testDragPastFirstPageIsResisted() {
         var motion = PagerMotion()
         motion.updateDrag(translation: 200)
 
-        motion.advance(page: 0, pageCount: 3, pageWidth: 1000, dt: frame)
+        _ = run(&motion, page: 0, seconds: 0.25)
 
         XCTAssertEqual(motion.position, -0.06, accuracy: 0.0001)
     }
@@ -36,7 +57,7 @@ final class PagerMotionTests: XCTestCase {
     func testReleaseSettlesOnTargetWithoutOvershootAndStops() {
         var motion = PagerMotion()
         motion.updateDrag(translation: -400)
-        motion.advance(page: 0, pageCount: 3, pageWidth: 1000, dt: frame)
+        _ = run(&motion, page: 0, seconds: 0.25)
 
         motion.release(velocity: 6)
         let positions = run(&motion, page: 1, seconds: 1.0)
@@ -50,7 +71,7 @@ final class PagerMotionTests: XCTestCase {
     func testReleaseCarriesVelocityIntoFirstFrame() {
         var motion = PagerMotion()
         motion.updateDrag(translation: -400)
-        motion.advance(page: 0, pageCount: 3, pageWidth: 1000, dt: frame)
+        _ = run(&motion, page: 0, seconds: 0.25)
 
         motion.release(velocity: 3)
         motion.advance(page: 1, pageCount: 3, pageWidth: 1000, dt: frame)

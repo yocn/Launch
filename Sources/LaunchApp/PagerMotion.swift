@@ -3,6 +3,7 @@ import Foundation
 
 struct PagerMotion: Equatable {
     static let springFrequency: CGFloat = 13
+    static let dragSmoothing: CGFloat = 0.016
 
     private(set) var position: CGFloat = 0
     private(set) var dragTranslation: CGFloat?
@@ -46,7 +47,9 @@ struct PagerMotion: Equatable {
                 currentPage: page,
                 pageCount: pageCount
             )
-            position = CGFloat(page) - offset / pageWidth
+            // 指针 125Hz 与屏幕 120Hz 不同步，直接取最新位置会停一帧再跳两步
+            let target = CGFloat(page) - offset / pageWidth
+            position += (target - position) * (1 - exp(-dt / Self.dragSmoothing))
             return
         }
         guard isSettling else {

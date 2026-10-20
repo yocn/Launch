@@ -304,7 +304,9 @@ final class LauncherModelTests: XCTestCase {
         model.dragPage(by: -250)
         XCTAssertEqual(model.gridPosition, 0)
 
-        model.advancePager(by: 1.0 / 120)
+        for _ in 0 ..< 30 {
+            model.advancePager(by: 1.0 / 120)
+        }
         XCTAssertEqual(model.gridPosition, 0.25, accuracy: 0.0001)
     }
 
