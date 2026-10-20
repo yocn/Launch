@@ -495,7 +495,6 @@ private struct LauncherBackground: View {
         ZStack {
             if settings.background != .glass, let wallpaper = model.wallpaper {
                 WallpaperImage(wallpaper: wallpaper)
-                    .blur(radius: settings.background == .blurredWallpaper ? 40 : 0, opaque: true)
             } else {
                 Rectangle()
                     .fill(.regularMaterial)

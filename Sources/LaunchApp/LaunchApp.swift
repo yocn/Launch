@@ -109,7 +109,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             guard let self else {
                 return
             }
-            let wallpaper = settings.background == .glass ? nil : wallpaperProvider.wallpaper(for: screen)
+            let wallpaper = settings.background == .glass
+                ? nil
+                : wallpaperProvider.wallpaper(for: screen, blurred: settings.background == .blurredWallpaper)
             controller.model.updateWallpaper(wallpaper)
         }
         controller.model.canUninstall = { [weak self] app in
