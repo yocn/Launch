@@ -1,0 +1,74 @@
+import AppKit
+import LaunchCore
+
+@MainActor
+protocol UninstallPrompting: AnyObject {
+    func confirmUninstall(appName: String, isRunning: Bool) -> Bool
+    func showUninstallError(_ message: String)
+}
+
+@MainActor
+final class UninstallCoordinator {
+    private let uninstaller: AppUninstaller
+    private let prompter: UninstallPrompting
+    private let onRemoved: () -> Void
+
+    init(uninstaller: AppUninstaller, prompter: UninstallPrompting, onRemoved: @escaping () -> Void) {
+        self.uninstaller = uninstaller
+        self.prompter = prompter
+        self.onRemoved = onRemoved
+    }
+
+    func canUninstall(_ app: CatalogApp) -> Bool {
+        uninstaller.canUninstall(app)
+    }
+
+    func uninstall(_ app: CatalogApp) async {
+        guard uninstaller.canUninstall(app) else {
+            return
+        }
+        let running = uninstaller.runningInstance(of: app)
+        guard prompter.confirmUninstall(appName: app.displayName, isRunning: running != nil) else {
+            return
+        }
+        if let running {
+            let didQuit = await uninstaller.quit(running)
+            guard didQuit else {
+                prompter.showUninstallError("“\(app.displayName)”没有退出，未移到废纸篓。")
+                return
+            }
+        }
+        do {
+            try uninstaller.moveToTrash(app)
+            onRemoved()
+        } catch {
+            prompter.showUninstallError("无法将“\(app.displayName)”移到废纸篓：\(error.localizedDescription)")
+        }
+    }
+}
+
+@MainActor
+final class AlertUninstallPrompter: UninstallPrompting {
+    func confirmUninstall(appName: String, isRunning: Bool) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = isRunning ? "“\(appName)”正在运行" : "要将“\(appName)”移到废纸篓吗？"
+        alert.informativeText = isRunning ? "退出后移到废纸篓，可以在废纸篓中恢复。" : "可以在废纸篓中恢复。"
+        alert.addButton(withTitle: isRunning ? "退出并移到废纸篓" : "移到废纸篓")
+        alert.addButton(withTitle: "取消")
+        return Self.run(alert) == .alertFirstButtonReturn
+    }
+
+    func showUninstallError(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "卸载失败"
+        alert.informativeText = message
+        _ = Self.run(alert)
+    }
+
+    // 启动器面板在 statusBar 层级，提示框要更高才不会被挡住
+    private static func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
+        alert.window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+        return alert.runModal()
+    }
+}
