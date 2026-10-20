@@ -6,6 +6,7 @@ import Observation
 enum EscapeOutcome: Equatable {
     case cancelledRename
     case closedFolder
+    case clearedSelection
     case stoppedJiggling
     case clearedQuery
     case close
@@ -28,10 +29,11 @@ final class LauncherModel {
         let id: String
         let content: Content
         let isMergeTarget: Bool
+        let isPicked: Bool
     }
 
     struct Landing: Equatable {
-        let entryID: String
+        let entryIDs: Set<String>
         let from: CGRect
     }
 
@@ -50,6 +52,8 @@ final class LauncherModel {
     private(set) var landing: Landing?
     private(set) var isJiggling = false
     private(set) var renamingFolderID: String?
+    private(set) var multiSelection = MultiSelection()
+    private(set) var marqueeRect: CGRect?
     var folderNameDraft = ""
     // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
     @ObservationIgnored private(set) var isPageDragging = false
@@ -66,6 +70,10 @@ final class LauncherModel {
     @ObservationIgnored private var dragSession: DragSession?
     @ObservationIgnored private var dragStartPoint: CGPoint = .zero
     @ObservationIgnored private var pendingLayout: [[ResolvedItem]]?
+    // ⌘ 或 ⌃ 按下的点击；SwiftUI 的翻页与点空白手势不受事件监听拦截，靠它忽略
+    @ObservationIgnored var isModifiedClick = false
+    @ObservationIgnored private var marqueeStart: CGPoint?
+    @ObservationIgnored private var dragGroup: [LayoutItemID] = []
 
     init(apps: [CatalogApp] = []) {
         self.apps = apps
@@ -153,6 +161,137 @@ final class LauncherModel {
         canEditLayout && query.isEmpty && layoutPages != nil && renamingFolderID == nil
     }
 
+    var canMultiSelect: Bool {
+        canDragItems && openFolder == nil
+    }
+
+    func toggleMultiSelection(_ item: LayoutItemID) {
+        guard canMultiSelect else {
+            return
+        }
+        multiSelection.toggle(item)
+    }
+
+    @discardableResult
+    func clearMultiSelection() -> Bool {
+        guard !multiSelection.isEmpty else {
+            return false
+        }
+        multiSelection = MultiSelection()
+        return true
+    }
+
+    func beginMarquee(at point: CGPoint) -> Bool {
+        guard canMultiSelect, gridFrame.contains(point) else {
+            return false
+        }
+        marqueeStart = point
+        multiSelection.beginMarquee()
+        return true
+    }
+
+    func updateMarquee(to point: CGPoint) {
+        guard let start = marqueeStart, let homeLayout else {
+            return
+        }
+        let rect = CGRect(
+            x: min(start.x, point.x),
+            y: min(start.y, point.y),
+            width: abs(point.x - start.x),
+            height: abs(point.y - start.y)
+        )
+        marqueeRect = rect
+        let items = visibleItems
+        let hits = GridHitTester(layout: homeLayout, frame: gridFrame)
+            .tileIndices(intersecting: rect, itemCount: items.count)
+            .compactMap { items[$0].layoutID }
+        var selection = multiSelection
+        selection.updateMarquee(hits: Set(hits))
+        setMultiSelection(selection)
+    }
+
+    // 没拖出选框即为 ⌘ 单击，切换按下处图标的选中状态
+    func endMarquee() {
+        guard let start = marqueeStart else {
+            return
+        }
+        var selection = multiSelection
+        if marqueeRect == nil, let item = itemPress(at: start)?.item.layoutID {
+            selection.toggle(item)
+        }
+        selection.endMarquee()
+        setMultiSelection(selection)
+        marqueeStart = nil
+        marqueeRect = nil
+    }
+
+    func dragCount(for press: ItemPress) -> Int {
+        isGroupDrag(press) ? multiSelection.count : 1
+    }
+
+    func selectionMenu(at point: CGPoint) -> SelectionMenuContent? {
+        guard canMultiSelect, let item = itemPress(at: point)?.item.layoutID, multiSelection.contains(item) else {
+            return nil
+        }
+        let gridPages = pages
+        let folders = gridPages.joined().compactMap { item -> SelectionMenuContent.Folder? in
+            guard case .folder(let folder) = item, multiSelection.contains(.folder(folder.id)) else {
+                return nil
+            }
+            return SelectionMenuContent.Folder(id: folder.id, name: folder.name)
+        }
+        return SelectionMenuContent(
+            count: multiSelection.ordered(in: gridPages).count,
+            folders: folders,
+            pageCount: gridPages.count
+        )
+    }
+
+    func performSelectionCommand(_ command: SelectionCommand) {
+        let items = multiSelection.ordered(in: pages)
+        guard canMultiSelect, !items.isEmpty else {
+            return
+        }
+        let edit: LayoutEdit
+        switch command {
+        case .mergeIntoNewFolder:
+            edit = .mergeIntoNewFolder(items)
+        case .mergeInto(let folder):
+            edit = .moveGroup(items, to: .merge(.folder(folder)))
+        case .moveToPage(let page):
+            edit = .moveGroup(items, to: .insert(page: page, before: nil))
+        case .moveToNewPage:
+            edit = .moveGroup(items, to: .newPage)
+        }
+        clearMultiSelection()
+        selectedIndex = nil
+        onEdit?(edit)
+    }
+
+    private func isGroupDrag(_ press: ItemPress) -> Bool {
+        guard case .grid = press.origin, let item = press.item.layoutID else {
+            return false
+        }
+        return multiSelection.count > 1 && multiSelection.contains(item)
+    }
+
+    private func setMultiSelection(_ selection: MultiSelection) {
+        if selection != multiSelection {
+            multiSelection = selection
+        }
+    }
+
+    private static func groupSources(_ items: [LayoutItemID], in pages: [[ResolvedItem]]) -> [Int: [Int]] {
+        let wanted = Set(items)
+        var sources: [Int: [Int]] = [:]
+        for (page, pageItems) in pages.enumerated() {
+            for (index, item) in pageItems.enumerated() where item.layoutID.map(wanted.contains) == true {
+                sources[page, default: []].append(index)
+            }
+        }
+        return sources
+    }
+
     func updateHomeLayout(_ layout: LauncherHomeLayout) {
         homeLayout = layout
     }
@@ -203,7 +342,13 @@ final class LauncherModel {
         selectedIndex = nil
         folderSelectedIndex = nil
         dragStartPoint = point
-        dragSession = DragSession(item: press.item, origin: press.origin)
+        if isGroupDrag(press) {
+            dragGroup = multiSelection.ordered(in: pages)
+        } else {
+            dragGroup = []
+            clearMultiSelection()
+        }
+        dragSession = DragSession(item: press.item, origin: press.origin, group: Self.groupSources(dragGroup, in: pages))
         publishDragPreview()
     }
 
@@ -243,10 +388,14 @@ final class LauncherModel {
         let target = session.dropTarget(for: dragHit(at: point, preview: preview))
         let edit = target.flatMap { layoutEdit(for: $0, preview: preview) }
         if edit != nil, case .insert? = target, let frame = frame(of: preview.origin) {
+            let ids = preview.isGroup ? dragGroup.map { Self.entryID($0) } : [Self.entryID(preview.item, index: 0)]
             landing = Landing(
-                entryID: Self.entryID(preview.item, index: 0),
+                entryIDs: Set(ids),
                 from: frame.offsetBy(dx: point.x - dragStartPoint.x, dy: point.y - dragStartPoint.y)
             )
+        }
+        if edit != nil, preview.isGroup {
+            clearMultiSelection()
         }
         finishItemDrag()
         if let edit {
@@ -271,15 +420,28 @@ final class LauncherModel {
             in: area
         ) ?? items.indices.map(PreviewEntry.item)
         var seen = Set<String>()
+        var gaps = 0
         return entries.map { entry in
             switch entry {
             case .gap:
-                return GridEntry(id: "drag-gap", content: .gap, isMergeTarget: false)
+                defer { gaps += 1 }
+                return GridEntry(
+                    id: gaps == 0 ? "drag-gap" : "drag-gap-\(gaps)",
+                    content: .gap,
+                    isMergeTarget: false,
+                    isPicked: false
+                )
             case .item(let index):
                 let base = Self.entryID(items[index], index: index)
                 let id = seen.insert(base).inserted ? base : "\(base)#\(index)"
                 let isMergeTarget = preview?.area == area && preview?.target == .merge(page: page, index: index)
-                return GridEntry(id: id, content: .item(items[index], index: index), isMergeTarget: isMergeTarget)
+                let isPicked = area == .grid && items[index].layoutID.map(multiSelection.contains) == true
+                return GridEntry(
+                    id: id,
+                    content: .item(items[index], index: index),
+                    isMergeTarget: isMergeTarget,
+                    isPicked: isPicked
+                )
             }
         }
     }
@@ -295,7 +457,17 @@ final class LauncherModel {
         }
     }
 
+    static func entryID(_ item: LayoutItemID) -> String {
+        switch item {
+        case .app(let key):
+            "app:" + key
+        case .folder(let id):
+            "folder:" + id
+        }
+    }
+
     private func finishItemDrag() {
+        dragGroup = []
         dragSession = nil
         dragPreview = nil
         if let pendingLayout {
@@ -391,12 +563,16 @@ final class LauncherModel {
             if preview.hasExtraPage, page == gridPages.count - 1 {
                 dropTarget = .newPage
             } else {
-                var items = gridPages.indices.contains(page) ? gridPages[page] : []
-                if let source = preview.sourceIndex(onPage: page, in: .grid) {
-                    items.remove(at: source)
-                }
+                let sources = Set(preview.sourceIndices(onPage: page, in: .grid))
+                let items = (gridPages.indices.contains(page) ? gridPages[page] : [])
+                    .enumerated()
+                    .filter { !sources.contains($0.offset) }
+                    .map(\.element)
                 dropTarget = .insert(page: page, before: index < items.count ? items[index].layoutID : nil)
             }
+        }
+        if preview.isGroup {
+            return .moveGroup(dragGroup, to: dropTarget)
         }
         if case .folder(let folderID, _, _) = preview.origin, case .app(let app) = preview.item {
             return .moveOutOfFolder(app: app.identity.stableKey, folder: folderID, to: dropTarget)
@@ -413,7 +589,7 @@ final class LauncherModel {
 
     func dragPage(by translation: CGFloat) {
         // 发起图标拖拽的那次拖动事件也会被转给 SwiftUI 翻页手势，且它永远收不到结束
-        guard dragSession == nil else {
+        guard dragSession == nil, !isModifiedClick else {
             return
         }
         isPageDragging = true
@@ -500,6 +676,7 @@ final class LauncherModel {
             selectedIndex = nil
         } else {
             isJiggling = false
+            clearMultiSelection()
             closeFolder()
             selectedIndex = visibleItems.isEmpty ? nil : 0
         }
@@ -614,6 +791,9 @@ final class LauncherModel {
     }
 
     func activateSelection() -> CatalogApp? {
+        if clearMultiSelection() {
+            return nil
+        }
         if openFolder != nil {
             guard let index = folderSelectedIndex, visibleFolderApps.indices.contains(index) else {
                 return nil
@@ -637,6 +817,7 @@ final class LauncherModel {
 
     func prepareForPresentation() {
         isJiggling = false
+        clearMultiSelection()
         closeFolder()
         setQuery("")
         selectedIndex = nil
@@ -658,6 +839,9 @@ final class LauncherModel {
                 return false
             }
             return .closedFolder
+        }
+        if clearMultiSelection() {
+            return .clearedSelection
         }
         if isJiggling {
             endJiggling()
@@ -685,6 +869,11 @@ final class LauncherModel {
     }
 
     private func normalizeState() {
+        if let layoutPages {
+            var selection = multiSelection
+            selection.retain(Set(layoutPages.joined().compactMap(\.layoutID)))
+            setMultiSelection(selection)
+        }
         let page = clampedPage(currentPage)
         if page != currentPage {
             setGridPage(page, animated: false)

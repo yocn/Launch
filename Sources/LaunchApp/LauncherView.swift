@@ -373,7 +373,7 @@ private struct GridCell<ItemView: View>: View {
                     }
                 }
                 .modifier(LandingModifier(
-                    from: model.landing?.entryID == entry.id ? model.landing?.from : nil,
+                    from: model.landing?.entryIDs.contains(entry.id) == true ? model.landing?.from : nil,
                     onFinished: { model.clearLanding() }
                 ))
                 .overlay(alignment: .topLeading) {

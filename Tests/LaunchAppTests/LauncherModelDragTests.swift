@@ -295,7 +295,7 @@ final class LauncherModelDragTests: XCTestCase {
         begin(model, at: start)
         model.endItemDrag(at: leading(1), now: 0)
 
-        XCTAssertEqual(model.landing?.entryID, "app:" + apps[4].identity.stableKey)
+        XCTAssertEqual(model.landing?.entryIDs, ["app:" + apps[4].identity.stableKey])
         XCTAssertEqual(
             model.landing?.from,
             tile(4).offsetBy(dx: leading(1).x - start.x, dy: leading(1).y - start.y)
