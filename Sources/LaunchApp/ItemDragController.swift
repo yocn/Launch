@@ -155,13 +155,34 @@ final class ItemDragController: NSObject, NSDraggingSource {
         return contextClick(at: point, event: event)
     }
 
+    // 文本框上交给系统的编辑菜单
     private func contextClick(at point: CGPoint, event: NSEvent) -> NSEvent? {
-        guard let content = model.contextMenu(at: point), let view = presenter.contentView else {
+        guard let view = presenter.contentView, !isTextInput(at: event, in: view),
+              let content = model.contextMenu(at: point) else {
             return event
         }
         let location = view.convert(event.locationInWindow, from: nil)
         itemMenu.makeMenu(content).popUp(positioning: nil, at: location, in: view)
         return nil
+    }
+
+    func showMainMenu() {
+        guard let view = presenter.contentView, let window = view.window else {
+            return
+        }
+        let location = view.convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        itemMenu.makeMenu(.main).popUp(positioning: nil, at: location, in: view)
+    }
+
+    private func isTextInput(at event: NSEvent, in view: NSView) -> Bool {
+        var hit = view.hitTest(view.convert(event.locationInWindow, from: nil))
+        while let current = hit {
+            if current is NSTextView || current is NSTextField {
+                return true
+            }
+            hit = current.superview
+        }
+        return false
     }
 
     private func startLongPress() {

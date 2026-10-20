@@ -61,6 +61,8 @@ final class ScreenPresenter: LauncherPresenting {
         }
     }
 
+    var onPresent: ((NSScreen) -> Void)?
+
     var isVisible: Bool {
         panel.isVisible
     }
@@ -106,6 +108,7 @@ final class ScreenPresenter: LauncherPresenting {
         guard let screen = targetScreen() else {
             return
         }
+        onPresent?(screen)
         panel.setFrame(screen.frame, display: true)
         NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)

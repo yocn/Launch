@@ -1,5 +1,6 @@
 import AppKit
 import LaunchCore
+import SwiftUI
 
 public enum LauncherPlacement: Equatable, Sendable {
     case mouseScreen
@@ -37,6 +38,21 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private var catalogWatcher: CatalogWatcher?
     private let inputMonitor = LauncherInputMonitor()
     private let appActions = AppActions()
+    private let settings = LauncherSettings()
+    private let wallpaperProvider = WallpaperProvider()
+    private lazy var settingsWindow = SettingsWindowController(
+        onWillShow: { [weak self] in self?.controller.hide(.settings) },
+        makeContent: { [unowned self] in
+            AnyView(SettingsView(
+                settings: settings,
+                model: controller.model,
+                loginItemService: loginItemService,
+                hasHotKeyConflict: { [weak self] in self?.hasHotKeyConflict() ?? false },
+                onUnhide: { [weak self] app in self?.layoutCoordinator.unhide(app) },
+                onUnhideAll: { [weak self] in self?.layoutCoordinator.unhideAll() }
+            ))
+        }
+    )
     private lazy var pagerDriver = PagerDriver(model: controller.model) { [weak self] target, selector in
         self?.presenter.makeDisplayLink(target: target, selector: selector)
     }
@@ -58,9 +74,11 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         presenter.setContent(
             LauncherView(
                 model: controller.model,
+                settings: settings,
                 onEscape: { [weak self] in self?.controller.handleEscape() },
                 onBackgroundClick: { [weak self] in self?.controller.handleBackgroundClick() },
-                onLaunch: { [weak self] app in self?.controller.launch(app) }
+                onLaunch: { [weak self] app in self?.controller.launch(app) },
+                onMainMenu: { [weak self] in self?.itemDragController.showMainMenu() }
             ),
             skipsCursorUpdate: { [weak self] in self?.controller.model.needsPagerFrames ?? false }
         )
@@ -83,6 +101,16 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         }
         controller.onUndoLayoutEdit = { [weak self] in
             self?.layoutCoordinator.undo()
+        }
+        controller.onOpenSettings = { [weak self] in
+            self?.settingsWindow.show()
+        }
+        presenter.onPresent = { [weak self] screen in
+            guard let self else {
+                return
+            }
+            let wallpaper = settings.background == .glass ? nil : wallpaperProvider.wallpaper(for: screen)
+            controller.model.updateWallpaper(wallpaper)
         }
         controller.model.canUninstall = { [weak self] app in
             self?.uninstallCoordinator.canUninstall(app) ?? false
@@ -113,8 +141,10 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 unhideAll: { [weak self] in self?.layoutCoordinator.unhideAll() }
             ),
             hasHotKeyConflict: { [weak self] in self?.hasHotKeyConflict() ?? false },
-            onOpen: { [weak self] in self?.controller.show() }
+            onOpen: { [weak self] in self?.controller.show() },
+            onOpenSettings: { [weak self] in self?.settingsWindow.show() }
         )
+        applySettings()
         let watcher = CatalogWatcher(roots: ApplicationSources.defaultRoots()) { [weak self] apps in
             self?.controller.updateCatalog(apps)
             Task { await self?.layoutCoordinator.catalogDidChange(apps) }
@@ -158,6 +188,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             uninstall(app)
         case .unhide(let app):
             layoutCoordinator.unhide(app)
+        case .openSettings:
+            settingsWindow.show()
         default:
             controller.model.performMenuCommand(command)
         }
@@ -167,7 +199,26 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         guard let layout = controller.model.homeLayout else {
             return nil
         }
-        return DragCardRenderer.image(for: item, count: count, layout: layout, scale: presenter.backingScaleFactor)
+        return DragCardRenderer.image(
+            for: item,
+            count: count,
+            showsName: !settings.hidesNames,
+            layout: layout,
+            scale: presenter.backingScaleFactor
+        )
+    }
+
+    // 设置变化时同步到模型与菜单栏；观察只触发一次，需要重新登记
+    private func applySettings() {
+        withObservationTracking {
+            controller.model.reopensAtFirstPage = settings.reopenBehavior == .firstPage
+            controller.model.showsHiddenAppsInSearch = settings.showsHiddenAppsInSearch
+            statusItemController?.setIconVisible(settings.showsMenuBarIcon)
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.applySettings()
+            }
+        }
     }
 
     private func hasHotKeyConflict() -> Bool {

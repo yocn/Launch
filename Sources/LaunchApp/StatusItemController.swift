@@ -20,23 +20,27 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let importItem = NSMenuItem(title: "从 Launchpad 导入布局…", action: nil, keyEquivalent: "")
     private let restoreItem = NSMenuItem(title: "恢复导入前的布局", action: nil, keyEquivalent: "")
     private let hiddenItem = NSMenuItem(title: "隐藏的应用", action: nil, keyEquivalent: "")
+    private let settingsItem = NSMenuItem(title: "设置…", action: nil, keyEquivalent: ",")
     private let quitItem = NSMenuItem(title: "退出 Launch", action: nil, keyEquivalent: "q")
     private let loginItemService: LoginItemService
     private let layoutMenu: LayoutMenuActions
     private let hasHotKeyConflict: () -> Bool
     private let onOpen: () -> Void
+    private let onOpenSettings: () -> Void
     private var hiddenApps: [CatalogApp] = []
 
     init(
         loginItemService: LoginItemService,
         layoutMenu: LayoutMenuActions,
         hasHotKeyConflict: @escaping () -> Bool,
-        onOpen: @escaping () -> Void
+        onOpen: @escaping () -> Void,
+        onOpenSettings: @escaping () -> Void
     ) {
         self.loginItemService = loginItemService
         self.layoutMenu = layoutMenu
         self.hasHotKeyConflict = hasHotKeyConflict
         self.onOpen = onOpen
+        self.onOpenSettings = onOpenSettings
         super.init()
 
         statusItem.button?.image = NSImage(
@@ -56,11 +60,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         restoreItem.target = self
         quitItem.action = #selector(quit)
         quitItem.target = self
+        settingsItem.action = #selector(openSettings)
+        settingsItem.target = self
 
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
-        menu.items = [openItem, conflictItem, .separator(), loginItem, importItem, restoreItem, hiddenItem, .separator(), quitItem]
+        menu.items = [
+            openItem, settingsItem, conflictItem, .separator(), loginItem, importItem, restoreItem, hiddenItem, .separator(), quitItem,
+        ]
         statusItem.menu = menu
     }
 
@@ -101,8 +109,16 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         layoutMenu.unhideAll()
     }
 
+    func setIconVisible(_ visible: Bool) {
+        statusItem.isVisible = visible
+    }
+
     @objc private func openLauncher() {
         onOpen()
+    }
+
+    @objc private func openSettings() {
+        onOpenSettings()
     }
 
     @objc private func toggleLoginItem() {

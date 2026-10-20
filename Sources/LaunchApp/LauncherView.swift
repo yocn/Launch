@@ -2,6 +2,10 @@ import AppKit
 import LaunchCore
 import SwiftUI
 
+extension EnvironmentValues {
+    @Entry var showsItemNames = true
+}
+
 enum SearchPresentation {
     static func showsClearControl(for query: String) -> Bool {
         !query.isEmpty
@@ -14,9 +18,11 @@ enum SearchPresentation {
 
 struct LauncherView: View {
     let model: LauncherModel
+    let settings: LauncherSettings
     let onEscape: () -> Void
     let onBackgroundClick: () -> Void
     let onLaunch: (CatalogApp) -> Void
+    let onMainMenu: () -> Void
 
     @FocusState private var searchFieldIsFocused: Bool
     @State private var folderFrames: [String: CGRect] = [:]
@@ -26,9 +32,7 @@ struct LauncherView: View {
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                Rectangle()
-                    .fill(.regularMaterial)
-                .overlay(Color.black.opacity(0.47))
+                LauncherBackground(model: model, settings: settings)
                     .ignoresSafeArea()
                     .onTapGesture(perform: onBackgroundClick)
 
@@ -70,6 +74,7 @@ struct LauncherView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.easeOut(duration: 0.25), value: model.openFolderID)
         }
+        .environment(\.showsItemNames, !settings.hidesNames)
         .onExitCommand(perform: onEscape)
         .onAppear {
             searchFieldIsFocused = true
@@ -164,6 +169,7 @@ struct LauncherView: View {
                     onLaunch(app)
                 }
             }
+            .opacity(model.isHiddenApp(app) ? 0.45 : 1)
         case .folder(let folder):
             LauncherFolderTile(folder: folder, layout: layout, isSelected: isSelected) {
                 if !dragTracker.suppressesTap {
@@ -209,10 +215,13 @@ struct LauncherView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("清除搜索")
             } else if SearchPresentation.showsMoreControl(for: model.query) {
-                Image(systemName: "ellipsis.circle")
-                    .font(.system(size: layout.searchIconSize))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .accessibilityLabel("更多选项")
+                Button(action: onMainMenu) {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: layout.searchIconSize))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("更多选项")
             }
         }
         .padding(.horizontal, layout.searchBarPadding)
@@ -252,6 +261,7 @@ private struct LauncherAppTile: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.showsItemNames) private var showsName
     @State private var isHovering = false
 
     var body: some View {
@@ -267,6 +277,7 @@ private struct LauncherAppTile: View {
                 .lineLimit(1)
                 .frame(maxWidth: layout.tileWidth)
                 .frame(height: layout.labelHeight)
+                .opacity(showsName ? 1 : 0)
         }
         .padding(.vertical, layout.tilePadding)
         .frame(width: layout.tileWidth)
@@ -291,6 +302,7 @@ private struct LauncherFolderTile: View {
     let isSelected: Bool
     let action: () -> Void
 
+    @Environment(\.showsItemNames) private var showsName
     @State private var isHovering = false
 
     var body: some View {
@@ -303,6 +315,7 @@ private struct LauncherFolderTile: View {
                 .lineLimit(1)
                 .frame(maxWidth: layout.tileWidth)
                 .frame(height: layout.labelHeight)
+                .opacity(showsName ? 1 : 0)
         }
         .padding(.vertical, layout.tilePadding)
         .frame(width: layout.tileWidth)
@@ -473,6 +486,56 @@ private struct SelectionCheck: View {
     }
 }
 
+// 只有这一层读取背景设置与壁纸，切换时不重建网格
+private struct LauncherBackground: View {
+    let model: LauncherModel
+    let settings: LauncherSettings
+
+    var body: some View {
+        ZStack {
+            if settings.background != .glass, let wallpaper = model.wallpaper {
+                WallpaperImage(wallpaper: wallpaper)
+                    .blur(radius: settings.background == .blurredWallpaper ? 40 : 0, opaque: true)
+            } else {
+                Rectangle()
+                    .fill(.regularMaterial)
+            }
+            Color.black.opacity(settings.dimming)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+private struct WallpaperImage: View {
+    let wallpaper: Wallpaper
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color(nsColor: wallpaper.fillColor ?? .black)
+                switch wallpaper.fill {
+                case .aspectFill:
+                    image.aspectRatio(contentMode: .fill)
+                case .aspectFit:
+                    image.aspectRatio(contentMode: .fit)
+                case .stretch:
+                    image
+                case .center:
+                    Image(nsImage: wallpaper.image)
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
+        }
+    }
+
+    private var image: some View {
+        Image(nsImage: wallpaper.image)
+            .resizable()
+            .interpolation(.high)
+    }
+}
+
 // 只有这一层读取选框矩形，拖动选框时不重建网格
 private struct MarqueeOverlay: View {
     let model: LauncherModel
@@ -564,8 +627,14 @@ private struct FolderTitle: View {
 
 @MainActor
 enum DragCardRenderer {
-    static func image(for item: ResolvedItem, count: Int, layout: LauncherHomeLayout, scale: CGFloat) -> NSImage? {
-        let renderer = ImageRenderer(content: DragCard(item: item, count: count, layout: layout))
+    static func image(
+        for item: ResolvedItem,
+        count: Int,
+        showsName: Bool,
+        layout: LauncherHomeLayout,
+        scale: CGFloat
+    ) -> NSImage? {
+        let renderer = ImageRenderer(content: DragCard(item: item, count: count, showsName: showsName, layout: layout))
         renderer.scale = scale
         return renderer.nsImage
     }
@@ -574,6 +643,7 @@ enum DragCardRenderer {
 private struct DragCard: View {
     let item: ResolvedItem
     let count: Int
+    let showsName: Bool
     let layout: LauncherHomeLayout
 
     var body: some View {
@@ -614,6 +684,7 @@ private struct DragCard: View {
             .lineLimit(1)
             .frame(maxWidth: layout.tileWidth)
             .frame(height: layout.labelHeight)
+            .opacity(showsName ? 1 : 0)
     }
 }
 
