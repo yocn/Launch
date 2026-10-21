@@ -45,6 +45,55 @@ final class LauncherModelSettingsTests: XCTestCase {
     }
 
     @MainActor
+    func testSortedDisplayKeepsLayoutAndBlocksEditing() {
+        let apps = ["Zed", "Alpha", "Mid"].map { name in
+            CatalogApp(identity: AppIdentity(bundleIdentifier: "com.example.\(name)", path: "/Applications/\(name).app"), displayName: name)
+        }
+        let folder = ResolvedFolder(id: "f", name: "Folder", apps: [apps[1], apps[0]])
+        let model = LauncherModel(apps: apps)
+        model.updateLayout([[.app(apps[0]), .folder(folder)], [.app(apps[2])]])
+        model.canEditLayout = true
+
+        model.updateDisplaySort(DisplaySort(field: .name, sortsFolderContents: true))
+
+        XCTAssertEqual(model.pages, [[.folder(ResolvedFolder(id: "f", name: "Folder", apps: [apps[1], apps[0]])), .app(apps[2]), .app(apps[0])]])
+        XCTAssertFalse(model.canDragItems)
+        XCTAssertFalse(model.mainMenu.canSelectAll)
+        model.showFolder(id: "f")
+        XCTAssertEqual(model.openFolder?.apps, [apps[1], apps[0]])
+        model.closeFolder()
+
+        model.notifyBlockedDrag()
+        XCTAssertEqual(model.hint, "仅在自定义排序时可以拖动调整顺序")
+
+        model.updateDisplaySort(DisplaySort())
+        XCTAssertEqual(model.pages, [[.app(apps[0]), .folder(folder)], [.app(apps[2])]])
+        XCTAssertTrue(model.canDragItems)
+    }
+
+    @MainActor
+    func testBlockedDragHintOnlyForSorting() {
+        let model = makeModel(apps: makeApps(count: 3))
+        model.notifyBlockedDrag()
+
+        XCTAssertNil(model.hint)
+    }
+
+    @MainActor
+    func testDatesReorderDateSort() {
+        let apps = makeApps(count: 3)
+        let model = makeModel(apps: apps)
+        model.updateDisplaySort(DisplaySort(field: .lastUsed, descending: true))
+
+        model.updateAppDates([
+            apps[2].identity.stableKey: AppDates(lastUsed: Date(timeIntervalSince1970: 10)),
+            apps[0].identity.stableKey: AppDates(lastUsed: Date(timeIntervalSince1970: 5)),
+        ])
+
+        XCTAssertEqual(model.pages, [[.app(apps[2]), .app(apps[0]), .app(apps[1])]])
+    }
+
+    @MainActor
     func testShrinkingGridClampsCurrentPage() {
         let model = makeModel(apps: makeApps(count: 20))
         model.updateGrid(GridSize(columns: 4, rows: 3))

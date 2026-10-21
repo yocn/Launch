@@ -43,6 +43,12 @@ final class LauncherModel {
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
     private(set) var grid = GridSize.default
+    private(set) var displaySort = DisplaySort()
+    // 非自定义排序时为排好的一串，其余情况与 layoutPages 相同
+    private(set) var arrangedPages: [[ResolvedItem]]?
+    private(set) var hint: String?
+    @ObservationIgnored private var appDates: [String: AppDates] = [:]
+    @ObservationIgnored private var hintGeneration = 0
     private(set) var currentPage = 0
     private(set) var selectedIndex: Int?
     private(set) var presentationCount = 0
@@ -96,8 +102,8 @@ final class LauncherModel {
 
     var pages: [[ResolvedItem]] {
         let source: [[ResolvedItem]]
-        if query.isEmpty, let layoutPages {
-            source = layoutPages
+        if query.isEmpty, let arrangedPages {
+            source = arrangedPages
         } else {
             source = [results.map(ResolvedItem.app)]
         }
@@ -116,10 +122,10 @@ final class LauncherModel {
     }
 
     var openFolder: ResolvedFolder? {
-        guard let openFolderID, let layoutPages else {
+        guard let openFolderID, let arrangedPages else {
             return nil
         }
-        for item in layoutPages.joined() {
+        for item in arrangedPages.joined() {
             if case .folder(let folder) = item, folder.id == openFolderID {
                 return folder
             }
@@ -169,7 +175,7 @@ final class LauncherModel {
     }
 
     var canDragItems: Bool {
-        canEditLayout && query.isEmpty && layoutPages != nil && renamingFolderID == nil
+        canEditLayout && query.isEmpty && layoutPages != nil && renamingFolderID == nil && displaySort.field == .custom
     }
 
     var canMultiSelect: Bool {
@@ -284,7 +290,52 @@ final class LauncherModel {
     }
 
     var mainMenu: MainMenuContent {
-        MainMenuContent(canSelectAll: canMultiSelect && !visibleItems.isEmpty, canArrange: canMultiSelect)
+        MainMenuContent(canSelectAll: canMultiSelect && !visibleItems.isEmpty, canArrange: canMultiSelect, sort: displaySort)
+    }
+
+    func updateDisplaySort(_ sort: DisplaySort) {
+        guard sort != displaySort else {
+            return
+        }
+        displaySort = sort
+        rearrange()
+    }
+
+    func updateAppDates(_ dates: [String: AppDates]) {
+        appDates = dates
+        if displaySort.field == .dateAdded || displaySort.field == .lastUsed {
+            rearrange()
+        }
+    }
+
+    // 从图标上拖动却因排序不能拖时提示
+    func notifyBlockedDrag() {
+        guard displaySort.field != .custom, canEditLayout, query.isEmpty, layoutPages != nil else {
+            return
+        }
+        showHint("仅在自定义排序时可以拖动调整顺序")
+    }
+
+    func showHint(_ text: String) {
+        hintGeneration += 1
+        let generation = hintGeneration
+        hint = text
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1.6))
+            guard let self, hintGeneration == generation else {
+                return
+            }
+            hint = nil
+        }
+    }
+
+    private func rearrange() {
+        if let layoutPages, displaySort.field != .custom {
+            arrangedPages = [DisplaySorter.sorted(layoutPages, by: displaySort, dates: appDates)]
+        } else {
+            arrangedPages = layoutPages
+        }
+        normalizeState()
     }
 
     func selectAllOnPage() {
@@ -311,7 +362,8 @@ final class LauncherModel {
             beginRenamingFolder()
         case .selectAll:
             selectAllOnPage()
-        case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide, .arrangeLayout:
+        case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide, .arrangeLayout,
+             .sortField, .sortDescending, .sortsFolderContents, .folderPlacement:
             break
         }
     }
@@ -339,7 +391,7 @@ final class LauncherModel {
         case .hideSelection:
             edit = .hide(items)
         case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide,
-             .selectAll, .arrangeLayout:
+             .selectAll, .arrangeLayout, .sortField, .sortDescending, .sortsFolderContents, .folderPlacement:
             return
         }
         clearMultiSelection()
@@ -973,7 +1025,7 @@ final class LauncherModel {
             return
         }
         layoutPages = pages
-        normalizeState()
+        rearrange()
     }
 
     private func normalizeState() {

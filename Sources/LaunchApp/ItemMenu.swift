@@ -32,6 +32,7 @@ struct FolderMenuContent: Equatable {
 struct MainMenuContent: Equatable {
     let canSelectAll: Bool
     let canArrange: Bool
+    var sort = DisplaySort()
 }
 
 enum ItemMenuContent: Equatable {
@@ -58,6 +59,10 @@ enum ItemMenuCommand: Equatable {
     case unhide(CatalogApp)
     case selectAll
     case arrangeLayout
+    case sortField(SortField)
+    case sortDescending(Bool)
+    case sortsFolderContents(Bool)
+    case folderPlacement(FolderPlacement)
 }
 
 @MainActor
@@ -85,6 +90,7 @@ final class ItemMenu: NSObject {
             selectAll.keyEquivalent = "a"
             menu.addItem(selectAll)
             menu.addItem(item("整理布局…", .arrangeLayout, isEnabled: main.canArrange))
+            menu.addItem(sortItem(main.sort))
             menu.addItem(.separator())
             menu.addItem(item("设置…", .openSettings))
         }
@@ -140,6 +146,41 @@ final class ItemMenu: NSObject {
         menu.addItem(item("重命名", .rename(folder: folder.id), isEnabled: content.canEdit))
         menu.addItem(item("取消分组", .ungroup(folder: folder.id), isEnabled: content.canEdit))
         menu.addItem(item("隐藏", .hide(.folder(folder.id)), isEnabled: content.canEdit))
+    }
+
+    private func sortItem(_ sort: DisplaySort) -> NSMenuItem {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let fields: [(String, SortField)] = [("自定义", .custom), ("名称", .name), ("添加日期", .dateAdded), ("上次使用", .lastUsed)]
+        for (title, field) in fields {
+            menu.addItem(item(title, .sortField(field), checked: sort.field == field))
+        }
+        // 自定义时方向与文件夹选项不起作用
+        let sorted = sort.field != .custom
+        menu.addItem(.separator())
+        menu.addItem(item("升序", .sortDescending(false), isEnabled: sorted, checked: !sort.descending))
+        menu.addItem(item("降序", .sortDescending(true), isEnabled: sorted, checked: sort.descending))
+        menu.addItem(.separator())
+        menu.addItem(item("同时排序文件夹内应用", .sortsFolderContents(!sort.sortsFolderContents), isEnabled: sorted, checked: sort.sortsFolderContents))
+        let placements: [(String, FolderPlacement)] = [("与应用混排", .mixed), ("其他应用前", .first), ("其他应用后", .last)]
+        let placementMenu = NSMenu()
+        placementMenu.autoenablesItems = false
+        for (title, placement) in placements {
+            placementMenu.addItem(item(title, .folderPlacement(placement), checked: sort.folderPlacement == placement))
+        }
+        let placementItem = NSMenuItem(title: "文件夹位置", action: nil, keyEquivalent: "")
+        placementItem.submenu = placementMenu
+        placementItem.isEnabled = sorted
+        menu.addItem(placementItem)
+        let sortItem = NSMenuItem(title: "排序方式", action: nil, keyEquivalent: "")
+        sortItem.submenu = menu
+        return sortItem
+    }
+
+    private func item(_ title: String, _ command: ItemMenuCommand, isEnabled: Bool = true, checked: Bool) -> NSMenuItem {
+        let item = item(title, command, isEnabled: isEnabled)
+        item.state = checked ? .on : .off
+        return item
     }
 
     private func item(_ title: String, _ command: ItemMenuCommand, isEnabled: Bool = true) -> NSMenuItem {

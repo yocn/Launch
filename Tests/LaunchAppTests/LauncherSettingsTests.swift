@@ -1,3 +1,4 @@
+import LaunchCore
 import XCTest
 @testable import LaunchApp
 
@@ -20,6 +21,22 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertFalse(settings.hidesNames)
         XCTAssertFalse(settings.showsHiddenAppsInSearch)
         XCTAssertTrue(settings.showsMenuBarIcon)
+    }
+
+    func testSortDefaultsAndPersists() {
+        let defaults = makeDefaults()
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(settings.displaySort, DisplaySort())
+
+        settings.sortField = .lastUsed
+        settings.sortDescending = true
+        settings.sortsFolderContents = true
+        settings.folderPlacement = .last
+
+        XCTAssertEqual(
+            LauncherSettings(defaults: defaults).displaySort,
+            DisplaySort(field: .lastUsed, descending: true, sortsFolderContents: true, folderPlacement: .last)
+        )
     }
 
     func testGridDefaultsAndPersists() {

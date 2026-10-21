@@ -83,6 +83,8 @@ struct LauncherView: View {
 
                 MarqueeOverlay(model: model)
                     .ignoresSafeArea()
+
+                HintOverlay(model: model, layout: layout)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.easeOut(duration: 0.25), value: model.openFolderID)
@@ -542,6 +544,30 @@ private struct WallpaperImage: View {
         Image(nsImage: wallpaper.image)
             .resizable()
             .interpolation(.high)
+    }
+}
+
+// 只有这一层读取提示文字
+private struct HintOverlay: View {
+    let model: LauncherModel
+    let layout: LauncherHomeLayout
+
+    var body: some View {
+        VStack {
+            Spacer()
+            if let hint = model.hint {
+                Text(hint)
+                    .font(.system(size: 14 * layout.sizeScale, weight: .medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16 * layout.sizeScale)
+                    .padding(.vertical, 8 * layout.sizeScale)
+                    .background(.black.opacity(0.45), in: Capsule())
+                    .padding(.bottom, layout.bottomInset + layout.pageDotSize + 24 * layout.sizeScale)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: model.hint)
+        .allowsHitTesting(false)
     }
 }
 

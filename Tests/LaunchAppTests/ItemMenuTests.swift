@@ -95,15 +95,39 @@ final class ItemMenuTests: XCTestCase {
         let builder = ItemMenu { chosen.append($0) }
         let menu = builder.makeMenu(.main(MainMenuContent(canSelectAll: true, canArrange: true)))
 
-        XCTAssertEqual(menu.items.map(\.title), ["全选", "整理布局…", "", "设置…"])
+        XCTAssertEqual(menu.items.map(\.title), ["全选", "整理布局…", "排序方式", "", "设置…"])
         XCTAssertTrue(menu.items[1].isEnabled)
         trigger(menu.items[0])
         trigger(menu.items[1])
-        trigger(menu.items[3])
+        trigger(menu.items[4])
         XCTAssertEqual(chosen, [.selectAll, .arrangeLayout, .openSettings])
 
         let locked = ItemMenu { _ in }.makeMenu(.main(MainMenuContent(canSelectAll: false, canArrange: false)))
-        XCTAssertEqual([0, 1, 3].map { locked.items[$0].isEnabled }, [false, false, true])
+        XCTAssertEqual([0, 1, 2, 4].map { locked.items[$0].isEnabled }, [false, false, true, true])
+    }
+
+    func testSortSubmenu() {
+        var chosen: [ItemMenuCommand] = []
+        let builder = ItemMenu { chosen.append($0) }
+        let sort = DisplaySort(field: .name, descending: true, sortsFolderContents: false, folderPlacement: .first)
+        let menu = builder.makeMenu(.main(MainMenuContent(canSelectAll: true, canArrange: true, sort: sort)))
+        let sub = try! XCTUnwrap(menu.items[2].submenu)
+
+        XCTAssertEqual(sub.items.map(\.title), ["自定义", "名称", "添加日期", "上次使用", "", "升序", "降序", "", "同时排序文件夹内应用", "文件夹位置"])
+        XCTAssertEqual(sub.items.map { $0.state == .on }, [false, true, false, false, false, false, true, false, false, false])
+        let placement = try! XCTUnwrap(sub.items[9].submenu)
+        XCTAssertEqual(placement.items.map(\.title), ["与应用混排", "其他应用前", "其他应用后"])
+        XCTAssertEqual(placement.items.map { $0.state == .on }, [false, true, false])
+
+        trigger(sub.items[3])
+        trigger(sub.items[5])
+        trigger(sub.items[8])
+        trigger(placement.items[2])
+        XCTAssertEqual(chosen, [.sortField(.lastUsed), .sortDescending(false), .sortsFolderContents(true), .folderPlacement(.last)])
+
+        let custom = builder.makeMenu(.main(MainMenuContent(canSelectAll: true, canArrange: true)))
+        let customSub = try! XCTUnwrap(custom.items[2].submenu)
+        XCTAssertEqual([5, 6, 8, 9].map { customSub.items[$0].isEnabled }, [false, false, false, false])
     }
 
     func testHiddenAppOffersUnhide() {

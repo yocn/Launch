@@ -34,6 +34,7 @@ final class LauncherController {
     private let openApplication: (URL) -> Bool
     var onUndoLayoutEdit: (() -> Void)?
     var onOpenSettings: (() -> Void)?
+    var onHide: (() -> Void)?
 
     init(
         model: LauncherModel,
@@ -70,6 +71,7 @@ final class LauncherController {
         }
         model.setPresented(false)
         presenter.dismiss(restoringPreviousApp: reason.restoresPreviousApp)
+        onHide?()
     }
 
     func handleEscape() {

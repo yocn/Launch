@@ -41,6 +41,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private let appActions = AppActions()
     private let settings = LauncherSettings()
     private let wallpaperProvider = WallpaperProvider()
+    private var appliedSortField: SortField?
     private lazy var settingsWindow = SettingsWindowController(
         onWillShow: { [weak self] in self?.controller.hide(.settings) },
         makeContent: { [unowned self] in
@@ -106,6 +107,10 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         controller.onOpenSettings = { [weak self] in
             self?.settingsWindow.show()
         }
+        // 关闭后刷新日期，打开期间不重排
+        controller.onHide = { [weak self] in
+            self?.refreshAppDates()
+        }
         presenter.onPresent = { [weak self] screen in
             guard let self else {
                 return
@@ -151,6 +156,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         applySettings()
         let watcher = CatalogWatcher(roots: ApplicationSources.defaultRoots()) { [weak self] apps in
             self?.controller.updateCatalog(apps)
+            self?.refreshAppDates()
             Task { await self?.layoutCoordinator.catalogDidChange(apps) }
         }
         watcher.start()
@@ -196,8 +202,25 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             settingsWindow.show()
         case .arrangeLayout:
             arrangeLayout()
+        case .sortField(let field):
+            settings.sortField = field
+        case .sortDescending(let descending):
+            settings.sortDescending = descending
+        case .sortsFolderContents(let sorts):
+            settings.sortsFolderContents = sorts
+        case .folderPlacement(let placement):
+            settings.folderPlacement = placement
         default:
             controller.model.performMenuCommand(command)
+        }
+    }
+
+    private func refreshAppDates() {
+        guard settings.sortField == .dateAdded || settings.sortField == .lastUsed else {
+            return
+        }
+        AppDatesProvider.load(controller.model.apps) { [weak self] dates in
+            self?.controller.model.updateAppDates(dates)
         }
     }
 
@@ -230,11 +253,16 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             controller.model.showsHiddenAppsInSearch = settings.showsHiddenAppsInSearch
             controller.model.updateGrid(settings.grid)
             layoutCoordinator.updatePageCapacity(settings.grid.capacity)
+            controller.model.updateDisplaySort(settings.displaySort)
             statusItemController?.setIconVisible(settings.showsMenuBarIcon)
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.applySettings()
             }
+        }
+        if settings.sortField != appliedSortField {
+            appliedSortField = settings.sortField
+            refreshAppDates()
         }
     }
 

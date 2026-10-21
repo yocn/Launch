@@ -122,6 +122,8 @@ final class ItemDragController: NSObject, NSDraggingSource {
         cancelLongPress()
         if model.canDragItems {
             beginSession(press, event: event)
+        } else {
+            model.notifyBlockedDrag()
         }
         return nil
     }

@@ -1,4 +1,5 @@
 import Foundation
+import LaunchCore
 import Observation
 
 enum ReopenBehavior: String, CaseIterable {
@@ -55,6 +56,31 @@ final class LauncherSettings {
         GridSize(columns: gridColumns, rows: gridRows)
     }
 
+    var sortField: SortField {
+        didSet { defaults.set(sortField.rawValue, forKey: Key.sortField) }
+    }
+
+    var sortDescending: Bool {
+        didSet { defaults.set(sortDescending, forKey: Key.sortDescending) }
+    }
+
+    var sortsFolderContents: Bool {
+        didSet { defaults.set(sortsFolderContents, forKey: Key.sortsFolderContents) }
+    }
+
+    var folderPlacement: FolderPlacement {
+        didSet { defaults.set(folderPlacement.rawValue, forKey: Key.folderPlacement) }
+    }
+
+    var displaySort: DisplaySort {
+        DisplaySort(
+            field: sortField,
+            descending: sortDescending,
+            sortsFolderContents: sortsFolderContents,
+            folderPlacement: folderPlacement
+        )
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         reopenBehavior = defaults.string(forKey: Key.reopenBehavior).flatMap(ReopenBehavior.init) ?? .resume
@@ -65,6 +91,10 @@ final class LauncherSettings {
         showsMenuBarIcon = defaults.object(forKey: Key.showsMenuBarIcon) as? Bool ?? true
         gridColumns = defaults.object(forKey: Key.gridColumns) as? Int ?? GridSize.default.columns
         gridRows = defaults.object(forKey: Key.gridRows) as? Int ?? GridSize.default.rows
+        sortField = defaults.string(forKey: Key.sortField).flatMap(SortField.init) ?? .custom
+        sortDescending = defaults.bool(forKey: Key.sortDescending)
+        sortsFolderContents = defaults.bool(forKey: Key.sortsFolderContents)
+        folderPlacement = defaults.string(forKey: Key.folderPlacement).flatMap(FolderPlacement.init) ?? .mixed
     }
 
     private enum Key {
@@ -76,5 +106,9 @@ final class LauncherSettings {
         static let showsMenuBarIcon = "showsMenuBarIcon"
         static let gridColumns = "gridColumns"
         static let gridRows = "gridRows"
+        static let sortField = "sortField"
+        static let sortDescending = "sortDescending"
+        static let sortsFolderContents = "sortsFolderContents"
+        static let folderPlacement = "folderPlacement"
     }
 }
