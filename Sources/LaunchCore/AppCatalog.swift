@@ -67,7 +67,8 @@ public struct AppCatalog {
                 bundleIdentifier: bundle.bundleIdentifier,
                 path: path
             ),
-            displayName: displayName
+            displayName: displayName,
+            category: bundle.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String
         )
     }
 }

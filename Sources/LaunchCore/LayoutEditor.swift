@@ -15,11 +15,13 @@ public struct LayoutArrangement: Equatable, Sendable {
     public let pages: [Int]
     public let fillsGaps: Bool
     public let ungroupsFolders: Bool
+    public let groupsByCategory: Bool
 
-    public init(pages: [Int], fillsGaps: Bool, ungroupsFolders: Bool) {
+    public init(pages: [Int], fillsGaps: Bool, ungroupsFolders: Bool, groupsByCategory: Bool = false) {
         self.pages = pages
         self.fillsGaps = fillsGaps
         self.ungroupsFolders = ungroupsFolders
+        self.groupsByCategory = groupsByCategory
     }
 }
 
@@ -474,7 +476,7 @@ private struct Editor {
     // 只拆文件夹：每页放不下的部分拆成紧随其后的页，不挤动其他页
     mutating func arrange(_ arrangement: LayoutArrangement) -> Bool {
         let chosen = Array(Set(arrangement.pages.filter(pages.indices.contains))).sorted()
-        guard !chosen.isEmpty, arrangement.fillsGaps || arrangement.ungroupsFolders else {
+        guard !chosen.isEmpty, arrangement.fillsGaps || arrangement.ungroupsFolders || arrangement.groupsByCategory else {
             return false
         }
         var groups = chosen.map { pages[$0] }
@@ -491,6 +493,9 @@ private struct Editor {
                 }
                 return kept + members
             }
+        }
+        if arrangement.groupsByCategory {
+            groupByCategory(&groups, chosen: chosen)
         }
         let (resolver, hidden, capacity) = (resolver, hiddenKeys, capacity)
         let split = { (slots: [LayoutSlot]) in
@@ -514,5 +519,68 @@ private struct Editor {
         }
         pages = result.filter { !$0.isEmpty }
         return true
+    }
+
+    // 只分范围内散落的可见应用：已有同名文件夹（不限范围）收下该类，否则至少 2 个才新建；新文件夹按名称排在范围末尾
+    mutating func groupByCategory(_ groups: inout [[LayoutSlot]], chosen: [Int]) {
+        var buckets: [(name: String, apps: [AppIdentity])] = []
+        for slot in groups.joined() {
+            guard case .app(let identity) = slot,
+                  case .app(let key)? = itemID(of: slot),
+                  let app = appsByKey[key],
+                  let name = AppCategory.name(for: app.category, bundleIdentifier: app.identity.bundleIdentifier) else {
+                continue
+            }
+            if let index = buckets.firstIndex(where: { $0.name == name }) {
+                buckets[index].apps.append(identity)
+            } else {
+                buckets.append((name, [identity]))
+            }
+        }
+        var moved = Set<String>()
+        var created: [LayoutFolder] = []
+        for bucket in buckets {
+            let keys = bucket.apps.map { resolver.app(for: $0)?.identity.stableKey ?? $0.stableKey }
+            if appendToFolder(named: bucket.name, bucket.apps, groups: &groups, chosen: chosen) {
+                moved.formUnion(keys)
+            } else if bucket.apps.count >= 2 {
+                created.append(LayoutFolder(id: "", name: bucket.name, apps: bucket.apps))
+                moved.formUnion(keys)
+            }
+        }
+        guard !moved.isEmpty else {
+            return
+        }
+        groups = groups.map { slots in
+            slots.filter { slot in
+                guard case .app(let key)? = itemID(of: slot) else {
+                    return true
+                }
+                return !moved.contains(key)
+            }
+        }
+        let folders = created
+            .sorted { SearchName.syllables(of: $0.name).joined() < SearchName.syllables(of: $1.name).joined() }
+            .enumerated()
+            .map { LayoutSlot.folder(LayoutFolder(id: "\(newFolderID)-\($0.offset)", name: $0.element.name, apps: $0.element.apps)) }
+        groups[groups.count - 1] += folders
+    }
+
+    private mutating func appendToFolder(named name: String, _ apps: [AppIdentity], groups: inout [[LayoutSlot]], chosen: [Int]) -> Bool {
+        func append(to slots: inout [LayoutSlot]) -> Bool {
+            guard let index = slots.firstIndex(where: { if case .folder(let folder) = $0 { folder.name == name } else { false } }),
+                  case .folder(let folder) = slots[index] else {
+                return false
+            }
+            slots[index] = .folder(LayoutFolder(id: folder.id, name: folder.name, apps: folder.apps + apps))
+            return true
+        }
+        for index in groups.indices where append(to: &groups[index]) {
+            return true
+        }
+        for page in pages.indices where !chosen.contains(page) && append(to: &pages[page]) {
+            return true
+        }
+        return false
     }
 }

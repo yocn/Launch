@@ -9,6 +9,7 @@ final class ArrangeLayoutDialog: NSObject {
     private let alert = NSAlert()
     private let fillBox = NSButton(checkboxWithTitle: "填满空位", target: nil, action: nil)
     private let ungroupBox = NSButton(checkboxWithTitle: "取消所有分组", target: nil, action: nil)
+    private let categoryBox = NSButton(checkboxWithTitle: "按类型分组", target: nil, action: nil)
     private var scopeButtons: [(ArrangeOptions.Scope, NSButton)] = []
     private var pageBoxes: [NSButton] = []
     private let selectAllPages = NSButton(title: "全选", target: nil, action: nil)
@@ -36,12 +37,13 @@ final class ArrangeLayoutDialog: NSObject {
     }
 
     private func makeAccessoryView() -> NSView {
-        for box in [fillBox, ungroupBox] {
+        for box in [fillBox, ungroupBox, categoryBox] {
             box.target = self
             box.action = #selector(controlChanged)
         }
         fillBox.state = options.fillsGaps ? .on : .off
         ungroupBox.state = options.ungroupsFolders ? .on : .off
+        categoryBox.state = options.groupsByCategory ? .on : .off
         scopeButtons = [
             (.currentPage, "当前页（第 \(currentPage + 1) 页）"),
             (.chosenPages, "选择页面"),
@@ -73,12 +75,14 @@ final class ArrangeLayoutDialog: NSObject {
             note("把范围内的页面连成一串重新排满，去掉排空的页"),
             ungroupBox,
             note("文件夹拆开，成员放到所在页末尾"),
+            categoryBox,
+            note("散落的应用按 App Store 类别归入文件夹，新文件夹放在最后"),
             heading("范围"),
         ] + scopeButtons.map(\.1) + [pages])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 6
-        stack.setCustomSpacing(12, after: stack.views[4])
+        stack.setCustomSpacing(12, after: stack.views[6])
         stack.frame = NSRect(origin: .zero, size: stack.fittingSize)
         return stack
     }
@@ -102,6 +106,7 @@ final class ArrangeLayoutDialog: NSObject {
         }
         options.fillsGaps = fillBox.state == .on
         options.ungroupsFolders = ungroupBox.state == .on
+        options.groupsByCategory = categoryBox.state == .on
         options.chosenPages = Set(pageBoxes.indices.filter { pageBoxes[$0].state == .on })
         refresh()
     }

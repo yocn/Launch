@@ -422,4 +422,77 @@ final class LayoutEditorTests: XCTestCase {
         XCTAssertEqual(applyDocument(.arrange(LayoutArrangement(pages: [0, 1], fillsGaps: true, ungroupsFolders: false)), pages, capacity: 2), original)
         XCTAssertEqual(applyDocument(.arrange(LayoutArrangement(pages: [5], fillsGaps: true, ungroupsFolders: true)), pages, capacity: 2), original)
     }
+
+    private func categorized(_ name: String, _ category: String?) -> CatalogApp {
+        CatalogApp(identity: AppIdentity(bundleIdentifier: "com.example.\(name)", path: "/Applications/\(name).app"), displayName: name, category: category)
+    }
+
+    private func arrangeByCategory(
+        _ pages: [[LayoutSlot]],
+        catalog: [CatalogApp],
+        pagesInScope: [Int],
+        fill: Bool = false,
+        hidden: [AppIdentity] = [],
+        capacity: Int = 35
+    ) -> LayoutDocument {
+        LayoutEditor.apply(
+            .arrange(LayoutArrangement(pages: pagesInScope, fillsGaps: fill, ungroupsFolders: false, groupsByCategory: true)),
+            to: LayoutDocument(pages: pages.map { LayoutPage(slots: $0) }, hiddenApps: hidden),
+            catalog: catalog,
+            pageCapacity: capacity,
+            makeFolderID: { "new" }
+        )
+    }
+
+    func testGroupByCategoryMakesFoldersOfTwoOrMoreAtScopeEnd() {
+        let u1 = categorized("U1", "public.app-category.utilities"), u2 = categorized("U2", "public.app-category.utilities")
+        let p1 = categorized("P1", "public.app-category.productivity"), x = categorized("X", nil)
+        let pages: [[LayoutSlot]] = [[.app(u1.identity), .app(p1.identity), .app(u2.identity), .app(x.identity)]]
+
+        let result = arrangeByCategory(pages, catalog: [u1, u2, p1, x], pagesInScope: [0])
+
+        XCTAssertEqual(result.pages.map(\.slots), [[
+            .app(p1.identity), .app(x.identity),
+            .folder(LayoutFolder(id: "new-0", name: "实用工具", apps: [u1.identity, u2.identity])),
+        ]])
+    }
+
+    func testGroupByCategoryJoinsExistingFolderAnywhereAndSortsNewFolders() {
+        let d1 = categorized("D1", "public.app-category.developer-tools"), d2 = categorized("D2", "public.app-category.developer-tools")
+        let u1 = categorized("U1", "public.app-category.utilities"), u2 = categorized("U2", "public.app-category.utilities")
+        let p1 = categorized("P1", "public.app-category.productivity"), a = categorized("A", nil)
+        let existing = LayoutFolder(id: "f", name: "效率", apps: [a.identity])
+        let pages: [[LayoutSlot]] = [[.folder(existing)], [.app(u1.identity), .app(d1.identity), .app(p1.identity), .app(u2.identity), .app(d2.identity)]]
+
+        let result = arrangeByCategory(pages, catalog: [d1, d2, u1, u2, p1, a], pagesInScope: [1])
+
+        XCTAssertEqual(result.pages.map(\.slots), [
+            [.folder(LayoutFolder(id: "f", name: "效率", apps: [a.identity, p1.identity]))],
+            [
+                .folder(LayoutFolder(id: "new-0", name: "开发者工具", apps: [d1.identity, d2.identity])),
+                .folder(LayoutFolder(id: "new-1", name: "实用工具", apps: [u1.identity, u2.identity])),
+            ],
+        ])
+    }
+
+    func testGroupByCategoryLeavesHiddenAppsAndCombinesWithFill() {
+        let u1 = categorized("U1", "public.app-category.utilities"), u2 = categorized("U2", "public.app-category.utilities")
+        let u3 = categorized("U3", "public.app-category.utilities"), x = categorized("X", nil)
+        let pages: [[LayoutSlot]] = [[.app(u1.identity), .app(u3.identity)], [.app(u2.identity), .app(x.identity)]]
+
+        let result = arrangeByCategory(pages, catalog: [u1, u2, u3, x], pagesInScope: [0, 1], fill: true, hidden: [u3.identity])
+
+        XCTAssertEqual(result.pages.map(\.slots), [[
+            .app(u3.identity), .app(x.identity),
+            .folder(LayoutFolder(id: "new-0", name: "实用工具", apps: [u1.identity, u2.identity])),
+        ]])
+    }
+
+    func testGroupByCategoryWithoutMatchesKeepsDocument() {
+        let x = categorized("X", nil), y = categorized("Y", "public.app-category.music")
+        let pages: [[LayoutSlot]] = [[.app(x.identity), .app(y.identity)]]
+        let original = LayoutDocument(pages: pages.map { LayoutPage(slots: $0) })
+
+        XCTAssertEqual(arrangeByCategory(pages, catalog: [x, y], pagesInScope: [0]), original)
+    }
 }

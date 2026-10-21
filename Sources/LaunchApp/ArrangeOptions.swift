@@ -9,6 +9,7 @@ struct ArrangeOptions: Equatable {
 
     var fillsGaps = true
     var ungroupsFolders = false
+    var groupsByCategory = false
     var scope = Scope.allPages
     var chosenPages: Set<Int> = []
 
@@ -31,9 +32,9 @@ struct ArrangeOptions: Equatable {
     func arrangement(currentPage: Int, pageCount: Int) -> LayoutArrangement? {
         let pages = pages(currentPage: currentPage, pageCount: pageCount)
         let fills = fillsGaps && pages.count >= 2
-        guard !pages.isEmpty, fills || ungroupsFolders else {
+        guard !pages.isEmpty, fills || ungroupsFolders || groupsByCategory else {
             return nil
         }
-        return LayoutArrangement(pages: pages, fillsGaps: fills, ungroupsFolders: ungroupsFolders)
+        return LayoutArrangement(pages: pages, fillsGaps: fills, ungroupsFolders: ungroupsFolders, groupsByCategory: groupsByCategory)
     }
 }

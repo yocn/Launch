@@ -20,10 +20,13 @@ public struct AppIdentity: Codable, Equatable, Hashable, Sendable {
 public struct CatalogApp: Codable, Equatable, Hashable, Sendable {
     public let identity: AppIdentity
     public let displayName: String
+    // Info.plist 的 LSApplicationCategoryType
+    public let category: String?
 
-    public init(identity: AppIdentity, displayName: String) {
+    public init(identity: AppIdentity, displayName: String, category: String? = nil) {
         self.identity = identity
         self.displayName = displayName
+        self.category = category
     }
 }
 

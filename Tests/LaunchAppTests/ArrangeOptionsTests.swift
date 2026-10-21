@@ -39,6 +39,17 @@ final class ArrangeOptionsTests: XCTestCase {
         )
     }
 
+    func testGroupingAloneWorksOnSinglePage() {
+        var options = ArrangeOptions()
+        options.scope = .currentPage
+        options.groupsByCategory = true
+
+        XCTAssertEqual(
+            options.arrangement(currentPage: 2, pageCount: 3),
+            LayoutArrangement(pages: [2], fillsGaps: false, ungroupsFolders: false, groupsByCategory: true)
+        )
+    }
+
     func testNeedsAtLeastOneRule() {
         var options = ArrangeOptions()
         options.fillsGaps = false

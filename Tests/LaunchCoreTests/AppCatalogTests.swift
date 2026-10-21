@@ -53,7 +53,15 @@ final class AppCatalogTests: XCTestCase {
         XCTAssertEqual(apps.map(\.displayName), ["Visible"])
     }
 
-    private func fixtureApps(_ fixtures: [(String, String)]) throws -> URL {
+    func testScanReadsAppCategory() throws {
+        let root = try fixtureApps([("Tool.app", "com.example.tool"), ("Plain.app", "com.example.plain")], categories: ["Tool.app": "public.app-category.utilities"])
+
+        let apps = try AppCatalog().scan(roots: [root])
+
+        XCTAssertEqual(apps.map(\.category), [nil, "public.app-category.utilities"])
+    }
+
+    private func fixtureApps(_ fixtures: [(String, String)], categories: [String: String] = [:]) throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -65,10 +73,11 @@ final class AppCatalogTests: XCTestCase {
             let appURL = root.appending(path: name, directoryHint: .isDirectory)
             let contentsURL = appURL.appending(path: "Contents", directoryHint: .isDirectory)
             try FileManager.default.createDirectory(at: contentsURL, withIntermediateDirectories: true)
-            let plist: [String: String] = [
+            var plist: [String: String] = [
                 "CFBundleIdentifier": bundleIdentifier,
                 "CFBundleName": String(name.dropLast(4)),
             ]
+            plist["LSApplicationCategoryType"] = categories[name]
             let data = try PropertyListSerialization.data(
                 fromPropertyList: plist,
                 format: .xml,
