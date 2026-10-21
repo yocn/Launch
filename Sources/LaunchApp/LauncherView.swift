@@ -295,6 +295,7 @@ struct LauncherView: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: layout.searchFontSize, weight: .regular))
                 .foregroundStyle(.white)
+                .tint(.white)
                 // macOS 上占位文字不认 prompt 的颜色，深色外观下系统占位色才是浅色
                 .environment(\.colorScheme, .dark)
                 .focused($searchFieldIsFocused)
