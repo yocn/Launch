@@ -25,6 +25,13 @@ enum ReturnToFirstPage: String, CaseIterable {
     }
 }
 
+enum PinchGesture: String, CaseIterable {
+    case off
+    case threeFingers
+    case fourOrFiveFingers
+    case fiveFingers
+}
+
 enum DisplayMode: String, CaseIterable {
     case fullScreen
     case window
@@ -77,6 +84,18 @@ final class LauncherSettings {
 
     var displayMode: DisplayMode {
         didSet { defaults.set(displayMode.rawValue, forKey: Key.displayMode) }
+    }
+
+    var hotCorner: HotCorner {
+        didSet { defaults.set(hotCorner.rawValue, forKey: Key.hotCorner) }
+    }
+
+    var f4Launches: Bool {
+        didSet { defaults.set(f4Launches, forKey: Key.f4Launches) }
+    }
+
+    var pinchGesture: PinchGesture {
+        didSet { defaults.set(pinchGesture.rawValue, forKey: Key.pinchGesture) }
     }
 
     var background: LauncherBackgroundStyle {
@@ -146,6 +165,9 @@ final class LauncherSettings {
         customSourcePaths = defaults.stringArray(forKey: Key.customSourcePaths) ?? []
         browsingStyle = defaults.string(forKey: Key.browsingStyle).flatMap(BrowsingStyle.init) ?? .paged
         displayMode = defaults.string(forKey: Key.displayMode).flatMap(DisplayMode.init) ?? .fullScreen
+        hotCorner = defaults.string(forKey: Key.hotCorner).flatMap(HotCorner.init) ?? .off
+        f4Launches = defaults.bool(forKey: Key.f4Launches)
+        pinchGesture = defaults.string(forKey: Key.pinchGesture).flatMap(PinchGesture.init) ?? .off
         background = defaults.string(forKey: Key.background).flatMap(LauncherBackgroundStyle.init) ?? .glass
         dimming = defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming
         hidesNames = defaults.bool(forKey: Key.hidesNames)
@@ -167,6 +189,9 @@ final class LauncherSettings {
         static let customSourcePaths = "customSourcePaths"
         static let browsingStyle = "browsingStyle"
         static let displayMode = "displayMode"
+        static let hotCorner = "hotCorner"
+        static let f4Launches = "f4Launches"
+        static let pinchGesture = "pinchGesture"
         static let background = "background"
         static let dimming = "dimming"
         static let hidesNames = "hidesNames"

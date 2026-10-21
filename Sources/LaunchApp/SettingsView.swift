@@ -139,12 +139,37 @@ private struct GeneralSettingsView: View {
                 Text("始终").tag(ReturnToFirstPage.always)
             }
             Toggle("按住 Option 进入卸载模式", isOn: $settings.optionEntersUninstallMode)
+            Picker("触发角", selection: $settings.hotCorner) {
+                Text("关").tag(HotCorner.off)
+                Text("左上角").tag(HotCorner.topLeft)
+                Text("右上角").tag(HotCorner.topRight)
+                Text("左下角").tag(HotCorner.bottomLeft)
+                Text("右下角").tag(HotCorner.bottomRight)
+            }
+            if HotCornerConflicts.system(settings.hotCorner, value: { UserDefaults(suiteName: "com.apple.dock")?.object(forKey: $0) as? Int }) {
+                Text("⚠︎ 与系统触发角冲突，可在「系统设置 → 桌面与程序坞 → 触发角」中调整")
+                    .foregroundStyle(.orange)
+            }
+            if settings.hotCorner != .off, isLaunchOSUsing(settings.hotCorner) {
+                Text("⚠︎ 可能与 LaunchOS 的触发角冲突")
+                    .foregroundStyle(.orange)
+            }
         }
         .formStyle(.grouped)
         .onAppear {
             startsAtLogin = loginItemService.isEnabled
             hasConflict = hasHotKeyConflict()
         }
+    }
+
+    // 只读 LaunchOS 的设置，取值含义按其界面推测
+    private func isLaunchOSUsing(_ corner: HotCorner) -> Bool {
+        let id = "app.remixdesign.LaunchOS"
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: id).isEmpty else {
+            return false
+        }
+        let value = UserDefaults(suiteName: id)?.object(forKey: "HotCorner") as? Int
+        return HotCornerConflicts.launchOSCorner(value) == corner
     }
 
     private func setStartsAtLogin(_ enabled: Bool) {

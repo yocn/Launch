@@ -37,6 +37,23 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertEqual(ReturnToFirstPage.always.delay, 0)
     }
 
+    func testSystemEntriesDefaultOffAndPersist() {
+        let defaults = makeDefaults()
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(settings.hotCorner, .off)
+        XCTAssertFalse(settings.f4Launches)
+        XCTAssertEqual(settings.pinchGesture, .off)
+
+        settings.hotCorner = .bottomLeft
+        settings.f4Launches = true
+        settings.pinchGesture = .threeFingers
+
+        let reloaded = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(reloaded.hotCorner, .bottomLeft)
+        XCTAssertTrue(reloaded.f4Launches)
+        XCTAssertEqual(reloaded.pinchGesture, .threeFingers)
+    }
+
     func testDisplayModePersists() {
         let defaults = makeDefaults()
         let settings = LauncherSettings(defaults: defaults)

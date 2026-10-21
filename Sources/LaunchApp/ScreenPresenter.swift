@@ -84,6 +84,8 @@ final class ScreenPresenter: LauncherPresenting {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
+        // 启动器打开时触发角靠本地鼠标移动事件
+        panel.acceptsMouseMovedEvents = true
         panel.hidesOnDeactivate = false
         resignObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didResignActiveNotification,

@@ -39,6 +39,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private var statusItemController: StatusItemController?
     private var catalogWatcher: CatalogWatcher?
     private let inputMonitor = LauncherInputMonitor()
+    private lazy var hotCornerMonitor = HotCornerMonitor { [weak self] in
+        self?.controller.toggle()
+    }
     private let appActions = AppActions()
     private let settings = LauncherSettings()
     private let wallpaperProvider = WallpaperProvider()
@@ -440,6 +443,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             controller.model.updateDisplaySort(settings.displaySort)
             controller.model.updateBrowsingStyle(settings.browsingStyle)
             controller.model.updateDisplayMode(settings.displayMode)
+            hotCornerMonitor.corner = settings.hotCorner
             statusItemController?.setIconVisible(settings.showsMenuBarIcon)
         } onChange: { [weak self] in
             Task { @MainActor in
