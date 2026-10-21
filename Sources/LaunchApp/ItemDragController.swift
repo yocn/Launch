@@ -171,7 +171,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
             return
         }
         let location = view.convert(window.mouseLocationOutsideOfEventStream, from: nil)
-        itemMenu.makeMenu(.main).popUp(positioning: nil, at: location, in: view)
+        itemMenu.makeMenu(.main(model.mainMenu)).popUp(positioning: nil, at: location, in: view)
     }
 
     private func isTextInput(at event: NSEvent, in view: NSView) -> Bool {

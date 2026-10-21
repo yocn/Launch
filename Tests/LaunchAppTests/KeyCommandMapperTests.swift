@@ -47,6 +47,15 @@ final class KeyCommandMapperTests: XCTestCase {
         XCTAssertNil(KeyCommandMapper.command(keyCode: 6, modifiers: [.command], isComposingText: true, canUndoLayout: true))
     }
 
+    func testCommandASelectsAllOnlyWhenAllowed() {
+        XCTAssertEqual(
+            KeyCommandMapper.command(keyCode: 0, modifiers: [.command], isComposingText: false, canSelectAll: true),
+            .selectAll
+        )
+        XCTAssertNil(KeyCommandMapper.command(keyCode: 0, modifiers: [.command], isComposingText: false, canSelectAll: false))
+        XCTAssertNil(KeyCommandMapper.command(keyCode: 0, modifiers: [], isComposingText: false, canSelectAll: true))
+    }
+
     func testCommandCommaOpensSettings() {
         XCTAssertEqual(map(43, [.command]), .openSettings)
         XCTAssertNil(map(43))

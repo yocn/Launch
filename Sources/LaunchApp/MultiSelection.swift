@@ -2,8 +2,12 @@ import LaunchCore
 
 // 选框期间以按下前的选择为底，加上框到的项
 struct MultiSelection: Equatable {
-    private(set) var items: Set<LayoutItemID> = []
+    private(set) var items: Set<LayoutItemID>
     private var marqueeBase: Set<LayoutItemID>?
+
+    init(items: Set<LayoutItemID> = []) {
+        self.items = items
+    }
 
     var isEmpty: Bool {
         items.isEmpty

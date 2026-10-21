@@ -264,7 +264,7 @@ final class LauncherModel {
             return .selection(selection)
         }
         guard let press = itemPress(at: point) else {
-            return .main
+            return .main(mainMenu)
         }
         clearMultiSelection()
         switch press.item {
@@ -283,6 +283,17 @@ final class LauncherModel {
         }
     }
 
+    var mainMenu: MainMenuContent {
+        MainMenuContent(canSelectAll: canMultiSelect && !visibleItems.isEmpty, canArrange: canMultiSelect)
+    }
+
+    func selectAllOnPage() {
+        guard canMultiSelect else {
+            return
+        }
+        setMultiSelection(MultiSelection(items: Set(visibleItems.compactMap(\.layoutID))))
+    }
+
     func performMenuCommand(_ command: ItemMenuCommand) {
         switch command {
         case .mergeIntoNewFolder, .mergeInto, .moveToPage, .moveToNewPage, .hideSelection:
@@ -298,7 +309,9 @@ final class LauncherModel {
         case .rename(let folder):
             showFolder(id: folder)
             beginRenamingFolder()
-        case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide:
+        case .selectAll:
+            selectAllOnPage()
+        case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide, .arrangeLayout:
             break
         }
     }
@@ -325,7 +338,8 @@ final class LauncherModel {
             edit = .moveGroup(items, to: .newPage)
         case .hideSelection:
             edit = .hide(items)
-        case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide:
+        case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide,
+             .selectAll, .arrangeLayout:
             return
         }
         clearMultiSelection()

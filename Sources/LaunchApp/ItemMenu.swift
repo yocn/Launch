@@ -29,11 +29,16 @@ struct FolderMenuContent: Equatable {
     let canEdit: Bool
 }
 
+struct MainMenuContent: Equatable {
+    let canSelectAll: Bool
+    let canArrange: Bool
+}
+
 enum ItemMenuContent: Equatable {
     case selection(SelectionMenuContent)
     case app(AppMenuContent)
     case folder(FolderMenuContent)
-    case main
+    case main(MainMenuContent)
 }
 
 enum ItemMenuCommand: Equatable {
@@ -51,6 +56,8 @@ enum ItemMenuCommand: Equatable {
     case ungroup(folder: String)
     case openSettings
     case unhide(CatalogApp)
+    case selectAll
+    case arrangeLayout
 }
 
 @MainActor
@@ -73,7 +80,12 @@ final class ItemMenu: NSObject {
             addAppItems(app, to: menu)
         case .folder(let folder):
             addFolderItems(folder, to: menu)
-        case .main:
+        case .main(let main):
+            let selectAll = item("全选", .selectAll, isEnabled: main.canSelectAll)
+            selectAll.keyEquivalent = "a"
+            menu.addItem(selectAll)
+            menu.addItem(item("整理布局…", .arrangeLayout, isEnabled: main.canArrange))
+            menu.addItem(.separator())
             menu.addItem(item("设置…", .openSettings))
         }
         return menu

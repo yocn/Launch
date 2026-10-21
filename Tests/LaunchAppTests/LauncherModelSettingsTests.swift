@@ -93,7 +93,7 @@ final class LauncherModelSettingsTests: XCTestCase {
     func testBlankPointGivesMainMenu() {
         let model = makeModel(apps: makeApps(count: 3))
 
-        XCTAssertEqual(model.contextMenu(at: CGPoint(x: 5, y: 5)), .main)
+        XCTAssertEqual(model.contextMenu(at: CGPoint(x: 5, y: 5)), .main(MainMenuContent(canSelectAll: true, canArrange: true)))
     }
 
     @MainActor

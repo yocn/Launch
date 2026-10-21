@@ -116,6 +116,8 @@ final class LauncherController {
             onUndoLayoutEdit?()
         case .openSettings:
             onOpenSettings?()
+        case .selectAll:
+            model.selectAllOnPage()
         }
     }
 

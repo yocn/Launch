@@ -45,7 +45,7 @@ final class LauncherModelMenuTests: XCTestCase {
         XCTAssertEqual(model.contextMenu(at: center(0)), .app(AppMenuContent(app: apps[0], canOpen: true, canEdit: true, canUninstall: false)))
         XCTAssertEqual(model.contextMenu(at: center(1)), .app(AppMenuContent(app: apps[1], canOpen: true, canEdit: true, canUninstall: true)))
         XCTAssertEqual(model.contextMenu(at: center(2)), .folder(FolderMenuContent(folder: folder, canEdit: true)))
-        XCTAssertEqual(model.contextMenu(at: CGPoint(x: 5, y: 5)), .main)
+        XCTAssertEqual(model.contextMenu(at: CGPoint(x: 5, y: 5)), .main(MainMenuContent(canSelectAll: true, canArrange: true)))
 
         model.beginJiggling()
         model.canEditLayout = false
@@ -120,5 +120,34 @@ final class LauncherModelMenuTests: XCTestCase {
         model.setQuery("App")
 
         XCTAssertEqual(model.results, [apps[0], apps[2]])
+    }
+
+    @MainActor
+    func testSelectAllPicksEveryItemOnCurrentPage() {
+        let apps = makeApps(count: 3)
+        let folder = ResolvedFolder(id: "f", name: "效率", apps: [apps[2]])
+        let (model, _) = makeModel(pages: [[.app(apps[0]), .folder(folder)], [.app(apps[1])]])
+
+        model.selectAllOnPage()
+        XCTAssertEqual(model.multiSelection.items, [id(apps[0]), .folder("f")])
+
+        model.selectPage(1)
+        model.performMenuCommand(.selectAll)
+        XCTAssertEqual(model.multiSelection.items, [id(apps[1])])
+    }
+
+    @MainActor
+    func testSelectAllAndArrangeNeedEditableLayoutWithoutQuery() {
+        let apps = makeApps(count: 2)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)], apps: apps)
+
+        model.setQuery("a")
+        XCTAssertEqual(model.mainMenu, MainMenuContent(canSelectAll: false, canArrange: false))
+        model.selectAllOnPage()
+        XCTAssertTrue(model.multiSelection.isEmpty)
+
+        model.setQuery("")
+        model.canEditLayout = false
+        XCTAssertEqual(model.mainMenu, MainMenuContent(canSelectAll: false, canArrange: false))
     }
 }

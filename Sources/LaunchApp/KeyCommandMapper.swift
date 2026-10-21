@@ -9,6 +9,7 @@ enum LauncherCommand: Equatable {
     case endPageDrag(predictedTranslation: CGFloat, velocity: CGFloat)
     case undoLayoutEdit
     case openSettings
+    case selectAll
 }
 
 enum KeyCommandMapper {
@@ -16,7 +17,8 @@ enum KeyCommandMapper {
         keyCode: UInt16,
         modifiers: NSEvent.ModifierFlags,
         isComposingText: Bool,
-        canUndoLayout: Bool = false
+        canUndoLayout: Bool = false,
+        canSelectAll: Bool = false
     ) -> LauncherCommand? {
         guard !isComposingText else {
             return nil
@@ -42,6 +44,8 @@ enum KeyCommandMapper {
             return .undoLayoutEdit
         case (43, [.command]):
             return .openSettings
+        case (0, [.command]) where canSelectAll:
+            return .selectAll
         default:
             return nil
         }

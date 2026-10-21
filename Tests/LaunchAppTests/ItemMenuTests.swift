@@ -93,11 +93,17 @@ final class ItemMenuTests: XCTestCase {
     func testMainMenu() {
         var chosen: [ItemMenuCommand] = []
         let builder = ItemMenu { chosen.append($0) }
-        let menu = builder.makeMenu(.main)
+        let menu = builder.makeMenu(.main(MainMenuContent(canSelectAll: true, canArrange: true)))
 
-        XCTAssertEqual(menu.items.map(\.title), ["设置…"])
+        XCTAssertEqual(menu.items.map(\.title), ["全选", "整理布局…", "", "设置…"])
+        XCTAssertTrue(menu.items[1].isEnabled)
         trigger(menu.items[0])
-        XCTAssertEqual(chosen, [.openSettings])
+        trigger(menu.items[1])
+        trigger(menu.items[3])
+        XCTAssertEqual(chosen, [.selectAll, .arrangeLayout, .openSettings])
+
+        let locked = ItemMenu { _ in }.makeMenu(.main(MainMenuContent(canSelectAll: false, canArrange: false)))
+        XCTAssertEqual([0, 1, 3].map { locked.items[$0].isEnabled }, [false, false, true])
     }
 
     func testHiddenAppOffersUnhide() {

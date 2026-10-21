@@ -10,6 +10,7 @@ final class LauncherInputMonitor {
         isComposingText: @escaping () -> Bool,
         isEditingText: @escaping () -> Bool,
         canUndoLayout: @escaping () -> Bool,
+        canSelectAll: @escaping () -> Bool,
         onCommand: @escaping (LauncherCommand) -> Void
     ) {
         let keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
@@ -19,7 +20,8 @@ final class LauncherInputMonitor {
                     keyCode: event.keyCode,
                     modifiers: event.modifierFlags,
                     isComposingText: isComposingText(),
-                    canUndoLayout: canUndoLayout()
+                    canUndoLayout: canUndoLayout(),
+                    canSelectAll: canSelectAll()
                   ) else {
                 return event
             }

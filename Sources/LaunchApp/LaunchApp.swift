@@ -124,6 +124,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             isComposingText: { [weak self] in self?.presenter.isComposingText ?? false },
             isEditingText: { [weak self] in self?.controller.model.renamingFolderID != nil },
             canUndoLayout: { [weak self] in self?.controller.model.query.isEmpty ?? false },
+            canSelectAll: { [weak self] in self?.controller.model.mainMenu.canSelectAll ?? false },
             onCommand: { [weak self] command in self?.controller.handle(command) }
         )
         itemDragController.start()
@@ -193,9 +194,20 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             layoutCoordinator.unhide(app)
         case .openSettings:
             settingsWindow.show()
+        case .arrangeLayout:
+            arrangeLayout()
         default:
             controller.model.performMenuCommand(command)
         }
+    }
+
+    private func arrangeLayout() {
+        let model = controller.model
+        guard model.mainMenu.canArrange,
+              let arrangement = ArrangeLayoutDialog.run(pageCount: model.pages.count, currentPage: model.currentPage) else {
+            return
+        }
+        layoutCoordinator.apply(.arrange(arrangement))
     }
 
     private func dragImage(for item: ResolvedItem, count: Int) -> NSImage? {
