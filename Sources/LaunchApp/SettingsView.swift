@@ -34,7 +34,7 @@ struct SettingsView: View {
 struct DataSettingsActions {
     // 返回显示在页面上的结果文字；取消或失败时为空
     let exportLayout: () -> String?
-    let exportDiagnostics: () -> String?
+    let exportDiagnostics: () async -> String?
     let importLayout: () -> String?
     let canImportLaunchpad: () -> Bool
     let importLaunchpad: () -> Void
@@ -68,7 +68,11 @@ private struct DataSettingsView: View {
             }
             Section {
                 Button("导出诊断信息…") {
-                    status = actions.exportDiagnostics() ?? status
+                    Task {
+                        if let result = await actions.exportDiagnostics() {
+                            status = result
+                        }
+                    }
                 }
             } header: {
                 Text("诊断")

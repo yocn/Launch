@@ -1,6 +1,6 @@
 import Foundation
 
-struct DiagnosticsSources {
+struct DiagnosticsSources: Sendable {
     var logFiles: [URL]
     var crashReportsDirectory: URL
     var layoutFiles: [URL]

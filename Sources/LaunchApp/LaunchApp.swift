@@ -59,7 +59,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 onUnhideAll: { [weak self] in self?.layoutCoordinator.unhideAll() },
                 data: DataSettingsActions(
                     exportLayout: { [weak self] in self?.exportLayout() },
-                    exportDiagnostics: { [weak self] in self?.exportDiagnostics() },
+                    exportDiagnostics: { [weak self] in await self?.exportDiagnostics() },
                     importLayout: { [weak self] in self?.importLayout() },
                     canImportLaunchpad: { [weak self] in self?.layoutCoordinator.canImport ?? false },
                     importLaunchpad: { [weak self] in
@@ -340,7 +340,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         return "\(info?["CFBundleShortVersionString"] as? String ?? "?")（\(info?["CFBundleVersion"] as? String ?? "?")）"
     }
 
-    private func exportDiagnostics() -> String? {
+    // 收集与打包放到后台，保存对话框仍在主线程
+    private func exportDiagnostics() async -> String? {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.zip]
         panel.nameFieldStringValue = "Launch 诊断 \(Date().formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())).zip"
@@ -350,19 +351,19 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         AppLog.shared.flush()
         let home = FileManager.default.homeDirectoryForCurrentUser
         let layout = LayoutCoordinator.defaultLayoutURL
+        let sources = DiagnosticsSources(
+            logFiles: [AppLog.shared.fileURL, AppLog.shared.rotatedURL],
+            crashReportsDirectory: home.appending(path: "Library/Logs/DiagnosticReports", directoryHint: .isDirectory),
+            layoutFiles: [layout, layout.appendingPathExtension("backup")],
+            settings: UserDefaults.standard.persistentDomain(forName: "dev.yocn.launch").flatMap {
+                try? PropertyListSerialization.data(fromPropertyList: $0, format: .xml, options: 0)
+            },
+            systemInfo: systemInfo()
+        )
         do {
-            try DiagnosticsExporter.export(
-                DiagnosticsSources(
-                    logFiles: [AppLog.shared.fileURL, AppLog.shared.rotatedURL],
-                    crashReportsDirectory: home.appending(path: "Library/Logs/DiagnosticReports", directoryHint: .isDirectory),
-                    layoutFiles: [layout, layout.appendingPathExtension("backup")],
-                    settings: UserDefaults.standard.persistentDomain(forName: "dev.yocn.launch").flatMap {
-                        try? PropertyListSerialization.data(fromPropertyList: $0, format: .xml, options: 0)
-                    },
-                    systemInfo: systemInfo()
-                ),
-                to: url
-            )
+            try await Task.detached(priority: .userInitiated) {
+                try DiagnosticsExporter.export(sources, to: url)
+            }.value
             return "已导出到 \((url.path as NSString).abbreviatingWithTildeInPath)"
         } catch {
             AppLog.shared.error("导出诊断信息失败：\(error.localizedDescription)")
