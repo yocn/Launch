@@ -103,7 +103,10 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 onEscape: { [weak self] in self?.controller.handleEscape() },
                 onBackgroundClick: { [weak self] in self?.controller.handleBackgroundClick() },
                 onLaunch: { [weak self] app in self?.controller.launch(app) },
-                onMainMenu: { [weak self] in self?.itemDragController.showMainMenu() }
+                // 在 SwiftUI 按钮动作里同步弹菜单时，从菜单首次打开的设置窗口开关圆钮画不出来，等按钮动作结束再弹
+                onMainMenu: { [weak self] in
+                    DispatchQueue.main.async { self?.itemDragController.showMainMenu() }
+                }
             ),
             skipsCursorUpdate: { [weak self] in self?.controller.model.needsPagerFrames ?? false }
         )
