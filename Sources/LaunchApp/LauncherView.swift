@@ -322,12 +322,8 @@ struct LauncherView: View {
         .padding(.leading, layout.searchBarLeadingPadding)
         .padding(.trailing, layout.searchBarPadding)
         .frame(width: layout.searchBarWidth, height: layout.searchBarHeight)
-        // 底色与边框按 LaunchOS 录屏测量：底色约 5% 白，边框约 20% 白、外亮内暗约 0.75pt
-        .background(.white.opacity(0.05), in: Capsule())
-        .overlay {
-            Capsule()
-                .strokeBorder(.white.opacity(0.2), lineWidth: 0.75)
-        }
+        // 与 LaunchOS 一样用系统液态玻璃出内阴影与边缘高光，淡黑着色按其截图亮度校准
+        .glassEffect(.clear.tint(.black.opacity(0.1)), in: Capsule())
     }
 
     private func pageIndicator(layout: LauncherHomeLayout) -> some View {
