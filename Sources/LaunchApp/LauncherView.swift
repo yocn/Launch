@@ -513,7 +513,8 @@ private struct LauncherBackground: View {
                 Rectangle()
                     .fill(.regularMaterial)
             }
-            Color.black.opacity(settings.dimming)
+            // 压暗用深灰不用纯黑，按 LaunchOS 录屏拟合
+            Color(white: 0.12).opacity(settings.dimming)
         }
         .contentShape(Rectangle())
     }
