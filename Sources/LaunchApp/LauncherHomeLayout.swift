@@ -7,11 +7,20 @@ struct LauncherHomeLayout: Equatable {
 
     // 以下尺寸按 1512×982 主屏调校，参考屏不同尺寸时整体缩放
     static let canvasSize = CGSize(width: 1512, height: 982)
+    // 默认 7×5 的网格高度；改行列时网格区域高度不变
+    static let baseGridHeight: CGFloat = 141 * 5 + 17 * 4
+    private static let baseTileWidth: CGFloat = 112
+    private static let baseTileHeight: CGFloat = 141
+    private static let baseRowSpacing: CGFloat = 17
+    private static let insetRatio: CGFloat = 0.09
 
     let contentSize: CGSize
     let sizeScale: CGFloat
+    let grid: GridSize
+    // 行列放不下时格子整体缩小的比例，放得下时为 1
+    let fitScale: CGFloat
 
-    init(screenSize: CGSize, referenceSize: CGSize) {
+    init(screenSize: CGSize, referenceSize: CGSize, grid: GridSize = .default) {
         let screenScale = min(
             screenSize.width / referenceSize.width,
             screenSize.height / referenceSize.height
@@ -25,30 +34,44 @@ struct LauncherHomeLayout: Equatable {
             height: referenceSize.height * screenScale
         )
         sizeScale = referenceScale * screenScale
+        self.grid = grid
+        let rows = CGFloat(grid.rows)
+        let columns = CGFloat(grid.columns)
+        let availableWidth = contentSize.width * (1 - Self.insetRatio * 2) / sizeScale
+        // 列间距不小于默认行距
+        fitScale = min(
+            1,
+            Self.baseGridHeight / (Self.baseTileHeight * rows + Self.baseRowSpacing * (rows - 1)),
+            availableWidth / (Self.baseTileWidth * columns + Self.baseRowSpacing * (columns - 1))
+        )
     }
 
-    var iconSide: CGFloat { 88 * sizeScale }
-    var tileWidth: CGFloat { 112 * sizeScale }
-    var tilePadding: CGFloat { 12 * sizeScale }
-    var iconLabelSpacing: CGFloat { 12 * sizeScale }
-    var labelFontSize: CGFloat { 14 * sizeScale }
-    var labelHeight: CGFloat { 17 * sizeScale }
-    var tileCornerRadius: CGFloat { 24 * sizeScale }
-    var rowSpacing: CGFloat { 17 * sizeScale }
+    private var tileScale: CGFloat { sizeScale * fitScale }
+    var iconSide: CGFloat { 88 * tileScale }
+    var tileWidth: CGFloat { Self.baseTileWidth * tileScale }
+    var tilePadding: CGFloat { 12 * tileScale }
+    var iconLabelSpacing: CGFloat { 12 * tileScale }
+    var labelFontSize: CGFloat { 14 * tileScale }
+    var labelHeight: CGFloat { 17 * tileScale }
+    var tileCornerRadius: CGFloat { 24 * tileScale }
+    var folderRowSpacing: CGFloat { Self.baseRowSpacing * tileScale }
 
     var tileHeight: CGFloat {
         tilePadding * 2 + iconSide + iconLabelSpacing + labelHeight
     }
 
-    var gridHeight: CGFloat {
-        let rows = CGFloat(Self.rowCount)
-        return tileHeight * rows + rowSpacing * (rows - 1)
+    var gridHeight: CGFloat { Self.baseGridHeight * sizeScale }
+
+    // 行少时多出的高度均分到行距
+    var rowSpacing: CGFloat {
+        let rows = CGFloat(grid.rows)
+        return (gridHeight - tileHeight * rows) / (rows - 1)
     }
 
-    var horizontalInset: CGFloat { contentSize.width * 0.09 }
+    var horizontalInset: CGFloat { contentSize.width * Self.insetRatio }
 
     var columnSpacing: CGFloat {
-        let columns = CGFloat(Self.columnCount)
+        let columns = CGFloat(grid.columns)
         return (contentSize.width - horizontalInset * 2 - tileWidth * columns) / (columns - 1)
     }
 
@@ -89,12 +112,12 @@ struct LauncherHomeLayout: Equatable {
     }
 
     func folderRowCount(memberCount: Int) -> Int {
-        let rows = (memberCount + Self.columnCount - 1) / Self.columnCount
-        return min(max(rows, 1), Self.rowCount)
+        let rows = (memberCount + grid.columns - 1) / grid.columns
+        return min(max(rows, 1), grid.rows)
     }
 
     func folderGridHeight(memberCount: Int) -> CGFloat {
         let rows = CGFloat(folderRowCount(memberCount: memberCount))
-        return tileHeight * rows + rowSpacing * (rows - 1)
+        return tileHeight * rows + folderRowSpacing * (rows - 1)
     }
 }
