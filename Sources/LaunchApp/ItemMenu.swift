@@ -33,6 +33,7 @@ struct MainMenuContent: Equatable {
     let canSelectAll: Bool
     let canArrange: Bool
     var sort = DisplaySort()
+    var browsingStyle = BrowsingStyle.paged
 }
 
 enum ItemMenuContent: Equatable {
@@ -63,6 +64,7 @@ enum ItemMenuCommand: Equatable {
     case sortDescending(Bool)
     case sortsFolderContents(Bool)
     case folderPlacement(FolderPlacement)
+    case browsingStyle(BrowsingStyle)
 }
 
 @MainActor
@@ -91,6 +93,7 @@ final class ItemMenu: NSObject {
             menu.addItem(selectAll)
             menu.addItem(item("整理布局…", .arrangeLayout, isEnabled: main.canArrange))
             menu.addItem(sortItem(main.sort))
+            menu.addItem(browsingItem(main.browsingStyle))
             menu.addItem(.separator())
             menu.addItem(item("设置…", .openSettings))
         }
@@ -146,6 +149,16 @@ final class ItemMenu: NSObject {
         menu.addItem(item("重命名", .rename(folder: folder.id), isEnabled: content.canEdit))
         menu.addItem(item("取消分组", .ungroup(folder: folder.id), isEnabled: content.canEdit))
         menu.addItem(item("隐藏", .hide(.folder(folder.id)), isEnabled: content.canEdit))
+    }
+
+    private func browsingItem(_ style: BrowsingStyle) -> NSMenuItem {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.addItem(item("分页", .browsingStyle(.paged), checked: style == .paged))
+        menu.addItem(item("滚动", .browsingStyle(.scroll), checked: style == .scroll))
+        let browsing = NSMenuItem(title: "浏览方式", action: nil, keyEquivalent: "")
+        browsing.submenu = menu
+        return browsing
     }
 
     private func sortItem(_ sort: DisplaySort) -> NSMenuItem {

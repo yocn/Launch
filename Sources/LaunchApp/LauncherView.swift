@@ -27,6 +27,8 @@ struct LauncherView: View {
     @FocusState private var searchFieldIsFocused: Bool
     @State private var folderFrames: [String: CGRect] = [:]
     @State private var dragTracker = PageDragTracker()
+    @State private var scrollPosition = ScrollPosition(idType: Int.self)
+    @State private var scrollOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     nonisolated private static let contentSpace = "launcher-content"
 
@@ -122,6 +124,8 @@ struct LauncherView: View {
                     description: Text("换个关键词试试")
                 )
                 .foregroundStyle(.white)
+            } else if model.browsingStyle == .scroll {
+                scrollContent(layout: layout, columns: columns)
             } else {
                 PageOffset(model: model, pager: .grid, pageWidth: layout.contentSize.width) {
                 HStack(spacing: 0) {
@@ -161,9 +165,76 @@ struct LauncherView: View {
 
             Spacer(minLength: 0)
 
-            if model.pages.count > 1 {
+            if model.browsingStyle == .paged, model.pages.count > 1 {
                 pageIndicator(layout: layout)
                     .padding(.bottom, layout.bottomInset)
+            }
+        }
+    }
+
+    // 滚动浏览：各页上下排开，紧凑行距，页间一条淡分隔线
+    private func scrollContent(layout: LauncherHomeLayout, columns: [GridItem]) -> some View {
+        ScrollView(.vertical) {
+            VStack(spacing: 0) {
+                ForEach(Array(model.pages.enumerated()), id: \.offset) { pageIndex, items in
+                    if pageIndex > 0 {
+                        Rectangle()
+                            .fill(.white.opacity(0.15))
+                            .frame(height: 1)
+                            .padding(.horizontal, layout.horizontalInset)
+                            .padding(.vertical, layout.folderRowSpacing * 1.5)
+                    }
+                    LazyVGrid(columns: columns, spacing: layout.folderRowSpacing) {
+                        ForEach(model.gridEntries(page: pageIndex, items: items, area: .grid)) { entry in
+                            GridCell(model: model, entry: entry, layout: layout) { item, index in
+                                itemView(
+                                    item,
+                                    layout: layout,
+                                    isSelected: pageIndex == model.currentPage && index == model.selectedIndex
+                                )
+                            }
+                        }
+                    }
+                    .padding(.horizontal, layout.horizontalInset)
+                    .frame(width: layout.contentSize.width, alignment: .top)
+                    .onGeometryChange(for: CGRect.self) { proxy in
+                        proxy.frame(in: .global)
+                    } action: { frame in
+                        model.updatePageFrame(frame, page: pageIndex)
+                    }
+                    .id(pageIndex)
+                }
+            }
+            .scrollTargetLayout()
+            .padding(.bottom, layout.bottomInset)
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onBackgroundClick)
+            .animation(.easeOut(duration: 0.25), value: model.dragPreview)
+        }
+        .scrollIndicators(.never)
+        .scrollPosition($scrollPosition)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y
+        } action: { _, offset in
+            scrollOffset = offset
+        }
+        .frame(width: layout.contentSize.width)
+        .frame(maxHeight: .infinity)
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .global)
+        } action: { frame in
+            model.updateGridFrame(frame)
+        }
+        .onChange(of: model.scrollRequest) { _, request in
+            switch request?.kind {
+            case .page(let page)?:
+                withAnimation(.easeOut(duration: 0.25)) {
+                    scrollPosition.scrollTo(id: page, anchor: .top)
+                }
+            case .by(let delta)?:
+                scrollPosition.scrollTo(y: max(0, scrollOffset + delta))
+            case nil:
+                break
             }
         }
     }

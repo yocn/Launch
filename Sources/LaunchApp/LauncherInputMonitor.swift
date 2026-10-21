@@ -11,6 +11,7 @@ final class LauncherInputMonitor {
         isEditingText: @escaping () -> Bool,
         canUndoLayout: @escaping () -> Bool,
         canSelectAll: @escaping () -> Bool,
+        passesScrollWheel: @escaping () -> Bool,
         onCommand: @escaping (LauncherCommand) -> Void,
         onModifiersChanged: @escaping (NSEvent.ModifierFlags) -> Void
     ) {
@@ -30,7 +31,8 @@ final class LauncherInputMonitor {
             return nil
         }
         let scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            guard let self, isLauncherWindow(event.window) else {
+            // 滚动浏览时滚轮交给滚动视图
+            guard let self, isLauncherWindow(event.window), !passesScrollWheel() else {
                 return event
             }
             switch interpreter.interpret(ScrollSample(event: event)) {

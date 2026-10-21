@@ -149,6 +149,12 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             isEditingText: { [weak self] in self?.controller.model.renamingFolderID != nil },
             canUndoLayout: { [weak self] in self?.controller.model.query.isEmpty ?? false },
             canSelectAll: { [weak self] in self?.controller.model.mainMenu.canSelectAll ?? false },
+            passesScrollWheel: { [weak self] in
+                guard let model = self?.controller.model else {
+                    return false
+                }
+                return model.browsingStyle == .scroll && model.openFolder == nil
+            },
             onCommand: { [weak self] command in self?.controller.handle(command) },
             onModifiersChanged: { [weak self] flags in self?.handleModifiers(flags) }
         )
@@ -224,6 +230,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             settings.sortsFolderContents = sorts
         case .folderPlacement(let placement):
             settings.folderPlacement = placement
+        case .browsingStyle(let style):
+            settings.browsingStyle = style
         default:
             controller.model.performMenuCommand(command)
         }
@@ -408,6 +416,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             controller.model.updateGrid(settings.grid)
             layoutCoordinator.updatePageCapacity(settings.grid.capacity)
             controller.model.updateDisplaySort(settings.displaySort)
+            controller.model.updateBrowsingStyle(settings.browsingStyle)
             statusItemController?.setIconVisible(settings.showsMenuBarIcon)
         } onChange: { [weak self] in
             Task { @MainActor in

@@ -312,7 +312,12 @@ final class LauncherModel {
     }
 
     var mainMenu: MainMenuContent {
-        MainMenuContent(canSelectAll: canMultiSelect && !visibleItems.isEmpty, canArrange: canMultiSelect, sort: displaySort)
+        MainMenuContent(
+            canSelectAll: canMultiSelect && !visibleItems.isEmpty,
+            canArrange: canMultiSelect,
+            sort: displaySort,
+            browsingStyle: browsingStyle
+        )
     }
 
     func updateDisplaySort(_ sort: DisplaySort) {
@@ -385,7 +390,7 @@ final class LauncherModel {
         case .selectAll:
             selectAllOnPage()
         case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide, .arrangeLayout,
-             .sortField, .sortDescending, .sortsFolderContents, .folderPlacement:
+             .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle:
             break
         }
     }
@@ -413,7 +418,7 @@ final class LauncherModel {
         case .hideSelection:
             edit = .hide(items)
         case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide,
-             .selectAll, .arrangeLayout, .sortField, .sortDescending, .sortsFolderContents, .folderPlacement:
+             .selectAll, .arrangeLayout, .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle:
             return
         }
         clearMultiSelection()
