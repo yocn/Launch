@@ -37,6 +37,16 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertEqual(ReturnToFirstPage.always.delay, 0)
     }
 
+    func testBrowsingStylePersists() {
+        let defaults = makeDefaults()
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(settings.browsingStyle, .paged)
+
+        settings.browsingStyle = .scroll
+
+        XCTAssertEqual(LauncherSettings(defaults: defaults).browsingStyle, .scroll)
+    }
+
     func testCustomSourcesPersist() {
         let defaults = makeDefaults()
         let settings = LauncherSettings(defaults: defaults)

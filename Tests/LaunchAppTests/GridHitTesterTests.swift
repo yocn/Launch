@@ -70,6 +70,14 @@ final class GridHitTesterTests: XCTestCase {
         XCTAssertEqual(tester.hit(CGPoint(x: rect.midX, y: rect.midY), itemCount: 3), .end)
     }
 
+    func testEdgesCanBeDisabledForScrolling() {
+        var scrolling = tester
+        scrolling.detectsPageEdges = false
+
+        XCTAssertEqual(scrolling.hit(CGPoint(x: 20, y: 300), itemCount: 10), .item(7, .leading))
+        XCTAssertEqual(scrolling.hit(CGPoint(x: 1500, y: 300), itemCount: 10), .end)
+    }
+
     func testEdgesAndOutside() {
         XCTAssertEqual(tester.hit(CGPoint(x: 20, y: 300), itemCount: 10), .edge(.previous))
         XCTAssertEqual(tester.hit(CGPoint(x: 1500, y: 300), itemCount: 10), .edge(.next))

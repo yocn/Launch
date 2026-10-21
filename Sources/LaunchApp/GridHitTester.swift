@@ -20,6 +20,8 @@ struct GridHitTester {
     var rowCount: Int
     // 文件夹用紧凑行距；主网格行距会随行数均分
     var rowSpacing: CGFloat
+    // 滚动浏览时左右两侧不翻页
+    var detectsPageEdges = true
 
     init(layout: LauncherHomeLayout, frame: CGRect, rowCount: Int? = nil, rowSpacing: CGFloat? = nil) {
         self.layout = layout
@@ -56,10 +58,10 @@ struct GridHitTester {
             return .outside
         }
         let edgeWidth = layout.horizontalInset / 2
-        if point.x < frame.minX + edgeWidth {
+        if detectsPageEdges, point.x < frame.minX + edgeWidth {
             return .edge(.previous)
         }
-        if point.x > frame.maxX - edgeWidth {
+        if detectsPageEdges, point.x > frame.maxX - edgeWidth {
             return .edge(.next)
         }
         let rawColumn = (point.x - frame.minX - layout.horizontalInset + layout.columnSpacing / 2) / columnPitch

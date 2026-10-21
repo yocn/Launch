@@ -16,7 +16,8 @@ enum GridNavigator {
         direction: MoveDirection,
         currentPage: Int,
         pageSizes: [Int],
-        columns: Int
+        columns: Int,
+        crossesPagesVertically: Bool = false
     ) -> GridPosition? {
         guard pageSizes.indices.contains(currentPage), pageSizes[currentPage] > 0 else {
             return position
@@ -47,12 +48,20 @@ enum GridNavigator {
             return position
         case .down:
             guard index / columns < (size - 1) / columns else {
-                return position
+                // 滚动浏览时最后一行往下进入下一页同一列
+                guard crossesPagesVertically, position.page + 1 < pageSizes.count, pageSizes[position.page + 1] > 0 else {
+                    return position
+                }
+                return GridPosition(page: position.page + 1, index: min(index % columns, pageSizes[position.page + 1] - 1))
             }
             return GridPosition(page: position.page, index: min(index + columns, size - 1))
         case .up:
             guard index >= columns else {
-                return position
+                guard crossesPagesVertically, position.page > 0, pageSizes[position.page - 1] > 0 else {
+                    return position
+                }
+                let previous = pageSizes[position.page - 1]
+                return GridPosition(page: position.page - 1, index: min((previous - 1) / columns * columns + index, previous - 1))
             }
             return GridPosition(page: position.page, index: index - columns)
         }
