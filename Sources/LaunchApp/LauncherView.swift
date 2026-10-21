@@ -507,6 +507,8 @@ private struct LauncherBackground: View {
         ZStack {
             if settings.background != .glass, let wallpaper = model.wallpaper {
                 WallpaperImage(wallpaper: wallpaper)
+            } else if BackdropBlur.isAvailable {
+                BackdropBlurView()
             } else {
                 Rectangle()
                     .fill(.regularMaterial)
