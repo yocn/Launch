@@ -109,6 +109,17 @@ final class LayoutStoreTests: XCTestCase {
         XCTAssertEqual(try store.load(), document)
     }
 
+    func testSaveWritesStableFormatAndReadsCompactFiles() throws {
+        let store = try temporaryStore()
+        try FileManager.default.createDirectory(at: store.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"schemaVersion":1,"pages":[{"slots":[{"empty":{}}]}]}"#.utf8).write(to: store.fileURL)
+        let document = try XCTUnwrap(try store.load())
+
+        try store.save(document)
+
+        XCTAssertEqual(try Data(contentsOf: store.fileURL), try LayoutBackup.encode(document))
+    }
+
     private func temporaryStore() throws -> LayoutStore {
         let directory = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)

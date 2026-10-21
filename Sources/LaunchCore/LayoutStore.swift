@@ -38,7 +38,7 @@ public struct LayoutStore {
     }
 
     public func save(_ document: LayoutDocument) throws {
-        let data = try JSONEncoder().encode(document)
+        let data = try LayoutBackup.encode(document)
         _ = try decode(data)
         try writeValidatedData(data, createBackup: false)
     }
@@ -49,7 +49,7 @@ public struct LayoutStore {
     }
 
     public func replace(with document: LayoutDocument) throws {
-        try replaceFromImport(try JSONEncoder().encode(document))
+        try replaceFromImport(try LayoutBackup.encode(document))
     }
 
     public func swapWithBackup() throws {
@@ -65,11 +65,7 @@ public struct LayoutStore {
     }
 
     private func decode(_ data: Data) throws -> LayoutDocument {
-        let document = try JSONDecoder().decode(LayoutDocument.self, from: data)
-        guard document.schemaVersion == LayoutDocument.currentVersion else {
-            throw LayoutStoreError.unsupportedSchema(document.schemaVersion)
-        }
-        return document
+        try LayoutBackup.decode(data)
     }
 
     private func writeValidatedData(_ data: Data, createBackup: Bool) throws {
