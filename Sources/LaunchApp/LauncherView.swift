@@ -323,6 +323,9 @@ struct LauncherView: View {
         .padding(.leading, layout.searchBarLeadingPadding)
         .padding(.trailing, layout.searchBarPadding)
         .frame(width: layout.searchBarWidth, height: layout.searchBarHeight)
+        // 液态玻璃不接点击，不补命中区域的话点到框内空白会落到背景上关闭启动器
+        .contentShape(Capsule())
+        .onTapGesture { searchFieldIsFocused = true }
         // 与 LaunchOS 一样用系统液态玻璃出内阴影与边缘高光，淡黑着色按其截图亮度校准
         .glassEffect(.clear.tint(.black.opacity(0.1)), in: Capsule())
     }
