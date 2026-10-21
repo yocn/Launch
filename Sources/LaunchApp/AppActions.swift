@@ -25,7 +25,8 @@ struct AppActions {
             alert.addButton(withTitle: "取消")
             if alert.runAboveLauncher() == .alertFirstButtonReturn,
                let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
-                NSWorkspace.shared.open(url)
+                // 同步的 open 会等系统设置启动完成，把启动器卡住
+                NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration())
             }
         } else {
             alert.informativeText = error[NSAppleScript.errorMessage] as? String ?? "访达没有响应。"
