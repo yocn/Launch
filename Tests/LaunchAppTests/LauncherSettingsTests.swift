@@ -37,6 +37,16 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertEqual(ReturnToFirstPage.always.delay, 0)
     }
 
+    func testDisplayModePersists() {
+        let defaults = makeDefaults()
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(settings.displayMode, .fullScreen)
+
+        settings.displayMode = .window
+
+        XCTAssertEqual(LauncherSettings(defaults: defaults).displayMode, .window)
+    }
+
     func testBrowsingStylePersists() {
         let defaults = makeDefaults()
         let settings = LauncherSettings(defaults: defaults)

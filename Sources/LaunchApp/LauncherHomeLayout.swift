@@ -10,6 +10,11 @@ struct LauncherHomeLayout: Equatable {
     private static let baseRowSpacing: CGFloat = 17
     private static let insetRatio: CGFloat = 0.09
 
+    // 窗口模式下启动器占屏幕的比例
+    static func windowArea(for screenSize: CGSize) -> CGSize {
+        CGSize(width: screenSize.width * 0.7, height: screenSize.height * 0.75)
+    }
+
     let contentSize: CGSize
     let sizeScale: CGFloat
     let grid: GridSize

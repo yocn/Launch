@@ -34,6 +34,7 @@ struct MainMenuContent: Equatable {
     let canArrange: Bool
     var sort = DisplaySort()
     var browsingStyle = BrowsingStyle.paged
+    var displayMode = DisplayMode.fullScreen
 }
 
 enum ItemMenuContent: Equatable {
@@ -65,6 +66,7 @@ enum ItemMenuCommand: Equatable {
     case sortsFolderContents(Bool)
     case folderPlacement(FolderPlacement)
     case browsingStyle(BrowsingStyle)
+    case displayMode(DisplayMode)
 }
 
 @MainActor
@@ -94,6 +96,7 @@ final class ItemMenu: NSObject {
             menu.addItem(item("整理布局…", .arrangeLayout, isEnabled: main.canArrange))
             menu.addItem(sortItem(main.sort))
             menu.addItem(browsingItem(main.browsingStyle))
+            menu.addItem(displayModeItem(main.displayMode))
             menu.addItem(.separator())
             menu.addItem(item("设置…", .openSettings))
         }
@@ -149,6 +152,16 @@ final class ItemMenu: NSObject {
         menu.addItem(item("重命名", .rename(folder: folder.id), isEnabled: content.canEdit))
         menu.addItem(item("取消分组", .ungroup(folder: folder.id), isEnabled: content.canEdit))
         menu.addItem(item("隐藏", .hide(.folder(folder.id)), isEnabled: content.canEdit))
+    }
+
+    private func displayModeItem(_ mode: DisplayMode) -> NSMenuItem {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.addItem(item("全屏", .displayMode(.fullScreen), checked: mode == .fullScreen))
+        menu.addItem(item("窗口", .displayMode(.window), checked: mode == .window))
+        let display = NSMenuItem(title: "显示方式", action: nil, keyEquivalent: "")
+        display.submenu = menu
+        return display
     }
 
     private func browsingItem(_ style: BrowsingStyle) -> NSMenuItem {

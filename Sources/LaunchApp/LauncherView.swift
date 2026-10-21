@@ -34,8 +34,22 @@ struct LauncherView: View {
 
     var body: some View {
         GeometryReader { proxy in
+            let windowed = model.displayMode == .window
+            let layout = LauncherHomeLayout(
+                screenSize: windowed ? LauncherHomeLayout.windowArea(for: proxy.size) : proxy.size,
+                referenceSize: NSScreen.screens.first?.frame.size ?? proxy.size,
+                grid: model.grid
+            )
             ZStack {
+                // 窗口模式下窗口外透明，点到也按点空白处理
+                if windowed {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .ignoresSafeArea()
+                        .onTapGesture(perform: onBackgroundClick)
+                }
                 LauncherBackground(model: model, settings: settings)
+                    .modifier(WindowFrame(size: windowed ? layout.contentSize : nil, cornerRadius: 26 * layout.sizeScale))
                     .opacity(model.isPresented ? 1 : 0)
                     .animation(
                         PresentationTransition.backgroundAnimation(presented: model.isPresented),
@@ -44,11 +58,6 @@ struct LauncherView: View {
                     .ignoresSafeArea()
                     .onTapGesture(perform: onBackgroundClick)
 
-                let layout = LauncherHomeLayout(
-                    screenSize: proxy.size,
-                    referenceSize: NSScreen.screens.first?.frame.size ?? proxy.size,
-                    grid: model.grid
-                )
                 ZStack {
                     homeContent(layout: layout)
                         .opacity(model.openFolder == nil ? 1 : 0)
@@ -615,6 +624,36 @@ private struct WallpaperImage: View {
         Image(nsImage: wallpaper.image)
             .resizable()
             .interpolation(.high)
+    }
+}
+
+// 窗口模式：背景只留中间的圆角区域，加一圈淡边与柔和投影
+private struct WindowFrame: ViewModifier {
+    let size: CGSize?
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if let size {
+            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            content
+                .mask {
+                    shape.frame(width: size.width, height: size.height)
+                }
+                .overlay {
+                    shape
+                        .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                        .frame(width: size.width, height: size.height)
+                }
+                .background {
+                    shape
+                        .fill(.black.opacity(0.3))
+                        .frame(width: size.width, height: size.height)
+                        .blur(radius: 24)
+                        .offset(y: 10)
+                }
+        } else {
+            content
+        }
     }
 }
 

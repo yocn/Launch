@@ -25,6 +25,11 @@ enum ReturnToFirstPage: String, CaseIterable {
     }
 }
 
+enum DisplayMode: String, CaseIterable {
+    case fullScreen
+    case window
+}
+
 enum BrowsingStyle: String, CaseIterable {
     case paged
     case scroll
@@ -68,6 +73,10 @@ final class LauncherSettings {
 
     var browsingStyle: BrowsingStyle {
         didSet { defaults.set(browsingStyle.rawValue, forKey: Key.browsingStyle) }
+    }
+
+    var displayMode: DisplayMode {
+        didSet { defaults.set(displayMode.rawValue, forKey: Key.displayMode) }
     }
 
     var background: LauncherBackgroundStyle {
@@ -136,6 +145,7 @@ final class LauncherSettings {
         optionEntersUninstallMode = defaults.object(forKey: Key.optionEntersUninstallMode) as? Bool ?? true
         customSourcePaths = defaults.stringArray(forKey: Key.customSourcePaths) ?? []
         browsingStyle = defaults.string(forKey: Key.browsingStyle).flatMap(BrowsingStyle.init) ?? .paged
+        displayMode = defaults.string(forKey: Key.displayMode).flatMap(DisplayMode.init) ?? .fullScreen
         background = defaults.string(forKey: Key.background).flatMap(LauncherBackgroundStyle.init) ?? .glass
         dimming = defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming
         hidesNames = defaults.bool(forKey: Key.hidesNames)
@@ -156,6 +166,7 @@ final class LauncherSettings {
         static let optionEntersUninstallMode = "optionEntersUninstallMode"
         static let customSourcePaths = "customSourcePaths"
         static let browsingStyle = "browsingStyle"
+        static let displayMode = "displayMode"
         static let background = "background"
         static let dimming = "dimming"
         static let hidesNames = "hidesNames"

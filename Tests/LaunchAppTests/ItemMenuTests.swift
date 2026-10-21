@@ -95,15 +95,27 @@ final class ItemMenuTests: XCTestCase {
         let builder = ItemMenu { chosen.append($0) }
         let menu = builder.makeMenu(.main(MainMenuContent(canSelectAll: true, canArrange: true)))
 
-        XCTAssertEqual(menu.items.map(\.title), ["全选", "整理布局…", "排序方式", "浏览方式", "", "设置…"])
+        XCTAssertEqual(menu.items.map(\.title), ["全选", "整理布局…", "排序方式", "浏览方式", "显示方式", "", "设置…"])
         XCTAssertTrue(menu.items[1].isEnabled)
         trigger(menu.items[0])
         trigger(menu.items[1])
-        trigger(menu.items[5])
+        trigger(menu.items[6])
         XCTAssertEqual(chosen, [.selectAll, .arrangeLayout, .openSettings])
 
         let locked = ItemMenu { _ in }.makeMenu(.main(MainMenuContent(canSelectAll: false, canArrange: false)))
-        XCTAssertEqual([0, 1, 2, 3, 5].map { locked.items[$0].isEnabled }, [false, false, true, true, true])
+        XCTAssertEqual([0, 1, 2, 3, 4, 6].map { locked.items[$0].isEnabled }, [false, false, true, true, true, true])
+    }
+
+    func testDisplayModeSubmenu() throws {
+        var chosen: [ItemMenuCommand] = []
+        let builder = ItemMenu { chosen.append($0) }
+        let menu = builder.makeMenu(.main(MainMenuContent(canSelectAll: true, canArrange: true, displayMode: .window)))
+        let sub = try XCTUnwrap(menu.items[4].submenu)
+
+        XCTAssertEqual(sub.items.map(\.title), ["全屏", "窗口"])
+        XCTAssertEqual(sub.items.map { $0.state == .on }, [false, true])
+        trigger(sub.items[0])
+        XCTAssertEqual(chosen, [.displayMode(.fullScreen)])
     }
 
     func testBrowsingSubmenu() throws {

@@ -17,6 +17,14 @@ final class LauncherHomeLayoutTests: XCTestCase {
         XCTAssertEqual(layout.folderRowSpacing, 17, accuracy: 0.0001)
     }
 
+    func testWindowAreaIsCenteredFractionOfScreen() {
+        XCTAssertEqual(LauncherHomeLayout.windowArea(for: mainScreen), CGSize(width: 1512 * 0.7, height: 982 * 0.75))
+        let layout = LauncherHomeLayout(screenSize: LauncherHomeLayout.windowArea(for: mainScreen), referenceSize: mainScreen)
+
+        XCTAssertEqual(layout.sizeScale, 0.7, accuracy: 0.0001)
+        XCTAssertLessThanOrEqual(layout.contentSize.height, 982 * 0.75)
+    }
+
     func testFewerRowsKeepIconSizeAndSpreadRows() {
         let layout = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen, grid: GridSize(columns: 5, rows: 3))
 

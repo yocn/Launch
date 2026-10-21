@@ -54,6 +54,7 @@ final class LauncherModel {
     private(set) var query = ""
     private(set) var grid = GridSize.default
     private(set) var browsingStyle = BrowsingStyle.paged
+    private(set) var displayMode = DisplayMode.fullScreen
     // 滚动浏览时交给视图执行：滚到某页，或拖动靠近上下边缘时滚一段
     private(set) var scrollRequest: ScrollRequest?
     @ObservationIgnored private var scrollSerial = 0
@@ -316,7 +317,8 @@ final class LauncherModel {
             canSelectAll: canMultiSelect && !visibleItems.isEmpty,
             canArrange: canMultiSelect,
             sort: displaySort,
-            browsingStyle: browsingStyle
+            browsingStyle: browsingStyle,
+            displayMode: displayMode
         )
     }
 
@@ -390,7 +392,7 @@ final class LauncherModel {
         case .selectAll:
             selectAllOnPage()
         case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide, .arrangeLayout,
-             .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle:
+             .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle, .displayMode:
             break
         }
     }
@@ -418,7 +420,8 @@ final class LauncherModel {
         case .hideSelection:
             edit = .hide(items)
         case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide,
-             .selectAll, .arrangeLayout, .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle:
+             .selectAll, .arrangeLayout, .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle,
+             .displayMode:
             return
         }
         clearMultiSelection()
@@ -456,6 +459,12 @@ final class LauncherModel {
 
     func updateGridFrame(_ frame: CGRect) {
         gridFrame = frame
+    }
+
+    func updateDisplayMode(_ mode: DisplayMode) {
+        if mode != displayMode {
+            displayMode = mode
+        }
     }
 
     func updateBrowsingStyle(_ style: BrowsingStyle) {

@@ -232,6 +232,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             settings.folderPlacement = placement
         case .browsingStyle(let style):
             settings.browsingStyle = style
+        case .displayMode(let mode):
+            settings.displayMode = mode
         default:
             controller.model.performMenuCommand(command)
         }
@@ -417,6 +419,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             layoutCoordinator.updatePageCapacity(settings.grid.capacity)
             controller.model.updateDisplaySort(settings.displaySort)
             controller.model.updateBrowsingStyle(settings.browsingStyle)
+            controller.model.updateDisplayMode(settings.displayMode)
             statusItemController?.setIconVisible(settings.showsMenuBarIcon)
         } onChange: { [weak self] in
             Task { @MainActor in
