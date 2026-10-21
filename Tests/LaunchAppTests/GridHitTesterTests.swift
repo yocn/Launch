@@ -12,6 +12,33 @@ final class GridHitTesterTests: XCTestCase {
         GridHitTester(layout: layout, frame: CGRect(x: 0, y: 135, width: 1512, height: layout.gridHeight))
     }
 
+    func testFollowsLayoutGridColumns() {
+        let narrow = LauncherHomeLayout(
+            screenSize: LauncherHomeLayout.canvasSize,
+            referenceSize: LauncherHomeLayout.canvasSize,
+            grid: GridSize(columns: 5, rows: 4)
+        )
+        let tester = GridHitTester(layout: narrow, frame: CGRect(x: 0, y: 135, width: 1512, height: narrow.gridHeight))
+        let rect = tester.tileRect(5)
+
+        XCTAssertEqual(rect.minX, narrow.horizontalInset, accuracy: 0.001)
+        XCTAssertEqual(rect.minY, 135 + narrow.tileHeight + narrow.rowSpacing, accuracy: 0.001)
+        XCTAssertEqual(tester.hit(CGPoint(x: rect.minX + 4, y: rect.maxY - 6), itemCount: 10), .item(5, .leading))
+        XCTAssertEqual(tester.tileRect(19).minY, 135 + (narrow.tileHeight + narrow.rowSpacing) * 3, accuracy: 0.001)
+    }
+
+    func testCustomRowSpacingForFolders() {
+        let narrow = LauncherHomeLayout(
+            screenSize: LauncherHomeLayout.canvasSize,
+            referenceSize: LauncherHomeLayout.canvasSize,
+            grid: GridSize(columns: 5, rows: 3)
+        )
+        var tester = GridHitTester(layout: narrow, frame: CGRect(x: 0, y: 0, width: 1512, height: 400))
+        tester.rowSpacing = narrow.folderRowSpacing
+
+        XCTAssertEqual(tester.tileRect(5).minY, narrow.tileHeight + narrow.folderRowSpacing, accuracy: 0.001)
+    }
+
     func testTileRectFollowsGridGeometry() {
         let rect = tester.tileRect(8)
 

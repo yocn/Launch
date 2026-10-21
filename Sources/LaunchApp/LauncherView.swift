@@ -168,7 +168,7 @@ struct LauncherView: View {
     private func gridColumns(_ layout: LauncherHomeLayout) -> [GridItem] {
         Array(
             repeating: GridItem(.fixed(layout.tileWidth), spacing: layout.columnSpacing),
-            count: LauncherHomeLayout.columnCount
+            count: layout.grid.columns
         )
     }
 
@@ -708,7 +708,7 @@ private struct FolderOverlay: View {
             PageOffset(model: model, pager: .folder, pageWidth: layout.contentSize.width) {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, apps in
-                    LazyVGrid(columns: columns, spacing: layout.rowSpacing) {
+                    LazyVGrid(columns: columns, spacing: layout.folderRowSpacing) {
                         ForEach(model.gridEntries(page: pageIndex, items: apps.map(ResolvedItem.app), area: .folder)) { entry in
                             GridCell(model: model, entry: entry, layout: layout) { item, index in
                                 if case .app(let app) = item {

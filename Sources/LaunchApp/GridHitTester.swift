@@ -17,14 +17,24 @@ struct GridHitTester {
     let layout: LauncherHomeLayout
     // 网格单页可视区域在 SwiftUI 全局坐标中的位置
     let frame: CGRect
-    var rowCount = LauncherHomeLayout.rowCount
+    var rowCount: Int
+    // 文件夹用紧凑行距；主网格行距会随行数均分
+    var rowSpacing: CGFloat
 
+    init(layout: LauncherHomeLayout, frame: CGRect, rowCount: Int? = nil, rowSpacing: CGFloat? = nil) {
+        self.layout = layout
+        self.frame = frame
+        self.rowCount = rowCount ?? layout.grid.rows
+        self.rowSpacing = rowSpacing ?? layout.rowSpacing
+    }
+
+    private var columns: Int { layout.grid.columns }
     private var columnPitch: CGFloat { layout.tileWidth + layout.columnSpacing }
-    private var rowPitch: CGFloat { layout.tileHeight + layout.rowSpacing }
+    private var rowPitch: CGFloat { layout.tileHeight + rowSpacing }
 
     func tileRect(_ index: Int) -> CGRect {
-        let column = index % LauncherHomeLayout.columnCount
-        let row = index / LauncherHomeLayout.columnCount
+        let column = index % columns
+        let row = index / columns
         return CGRect(
             x: frame.minX + layout.horizontalInset + CGFloat(column) * columnPitch,
             y: frame.minY + CGFloat(row) * rowPitch,
@@ -42,7 +52,7 @@ struct GridHitTester {
     }
 
     func hit(_ point: CGPoint, itemCount: Int) -> GridHit {
-        guard point.y >= frame.minY - layout.rowSpacing, point.y <= frame.maxY + layout.rowSpacing else {
+        guard point.y >= frame.minY - rowSpacing, point.y <= frame.maxY + rowSpacing else {
             return .outside
         }
         let edgeWidth = layout.horizontalInset / 2
@@ -53,10 +63,10 @@ struct GridHitTester {
             return .edge(.next)
         }
         let rawColumn = (point.x - frame.minX - layout.horizontalInset + layout.columnSpacing / 2) / columnPitch
-        let rawRow = (point.y - frame.minY + layout.rowSpacing / 2) / rowPitch
-        let column = min(max(Int(rawColumn.rounded(.down)), 0), LauncherHomeLayout.columnCount - 1)
+        let rawRow = (point.y - frame.minY + rowSpacing / 2) / rowPitch
+        let column = min(max(Int(rawColumn.rounded(.down)), 0), columns - 1)
         let row = min(max(Int(rawRow.rounded(.down)), 0), rowCount - 1)
-        let index = row * LauncherHomeLayout.columnCount + column
+        let index = row * columns + column
         guard index < itemCount else {
             return .end
         }

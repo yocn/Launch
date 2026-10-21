@@ -374,7 +374,7 @@ final class LauncherModel {
         }
         if let folder = openFolder {
             let apps = visibleFolderApps
-            let tester = GridHitTester(layout: homeLayout, frame: folderGridFrame)
+            let tester = GridHitTester(layout: homeLayout, frame: folderGridFrame, rowSpacing: homeLayout.folderRowSpacing)
             return tester.tileIndex(at: point, itemCount: apps.count).map {
                 ItemPress(item: .app(apps[$0]), origin: .folder(id: folder.id, page: folderPage, index: $0))
             }
@@ -395,7 +395,7 @@ final class LauncherModel {
         case .grid(_, let index):
             return GridHitTester(layout: homeLayout, frame: gridFrame).tileRect(index)
         case .folder(_, _, let index):
-            return GridHitTester(layout: homeLayout, frame: folderGridFrame).tileRect(index)
+            return GridHitTester(layout: homeLayout, frame: folderGridFrame, rowSpacing: homeLayout.folderRowSpacing).tileRect(index)
         }
     }
 
@@ -566,7 +566,8 @@ final class LauncherModel {
             tester = GridHitTester(
                 layout: homeLayout,
                 frame: folderGridFrame,
-                rowCount: homeLayout.folderRowCount(memberCount: folder.apps.count)
+                rowCount: homeLayout.folderRowCount(memberCount: folder.apps.count),
+                rowSpacing: homeLayout.folderRowSpacing
             )
         } else {
             let gridPages = pages
