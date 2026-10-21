@@ -110,9 +110,8 @@ final class LauncherControllerTests: XCTestCase {
     @MainActor
     func testUpdateCatalogKeepsIconsWhenAppsAreUnchanged() {
         var loads = 0
-        let iconCache = IconCache { _ in
+        let iconCache = IconCache { _, _ in
             loads += 1
-            return NSImage()
         }
         let apps = makeApps(count: 2)
         let (controller, _) = makeController(apps: apps, iconCache: iconCache)
@@ -343,7 +342,7 @@ final class LauncherControllerTests: XCTestCase {
     @MainActor
     private func makeController(
         apps: [CatalogApp] = [],
-        iconCache: IconCache = IconCache { _ in NSImage() },
+        iconCache: IconCache = IconCache { _, _ in },
         openApplication: @escaping (URL) -> Bool = { _ in true }
     ) -> (LauncherController, FakePresenter) {
         let presenter = FakePresenter()

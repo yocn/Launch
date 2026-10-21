@@ -278,10 +278,7 @@ private struct LauncherAppTile: View {
 
     var body: some View {
         VStack(spacing: layout.iconLabelSpacing) {
-            Image(nsImage: IconCache.shared.icon(for: app.identity.path))
-                .resizable()
-                .interpolation(.high)
-                .frame(width: layout.iconSide, height: layout.iconSide)
+            AppIconImage(path: app.identity.path, side: layout.iconSide)
             Text(app.displayName)
                 .font(.system(size: layout.labelFontSize, weight: .medium))
                 .foregroundStyle(.white)
@@ -359,10 +356,7 @@ private struct FolderPreview: View {
             spacing: spacing
         ) {
             ForEach(apps, id: \.identity) { app in
-                Image(nsImage: IconCache.shared.icon(for: app.identity.path))
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: side, height: side)
+                AppIconImage(path: app.identity.path, side: side)
             }
         }
         .frame(width: gridSide, height: gridSide, alignment: .top)
@@ -664,10 +658,7 @@ private struct DragCard: View {
         VStack(spacing: layout.iconLabelSpacing) {
             switch item {
             case .app(let app):
-                Image(nsImage: IconCache.shared.icon(for: app.identity.path))
-                    .resizable()
-                    .interpolation(.high)
-                    .frame(width: layout.iconSide, height: layout.iconSide)
+                AppIconImage(path: app.identity.path, side: layout.iconSide)
                 label(app.displayName)
             case .folder(let folder):
                 FolderPreview(apps: Array(folder.apps.prefix(9)), layout: layout)

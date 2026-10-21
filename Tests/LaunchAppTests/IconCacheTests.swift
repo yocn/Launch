@@ -2,34 +2,93 @@ import AppKit
 import XCTest
 @testable import LaunchApp
 
+@MainActor
+private final class ManualIconLoader {
+    var requests: [String] = []
+    private var completions: [(String, @MainActor @Sendable (CGImage?) -> Void)] = []
+
+    func load(_ path: String, _ completion: @escaping @MainActor @Sendable (CGImage?) -> Void) {
+        requests.append(path)
+        completions.append((path, completion))
+    }
+
+    func finish(_ path: String, with image: CGImage? = makeImage()) {
+        let matching = completions.filter { $0.0 == path }
+        completions.removeAll { $0.0 == path }
+        matching.forEach { $0.1(image) }
+    }
+}
+
+private func makeImage() -> CGImage {
+    let context = CGContext(
+        data: nil, width: 4, height: 4, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!
+    return context.makeImage()!
+}
+
+@MainActor
 final class IconCacheTests: XCTestCase {
-    @MainActor
+    func testIconIsNilUntilLoadedInBackground() {
+        let loader = ManualIconLoader()
+        let cache = IconCache(load: loader.load)
+
+        XCTAssertNil(cache.icon(for: "/Applications/A.app"))
+        loader.finish("/Applications/A.app")
+
+        XCTAssertNotNil(cache.icon(for: "/Applications/A.app"))
+    }
+
     func testIconIsLoadedOncePerPath() {
-        var loadedPaths: [String] = []
-        let cache = IconCache { path in
-            loadedPaths.append(path)
-            return NSImage()
-        }
+        let loader = ManualIconLoader()
+        let cache = IconCache(load: loader.load)
 
         _ = cache.icon(for: "/Applications/A.app")
+        _ = cache.icon(for: "/Applications/A.app")
+        loader.finish("/Applications/A.app")
         _ = cache.icon(for: "/Applications/A.app")
         _ = cache.icon(for: "/Applications/B.app")
 
-        XCTAssertEqual(loadedPaths, ["/Applications/A.app", "/Applications/B.app"])
+        XCTAssertEqual(loader.requests, ["/Applications/A.app", "/Applications/B.app"])
     }
 
-    @MainActor
     func testRemoveAllForcesReload() {
-        var loads = 0
-        let cache = IconCache { _ in
-            loads += 1
-            return NSImage()
-        }
+        let loader = ManualIconLoader()
+        let cache = IconCache(load: loader.load)
+
+        _ = cache.icon(for: "/Applications/A.app")
+        loader.finish("/Applications/A.app")
+        cache.removeAll()
+
+        XCTAssertNil(cache.icon(for: "/Applications/A.app"))
+        XCTAssertEqual(loader.requests, ["/Applications/A.app", "/Applications/A.app"])
+    }
+
+    func testLoadFinishingAfterRemoveAllIsIgnored() {
+        let loader = ManualIconLoader()
+        let cache = IconCache(load: loader.load)
 
         _ = cache.icon(for: "/Applications/A.app")
         cache.removeAll()
-        _ = cache.icon(for: "/Applications/A.app")
+        loader.finish("/Applications/A.app")
 
-        XCTAssertEqual(loads, 2)
+        XCTAssertNil(cache.icon(for: "/Applications/A.app"))
+    }
+
+    func testFailedLoadKeepsPlaceholderWithoutRetrying() {
+        let loader = ManualIconLoader()
+        let cache = IconCache(load: loader.load)
+
+        _ = cache.icon(for: "/Applications/A.app")
+        loader.finish("/Applications/A.app", with: nil)
+
+        XCTAssertNil(cache.icon(for: "/Applications/A.app"))
+        XCTAssertEqual(loader.requests, ["/Applications/A.app"])
+    }
+
+    func testResolverRasterizesRealIcon() throws {
+        let image = try XCTUnwrap(ApplicationIconResolver.icon(for: "/System/Applications/Calculator.app"))
+        XCTAssertEqual(image.width, ApplicationIconResolver.pixelSide)
+        XCTAssertEqual(image.height, ApplicationIconResolver.pixelSide)
     }
 }

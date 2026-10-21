@@ -118,9 +118,7 @@ private struct HiddenAppsSettingsView: View {
                 } else {
                     ForEach(model.hiddenApps, id: \.identity) { app in
                         HStack {
-                            Image(nsImage: IconCache.shared.icon(for: app.identity.path))
-                                .resizable()
-                                .frame(width: 24, height: 24)
+                            AppIconImage(path: app.identity.path, side: 24)
                             Text(app.displayName)
                             Spacer()
                             Button("取消隐藏") {
