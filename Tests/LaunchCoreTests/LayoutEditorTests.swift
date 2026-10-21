@@ -374,4 +374,52 @@ final class LayoutEditorTests: XCTestCase {
 
         XCTAssertEqual(result.pages.map(\.slots), [[slot(a), .app(gone), slot(b)], [slot(c), slot(d)]])
     }
+
+    func testArrangeFillsAllPagesKeepingHiddenNeighbors() {
+        let result = applyDocument(
+            .arrange(LayoutArrangement(pages: [0, 1, 2], fillsGaps: true, ungroupsFolders: false)),
+            [[slot(a), .app(gone)], [slot(b)], [slot(c), slot(d)]],
+            capacity: 2
+        )
+
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), .app(gone), slot(b)], [slot(c), slot(d)]])
+    }
+
+    func testArrangeChosenPagesLeavesOtherPagesInPlace() {
+        let result = applyDocument(
+            .arrange(LayoutArrangement(pages: [0, 2], fillsGaps: true, ungroupsFolders: false)),
+            [[slot(a)], [slot(b)], [slot(c)], [slot(d), slot(e)]],
+            capacity: 2
+        )
+
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), slot(c)], [slot(b)], [slot(d), slot(e)]])
+    }
+
+    func testArrangeUngroupOverflowBecomesFollowingPage() {
+        let result = applyDocument(
+            .arrange(LayoutArrangement(pages: [0], fillsGaps: false, ungroupsFolders: true)),
+            [[folder("f", [b, c]), slot(a)], [slot(d)]],
+            capacity: 2
+        )
+
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), slot(b)], [slot(c)], [slot(d)]])
+    }
+
+    func testArrangeUngroupsBeforeFilling() {
+        let result = applyDocument(
+            .arrange(LayoutArrangement(pages: [0, 1], fillsGaps: true, ungroupsFolders: true)),
+            [[folder("f", [b, c]), slot(a)], [slot(d)], [LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", apps: [e.identity, gone]))]],
+            capacity: 3
+        )
+
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), slot(b), slot(c)], [slot(d)], [LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", apps: [e.identity, gone]))]])
+    }
+
+    func testArrangeWithoutChangeKeepsDocument() {
+        let pages = [[slot(a), slot(b)], [slot(c)]]
+        let original = LayoutDocument(pages: pages.map { LayoutPage(slots: $0) })
+
+        XCTAssertEqual(applyDocument(.arrange(LayoutArrangement(pages: [0, 1], fillsGaps: true, ungroupsFolders: false)), pages, capacity: 2), original)
+        XCTAssertEqual(applyDocument(.arrange(LayoutArrangement(pages: [5], fillsGaps: true, ungroupsFolders: true)), pages, capacity: 2), original)
+    }
 }

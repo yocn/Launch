@@ -11,6 +11,18 @@ public enum LayoutDropTarget: Equatable, Sendable {
     case merge(LayoutItemID)
 }
 
+public struct LayoutArrangement: Equatable, Sendable {
+    public let pages: [Int]
+    public let fillsGaps: Bool
+    public let ungroupsFolders: Bool
+
+    public init(pages: [Int], fillsGaps: Bool, ungroupsFolders: Bool) {
+        self.pages = pages
+        self.fillsGaps = fillsGaps
+        self.ungroupsFolders = ungroupsFolders
+    }
+}
+
 public enum LayoutEdit: Equatable, Sendable {
     case move(LayoutItemID, to: LayoutDropTarget)
     case moveGroup([LayoutItemID], to: LayoutDropTarget)
@@ -21,6 +33,7 @@ public enum LayoutEdit: Equatable, Sendable {
     case hide([LayoutItemID])
     case unhide([AppIdentity])
     case ungroupFolder(String)
+    case arrange(LayoutArrangement)
 }
 
 extension ResolvedItem {
@@ -178,6 +191,8 @@ private struct Editor {
             unhide(identities)
         case .ungroupFolder(let folder):
             ungroup(folder: folder)
+        case .arrange(let arrangement):
+            arrange(arrangement)
         }
     }
 
@@ -452,6 +467,52 @@ private struct Editor {
         pages[location.page].append(contentsOf: folder.apps.map(LayoutSlot.app))
         cascade(from: location.page)
         pages = pages.filter { !$0.isEmpty }
+        return true
+    }
+
+    // 填满：所选页连成一串重新排满，结果依次放回所选页的位置，多出的页紧跟最后一个所选页；
+    // 只拆文件夹：每页放不下的部分拆成紧随其后的页，不挤动其他页
+    mutating func arrange(_ arrangement: LayoutArrangement) -> Bool {
+        let chosen = Array(Set(arrangement.pages.filter(pages.indices.contains))).sorted()
+        guard !chosen.isEmpty, arrangement.fillsGaps || arrangement.ungroupsFolders else {
+            return false
+        }
+        var groups = chosen.map { pages[$0] }
+        if arrangement.ungroupsFolders {
+            groups = groups.map { slots in
+                var kept: [LayoutSlot] = []
+                var members: [LayoutSlot] = []
+                for slot in slots {
+                    if case .folder(let folder) = slot {
+                        members += folder.apps.map(LayoutSlot.app)
+                    } else {
+                        kept.append(slot)
+                    }
+                }
+                return kept + members
+            }
+        }
+        let (resolver, hidden, capacity) = (resolver, hiddenKeys, capacity)
+        let split = { (slots: [LayoutSlot]) in
+            Self.split(slots, resolver: resolver, hidden: hidden, capacity: capacity)
+        }
+        var replacements: [[[LayoutSlot]]]
+        if arrangement.fillsGaps {
+            let filled = split(groups.flatMap { $0 })
+            replacements = chosen.indices.map { $0 < filled.count ? [filled[$0]] : [] }
+            replacements[chosen.count - 1] += filled.dropFirst(chosen.count)
+        } else {
+            replacements = groups.map(split)
+        }
+        var result: [[LayoutSlot]] = []
+        for (index, page) in pages.enumerated() {
+            if let position = chosen.firstIndex(of: index) {
+                result += replacements[position]
+            } else {
+                result.append(page)
+            }
+        }
+        pages = result.filter { !$0.isEmpty }
         return true
     }
 }
