@@ -354,7 +354,6 @@ private struct LauncherAppTile: View {
     let action: () -> Void
 
     @Environment(\.showsItemNames) private var showsName
-    @State private var isHovering = false
 
     var body: some View {
         VStack(spacing: layout.iconLabelSpacing) {
@@ -372,12 +371,11 @@ private struct LauncherAppTile: View {
         .frame(width: layout.tileWidth)
         .background {
             RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                .fill(.white.opacity(isSelected ? 0.26 : (isHovering ? 0.15 : 0)))
+                .fill(.white.opacity(isSelected ? 0.26 : 0))
         }
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
         // 鼠标点击统一由 ItemDragController 处理；SwiftUI 手势不受本地事件监听拦截，这里只吞掉点击，免得落到背景上
         .onTapGesture {}
-        .onHover { isHovering = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(app.displayName)
         .accessibilityAddTraits(.isButton)
@@ -392,7 +390,6 @@ private struct LauncherFolderTile: View {
     let action: () -> Void
 
     @Environment(\.showsItemNames) private var showsName
-    @State private var isHovering = false
 
     var body: some View {
         VStack(spacing: layout.iconLabelSpacing) {
@@ -410,12 +407,11 @@ private struct LauncherFolderTile: View {
         .frame(width: layout.tileWidth)
         .background {
             RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                .fill(.white.opacity(isSelected ? 0.26 : (isHovering ? 0.15 : 0)))
+                .fill(.white.opacity(isSelected ? 0.26 : 0))
         }
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
         // 鼠标点击统一由 ItemDragController 处理；SwiftUI 手势不受本地事件监听拦截，这里只吞掉点击，免得落到背景上
         .onTapGesture {}
-        .onHover { isHovering = $0 }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(folder.name)
         .accessibilityAddTraits(.isButton)
