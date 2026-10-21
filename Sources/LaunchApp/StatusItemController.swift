@@ -11,6 +11,16 @@ struct LayoutMenuActions {
     let unhideAll: () -> Void
 }
 
+enum StatusItemClick: Equatable {
+    case open
+    case menu
+
+    // ⌃ 单击按 macOS 惯例等同右键；辅助功能「按下」没有鼠标事件，按左键处理
+    init(type: NSEvent.EventType?, modifiers: NSEvent.ModifierFlags) {
+        self = type == .rightMouseUp || modifiers.contains(.control) ? .menu : .open
+    }
+}
+
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -22,6 +32,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let hiddenItem = NSMenuItem(title: "隐藏的应用", action: nil, keyEquivalent: "")
     private let settingsItem = NSMenuItem(title: "设置…", action: nil, keyEquivalent: ",")
     private let quitItem = NSMenuItem(title: "退出 Launch", action: nil, keyEquivalent: "q")
+    private let menu = NSMenu()
     private let loginItemService: LoginItemService
     private let layoutMenu: LayoutMenuActions
     private let hasHotKeyConflict: () -> Bool
@@ -47,6 +58,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             systemSymbolName: "square.grid.3x3.fill",
             accessibilityDescription: "Launch"
         )
+        statusItem.button?.target = self
+        statusItem.button?.action = #selector(statusItemClicked(_:))
+        statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         // Shortcut.description 格式化 Space 时会读取库的资源 bundle，这里直接用 keyEquivalent 显示
         openItem.keyEquivalentModifierMask = [.option]
         openItem.action = #selector(openLauncher)
@@ -63,13 +77,24 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         settingsItem.action = #selector(openSettings)
         settingsItem.target = self
 
-        let menu = NSMenu()
         menu.autoenablesItems = false
         menu.delegate = self
         menu.items = [
             openItem, settingsItem, conflictItem, .separator(), loginItem, importItem, restoreItem, hiddenItem, .separator(), quitItem,
         ]
-        statusItem.menu = menu
+    }
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        switch StatusItemClick(type: event?.type, modifiers: event?.modifierFlags ?? []) {
+        case .open:
+            onOpen()
+        case .menu:
+            // 常挂菜单会让左键也弹菜单，只在弹出时临时挂上；performClick 会等菜单关闭才返回
+            statusItem.menu = menu
+            sender.performClick(nil)
+            statusItem.menu = nil
+        }
     }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
