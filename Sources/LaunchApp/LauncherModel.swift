@@ -12,6 +12,16 @@ enum EscapeOutcome: Equatable {
     case close
 }
 
+struct ScrollRequest: Equatable {
+    enum Kind: Equatable {
+        case page(Int)
+        case by(CGFloat)
+    }
+
+    let kind: Kind
+    let serial: Int
+}
+
 @MainActor
 @Observable
 final class LauncherModel {
@@ -43,6 +53,13 @@ final class LauncherModel {
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
     private(set) var grid = GridSize.default
+    private(set) var browsingStyle = BrowsingStyle.paged
+    // 滚动浏览时交给视图执行：滚到某页，或拖动靠近上下边缘时滚一段
+    private(set) var scrollRequest: ScrollRequest?
+    @ObservationIgnored private var scrollSerial = 0
+    // 滚动浏览时各页网格的全局位置；分页时只用 gridFrame
+    @ObservationIgnored private var pageFrames: [Int: CGRect] = [:]
+    @ObservationIgnored private var lastAutoScroll: TimeInterval?
     private(set) var displaySort = DisplaySort()
     // 非自定义排序时为排好的一串，其余情况与 layoutPages 相同
     private(set) var arrangedPages: [[ResolvedItem]]?
@@ -221,10 +238,12 @@ final class LauncherModel {
             height: abs(point.y - start.y)
         )
         marqueeRect = rect
-        let items = visibleItems
-        let hits = GridHitTester(layout: homeLayout, frame: gridFrame)
-            .tileIndices(intersecting: rect, itemCount: items.count)
-            .compactMap { items[$0].layoutID }
+        let gridPages = pages
+        let hits = visibleHomePages().flatMap { page, frame in
+            homeTester(frame, layout: homeLayout)
+                .tileIndices(intersecting: rect, itemCount: gridPages[page].count)
+                .compactMap { gridPages[page][$0].layoutID }
+        }
         var selection = multiSelection
         selection.updateMarquee(hits: Set(hits))
         setMultiSelection(selection)
@@ -434,6 +453,99 @@ final class LauncherModel {
         gridFrame = frame
     }
 
+    func updateBrowsingStyle(_ style: BrowsingStyle) {
+        guard style != browsingStyle else {
+            return
+        }
+        browsingStyle = style
+        pageFrames = [:]
+        setGridPage(clampedPage(currentPage), animated: false)
+    }
+
+    // 滚动浏览时 gridFrame 是滚动区域，各页位置由视图逐页上报
+    func updatePageFrame(_ frame: CGRect, page: Int) {
+        pageFrames[page] = frame
+        followScroll()
+    }
+
+    // 当前页仍有部分可见时不变；完全滚出后换成最上面可见的页，键盘选中随之清掉
+    private func followScroll() {
+        guard browsingStyle == .scroll, dragSession == nil else {
+            return
+        }
+        let visible = visibleHomePages().map(\.page)
+        guard !visible.contains(currentPage), let top = visible.min() else {
+            return
+        }
+        currentPage = top
+        selectedIndex = nil
+    }
+
+    private func requestScroll(_ kind: ScrollRequest.Kind) {
+        scrollSerial += 1
+        scrollRequest = ScrollRequest(kind: kind, serial: scrollSerial)
+    }
+
+    private func visibleHomePages() -> [(page: Int, frame: CGRect)] {
+        guard browsingStyle == .scroll else {
+            return pages.indices.contains(currentPage) ? [(currentPage, gridFrame)] : []
+        }
+        return pageFrames
+            .filter { pages.indices.contains($0.key) && $0.value.intersects(gridFrame) }
+            .sorted { $0.key < $1.key }
+            .map { ($0.key, $0.value) }
+    }
+
+    // 分页时屏幕上只有当前页；滚动时按指针所在页，拖动时取最近的页
+    private func homePage(at point: CGPoint, nearest: Bool = false) -> (page: Int, frame: CGRect)? {
+        let candidates = visibleHomePages()
+        guard browsingStyle == .scroll else {
+            return candidates.first
+        }
+        let spacing = homeLayout?.folderRowSpacing ?? 0
+        if let hit = candidates.first(where: { $0.frame.insetBy(dx: 0, dy: -spacing / 2).contains(point) }) {
+            return hit
+        }
+        guard nearest else {
+            return nil
+        }
+        func distance(_ frame: CGRect) -> CGFloat {
+            point.y < frame.minY ? frame.minY - point.y : max(point.y - frame.maxY, 0)
+        }
+        return candidates.min { distance($0.frame) < distance($1.frame) }
+    }
+
+    private func homeFrame(ofPage page: Int) -> CGRect? {
+        browsingStyle == .scroll ? pageFrames[page] : (page == currentPage ? gridFrame : nil)
+    }
+
+    private func homeTester(_ frame: CGRect, layout: LauncherHomeLayout) -> GridHitTester {
+        guard browsingStyle == .scroll else {
+            return GridHitTester(layout: layout, frame: frame)
+        }
+        var tester = GridHitTester(layout: layout, frame: frame, rowSpacing: layout.folderRowSpacing)
+        tester.detectsPageEdges = false
+        return tester
+    }
+
+    // 滚动浏览时拖到滚动区上下边缘附近自动滚动，越靠边越快
+    private func autoScroll(at point: CGPoint, now: TimeInterval) {
+        let zone: CGFloat = 80
+        let fastest: CGFloat = 1200
+        let speed: CGFloat
+        if point.y > gridFrame.maxY - zone {
+            speed = fastest * min(1, (point.y - (gridFrame.maxY - zone)) / zone)
+        } else if point.y < gridFrame.minY + zone {
+            speed = -fastest * min(1, (gridFrame.minY + zone - point.y) / zone)
+        } else {
+            lastAutoScroll = nil
+            return
+        }
+        let elapsed = lastAutoScroll.map { min(max(now - $0, 0), 0.1) } ?? 1.0 / 30
+        lastAutoScroll = now
+        requestScroll(.by(speed * elapsed))
+    }
+
     func updateFolderGridFrame(_ frame: CGRect) {
         folderGridFrame = frame
     }
@@ -449,12 +561,14 @@ final class LauncherModel {
                 ItemPress(item: .app(apps[$0]), origin: .folder(id: folder.id, page: folderPage, index: $0))
             }
         }
-        let items = visibleItems
-        let tester = GridHitTester(layout: homeLayout, frame: gridFrame)
-        guard let index = tester.tileIndex(at: point, itemCount: items.count), items[index] != .empty else {
+        guard let (page, frame) = homePage(at: point) else {
             return nil
         }
-        return ItemPress(item: items[index], origin: .grid(page: currentPage, index: index))
+        let items = pages[page]
+        guard let index = homeTester(frame, layout: homeLayout).tileIndex(at: point, itemCount: items.count), items[index] != .empty else {
+            return nil
+        }
+        return ItemPress(item: items[index], origin: .grid(page: page, index: index))
     }
 
     func frame(of origin: DragOrigin) -> CGRect? {
@@ -462,8 +576,8 @@ final class LauncherModel {
             return nil
         }
         switch origin {
-        case .grid(_, let index):
-            return GridHitTester(layout: homeLayout, frame: gridFrame).tileRect(index)
+        case .grid(let page, let index):
+            return homeFrame(ofPage: page).map { homeTester($0, layout: homeLayout).tileRect(index) }
         case .folder(_, _, let index):
             return GridHitTester(layout: homeLayout, frame: folderGridFrame, rowSpacing: homeLayout.folderRowSpacing).tileRect(index)
         }
@@ -489,6 +603,15 @@ final class LauncherModel {
     func updateItemDrag(at point: CGPoint, now: TimeInterval) {
         guard var session = dragSession else {
             return
+        }
+        if browsingStyle == .scroll, openFolder == nil {
+            autoScroll(at: point, now: now)
+            // 拖到最后一页下方时多出一页空页可放
+            if !session.hasExtraPage, let last = pageFrames[pages.count - 1], point.y > last.maxY + (homeLayout?.folderRowSpacing ?? 0) {
+                session.addExtraPage()
+                dragSession = session
+                publishDragPreview()
+            }
         }
         let events = session.update(
             hit: dragHit(at: point, preview: session.preview),
@@ -641,9 +764,12 @@ final class LauncherModel {
             )
         } else {
             let gridPages = pages
-            page = currentPage
+            guard let (hitPage, frame) = homePage(at: point, nearest: true) else {
+                return .none
+            }
+            page = hitPage
             itemCount = gridPages.indices.contains(page) ? gridPages[page].count : 0
-            tester = GridHitTester(layout: homeLayout, frame: gridFrame)
+            tester = homeTester(frame, layout: homeLayout)
         }
         let entries = preview.entries(
             page: page,
@@ -724,7 +850,7 @@ final class LauncherModel {
 
     func dragPage(by translation: CGFloat) {
         // 发起图标拖拽的那次拖动事件也会被转给 SwiftUI 翻页手势，且它永远收不到结束
-        guard dragSession == nil, !isModifiedClick else {
+        guard dragSession == nil, !isModifiedClick, browsingStyle == .paged || openFolder != nil else {
             return
         }
         isPageDragging = true
@@ -781,6 +907,9 @@ final class LauncherModel {
 
     private func setGridPage(_ page: Int, animated: Bool) {
         currentPage = page
+        if browsingStyle == .scroll {
+            requestScroll(.page(page))
+        }
         if animated {
             gridMotion.settle()
             onNeedsFrames?()
@@ -916,7 +1045,8 @@ final class LauncherModel {
             direction: direction,
             currentPage: currentPage,
             pageSizes: pages.map(\.count),
-            columns: grid.columns
+            columns: grid.columns,
+            crossesPagesVertically: browsingStyle == .scroll
         ) {
             if next.page != currentPage {
                 setGridPage(next.page, animated: true)
