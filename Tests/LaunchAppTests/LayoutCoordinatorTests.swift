@@ -302,6 +302,25 @@ final class LayoutCoordinatorTests: XCTestCase {
     }
 
     @MainActor
+    func testEditsUseUpdatedPageCapacity() async throws {
+        let store = try temporaryStore()
+        let many = makeApps(count: 5)
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: many.map { .app($0.identity) })]))
+        let (coordinator, published) = makeCoordinator(store, FakePrompter(), FakeLaunchpad())
+        coordinator.start()
+        await coordinator.catalogDidChange(many)
+
+        coordinator.updatePageCapacity(2)
+        coordinator.apply(.move(
+            .app(many[4].identity.stableKey),
+            to: .insert(page: 0, before: .app(many[0].identity.stableKey))
+        ))
+
+        XCTAssertEqual(try store.load()?.pages.map(\.slots.count), [2, 2, 1])
+        XCTAssertEqual(published.last?.map(\.count), [2, 2, 1])
+    }
+
+    @MainActor
     private func makeCoordinator(
         _ store: LayoutStore,
         _ prompter: FakePrompter,

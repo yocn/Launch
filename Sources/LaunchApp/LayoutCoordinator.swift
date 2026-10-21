@@ -28,7 +28,7 @@ final class LayoutCoordinator {
     private let store: LayoutStore
     private let launchpad: LaunchpadSource
     private let prompter: LayoutPrompting
-    private let pageCapacity: Int
+    private var pageCapacity: Int
     private var document: LayoutDocument?
     private var catalog: [CatalogApp] = []
     private var needsSetup = false
@@ -42,12 +42,17 @@ final class LayoutCoordinator {
         store: LayoutStore,
         launchpad: LaunchpadSource,
         prompter: LayoutPrompting,
-        pageCapacity: Int = LauncherHomeLayout.pageCapacity
+        pageCapacity: Int = GridSize.default.capacity
     ) {
         self.store = store
         self.launchpad = launchpad
         self.prompter = prompter
         self.pageCapacity = pageCapacity
+    }
+
+    // 只影响之后的编辑、导入与追加；已保存的页在下次编辑时按新容量拆分
+    func updatePageCapacity(_ capacity: Int) {
+        pageCapacity = capacity
     }
 
     var canImport: Bool {

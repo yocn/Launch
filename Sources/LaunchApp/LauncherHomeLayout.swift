@@ -1,10 +1,6 @@
 import CoreGraphics
 
 struct LauncherHomeLayout: Equatable {
-    static let columnCount = 7
-    static let rowCount = 5
-    static let pageCapacity = columnCount * rowCount
-
     // 以下尺寸按 1512×982 主屏调校，参考屏不同尺寸时整体缩放
     static let canvasSize = CGSize(width: 1512, height: 982)
     // 默认 7×5 的网格高度；改行列时网格区域高度不变

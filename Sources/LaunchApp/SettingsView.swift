@@ -97,6 +97,10 @@ private struct AppearanceSettingsView: View {
                 }
             }
             Toggle("隐藏图标名称", isOn: $settings.hidesNames)
+            Section("网格") {
+                Stepper("列数：\(settings.gridColumns)", value: $settings.gridColumns, in: GridSize.columnRange)
+                Stepper("行数：\(settings.gridRows)", value: $settings.gridRows, in: GridSize.rowRange)
+            }
         }
         .formStyle(.grouped)
     }

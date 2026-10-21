@@ -44,7 +44,8 @@ struct LauncherView: View {
 
                 let layout = LauncherHomeLayout(
                     screenSize: proxy.size,
-                    referenceSize: NSScreen.screens.first?.frame.size ?? proxy.size
+                    referenceSize: NSScreen.screens.first?.frame.size ?? proxy.size,
+                    grid: model.grid
                 )
                 ZStack {
                     homeContent(layout: layout)

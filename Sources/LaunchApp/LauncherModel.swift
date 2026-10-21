@@ -42,6 +42,7 @@ final class LauncherModel {
     }
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
+    private(set) var grid = GridSize.default
     private(set) var currentPage = 0
     private(set) var selectedIndex: Int?
     private(set) var presentationCount = 0
@@ -101,7 +102,7 @@ final class LauncherModel {
             source = [results.map(ResolvedItem.app)]
         }
         let paged = source.flatMap {
-            LauncherPagination.pages($0, capacity: LauncherHomeLayout.pageCapacity)
+            LauncherPagination.pages($0, capacity: grid.capacity)
         }
         return dragPreview?.hasExtraPage == true ? paged + [[]] : paged
     }
@@ -130,7 +131,7 @@ final class LauncherModel {
         guard let openFolder else {
             return []
         }
-        return LauncherPagination.pages(openFolder.apps, capacity: LauncherHomeLayout.pageCapacity)
+        return LauncherPagination.pages(openFolder.apps, capacity: grid.capacity)
     }
 
     var visibleFolderApps: [CatalogApp] {
@@ -480,7 +481,7 @@ final class LauncherModel {
         let entries = preview?.entries(
             page: page,
             itemCount: items.count,
-            capacity: LauncherHomeLayout.pageCapacity,
+            capacity: grid.capacity,
             in: area
         ) ?? items.indices.map(PreviewEntry.item)
         var seen = Set<String>()
@@ -578,7 +579,7 @@ final class LauncherModel {
         let entries = preview.entries(
             page: page,
             itemCount: itemCount,
-            capacity: LauncherHomeLayout.pageCapacity,
+            capacity: grid.capacity,
             in: preview.area
         )
         return preview.hit(
@@ -831,7 +832,7 @@ final class LauncherModel {
                 direction: direction,
                 currentPage: folderPage,
                 pageSizes: folderPages.map(\.count),
-                columns: LauncherHomeLayout.columnCount
+                columns: grid.columns
             ) {
                 if next.page != folderPage {
                     setFolderPage(next.page, animated: true)
@@ -846,7 +847,7 @@ final class LauncherModel {
             direction: direction,
             currentPage: currentPage,
             pageSizes: pages.map(\.count),
-            columns: LauncherHomeLayout.columnCount
+            columns: grid.columns
         ) {
             if next.page != currentPage {
                 setGridPage(next.page, animated: true)
@@ -921,6 +922,14 @@ final class LauncherModel {
 
     func updateApps(_ newApps: [CatalogApp]) {
         apps = newApps
+        normalizeState()
+    }
+
+    func updateGrid(_ newGrid: GridSize) {
+        guard newGrid != grid else {
+            return
+        }
+        grid = newGrid
         normalizeState()
     }
 

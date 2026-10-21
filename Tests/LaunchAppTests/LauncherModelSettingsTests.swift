@@ -22,11 +22,38 @@ final class LauncherModelSettingsTests: XCTestCase {
     @MainActor
     private func makeModel(apps: [CatalogApp]) -> LauncherModel {
         let model = LauncherModel(apps: apps)
-        model.updateLayout(LauncherPagination.pages(apps.map(ResolvedItem.app), capacity: LauncherHomeLayout.pageCapacity))
+        model.updateLayout(LauncherPagination.pages(apps.map(ResolvedItem.app), capacity: GridSize.default.capacity))
         model.canEditLayout = true
         model.updateHomeLayout(layout)
         model.updateGridFrame(gridFrame)
         return model
+    }
+
+    @MainActor
+    func testGridChangeRepaginatesAndMovesByNewColumns() {
+        let model = makeModel(apps: makeApps(count: 20))
+        XCTAssertEqual(model.pages.map(\.count), [20])
+
+        model.updateGrid(GridSize(columns: 4, rows: 3))
+
+        XCTAssertEqual(model.grid.capacity, 12)
+        XCTAssertEqual(model.pages.map(\.count), [12, 8])
+        model.moveSelection(.right)
+        XCTAssertEqual(model.selectedIndex, 0)
+        model.moveSelection(.down)
+        XCTAssertEqual(model.selectedIndex, 4)
+    }
+
+    @MainActor
+    func testShrinkingGridClampsCurrentPage() {
+        let model = makeModel(apps: makeApps(count: 20))
+        model.updateGrid(GridSize(columns: 4, rows: 3))
+        model.selectPage(1)
+
+        model.updateGrid(.default)
+
+        XCTAssertEqual(model.pages.map(\.count), [20])
+        XCTAssertEqual(model.currentPage, 0)
     }
 
     @MainActor

@@ -32,7 +32,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private lazy var layoutCoordinator = LayoutCoordinator(
         store: LayoutStore(fileURL: LayoutCoordinator.defaultLayoutURL),
         launchpad: LiveLaunchpadSource(databaseURL: LaunchpadSnapshotReader.defaultDatabaseURL()),
-        prompter: AlertLayoutPrompter()
+        prompter: AlertLayoutPrompter(),
+        pageCapacity: settings.grid.capacity
     )
     private var statusItemController: StatusItemController?
     private var catalogWatcher: CatalogWatcher?
@@ -215,6 +216,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         withObservationTracking {
             controller.model.reopensAtFirstPage = settings.reopenBehavior == .firstPage
             controller.model.showsHiddenAppsInSearch = settings.showsHiddenAppsInSearch
+            controller.model.updateGrid(settings.grid)
+            layoutCoordinator.updatePageCapacity(settings.grid.capacity)
             statusItemController?.setIconVisible(settings.showsMenuBarIcon)
         } onChange: { [weak self] in
             Task { @MainActor in
