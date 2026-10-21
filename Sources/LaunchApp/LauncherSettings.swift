@@ -2,9 +2,34 @@ import Foundation
 import LaunchCore
 import Observation
 
-enum ReopenBehavior: String, CaseIterable {
-    case resume
-    case firstPage
+enum ReturnToFirstPage: String, CaseIterable {
+    case never
+    case after5Seconds
+    case after15Seconds
+    case after30Seconds
+    case after1Minute
+    case after5Minutes
+    case always
+
+    // 距上次关闭达到这个时长就回到第一页；为空表示从不
+    var delay: TimeInterval? {
+        switch self {
+        case .never: nil
+        case .after5Seconds: 5
+        case .after15Seconds: 15
+        case .after30Seconds: 30
+        case .after1Minute: 60
+        case .after5Minutes: 300
+        case .always: 0
+        }
+    }
+}
+
+enum LauncherScreenChoice: String, CaseIterable {
+    case mouse
+    case active
+    case dock
+    case main
 }
 
 enum LauncherBackgroundStyle: String, CaseIterable {
@@ -20,8 +45,16 @@ final class LauncherSettings {
 
     @ObservationIgnored private let defaults: UserDefaults
 
-    var reopenBehavior: ReopenBehavior {
-        didSet { defaults.set(reopenBehavior.rawValue, forKey: Key.reopenBehavior) }
+    var returnToFirstPage: ReturnToFirstPage {
+        didSet { defaults.set(returnToFirstPage.rawValue, forKey: Key.returnToFirstPage) }
+    }
+
+    var screenChoice: LauncherScreenChoice {
+        didSet { defaults.set(screenChoice.rawValue, forKey: Key.screenChoice) }
+    }
+
+    var optionEntersUninstallMode: Bool {
+        didSet { defaults.set(optionEntersUninstallMode, forKey: Key.optionEntersUninstallMode) }
     }
 
     var background: LauncherBackgroundStyle {
@@ -83,7 +116,11 @@ final class LauncherSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        reopenBehavior = defaults.string(forKey: Key.reopenBehavior).flatMap(ReopenBehavior.init) ?? .resume
+        // 旧版只有「停在上次的位置 / 回到第一页」两项
+        returnToFirstPage = defaults.string(forKey: Key.returnToFirstPage).flatMap(ReturnToFirstPage.init)
+            ?? (defaults.string(forKey: Key.legacyReopenBehavior) == "firstPage" ? .always : .never)
+        screenChoice = defaults.string(forKey: Key.screenChoice).flatMap(LauncherScreenChoice.init) ?? .mouse
+        optionEntersUninstallMode = defaults.object(forKey: Key.optionEntersUninstallMode) as? Bool ?? true
         background = defaults.string(forKey: Key.background).flatMap(LauncherBackgroundStyle.init) ?? .glass
         dimming = defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming
         hidesNames = defaults.bool(forKey: Key.hidesNames)
@@ -98,7 +135,10 @@ final class LauncherSettings {
     }
 
     private enum Key {
-        static let reopenBehavior = "reopenBehavior"
+        static let legacyReopenBehavior = "reopenBehavior"
+        static let returnToFirstPage = "returnToFirstPage"
+        static let screenChoice = "screenChoice"
+        static let optionEntersUninstallMode = "optionEntersUninstallMode"
         static let background = "background"
         static let dimming = "dimming"
         static let hidesNames = "hidesNames"

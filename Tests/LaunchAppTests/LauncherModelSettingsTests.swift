@@ -113,7 +113,27 @@ final class LauncherModelSettingsTests: XCTestCase {
         model.prepareForPresentation()
         XCTAssertEqual(model.currentPage, 1)
 
-        model.reopensAtFirstPage = true
+        model.returnToFirstPageDelay = 0
+        model.prepareForPresentation()
+        XCTAssertEqual(model.currentPage, 0)
+    }
+
+    @MainActor
+    func testReturnsToFirstPageOnlyAfterDelay() {
+        let model = makeModel(apps: makeApps(count: 40))
+        var clock = Date(timeIntervalSince1970: 1000)
+        model.now = { clock }
+        model.returnToFirstPageDelay = 5
+        model.selectPage(1)
+        model.setPresented(true)
+
+        model.setPresented(false)
+        clock += 2
+        model.prepareForPresentation()
+        XCTAssertEqual(model.currentPage, 1)
+
+        model.setPresented(false)
+        clock += 6
         model.prepareForPresentation()
         XCTAssertEqual(model.currentPage, 0)
     }

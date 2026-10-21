@@ -15,12 +15,26 @@ final class LauncherSettingsTests: XCTestCase {
     func testDefaults() {
         let settings = LauncherSettings(defaults: makeDefaults())
 
-        XCTAssertEqual(settings.reopenBehavior, .resume)
+        XCTAssertEqual(settings.returnToFirstPage, .never)
+        XCTAssertEqual(settings.screenChoice, .mouse)
+        XCTAssertTrue(settings.optionEntersUninstallMode)
         XCTAssertEqual(settings.background, .glass)
         XCTAssertEqual(settings.dimming, 0.47)
         XCTAssertFalse(settings.hidesNames)
         XCTAssertFalse(settings.showsHiddenAppsInSearch)
         XCTAssertTrue(settings.showsMenuBarIcon)
+    }
+
+    func testReturnToFirstPageMigratesOldChoice() {
+        let defaults = makeDefaults()
+        defaults.set("firstPage", forKey: "reopenBehavior")
+        XCTAssertEqual(LauncherSettings(defaults: defaults).returnToFirstPage, .always)
+
+        defaults.set("resume", forKey: "reopenBehavior")
+        XCTAssertEqual(LauncherSettings(defaults: defaults).returnToFirstPage, .never)
+        XCTAssertEqual(ReturnToFirstPage.after1Minute.delay, 60)
+        XCTAssertNil(ReturnToFirstPage.never.delay)
+        XCTAssertEqual(ReturnToFirstPage.always.delay, 0)
     }
 
     func testSortDefaultsAndPersists() {
@@ -54,7 +68,9 @@ final class LauncherSettingsTests: XCTestCase {
         let defaults = makeDefaults()
         let settings = LauncherSettings(defaults: defaults)
 
-        settings.reopenBehavior = .firstPage
+        settings.returnToFirstPage = .after30Seconds
+        settings.screenChoice = .dock
+        settings.optionEntersUninstallMode = false
         settings.background = .blurredWallpaper
         settings.dimming = 0.2
         settings.hidesNames = true
@@ -62,7 +78,9 @@ final class LauncherSettingsTests: XCTestCase {
         settings.showsMenuBarIcon = false
 
         let reloaded = LauncherSettings(defaults: defaults)
-        XCTAssertEqual(reloaded.reopenBehavior, .firstPage)
+        XCTAssertEqual(reloaded.returnToFirstPage, .after30Seconds)
+        XCTAssertEqual(reloaded.screenChoice, .dock)
+        XCTAssertFalse(reloaded.optionEntersUninstallMode)
         XCTAssertEqual(reloaded.background, .blurredWallpaper)
         XCTAssertEqual(reloaded.dimming, 0.2)
         XCTAssertTrue(reloaded.hidesNames)

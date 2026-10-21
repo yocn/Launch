@@ -42,6 +42,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private let settings = LauncherSettings()
     private let wallpaperProvider = WallpaperProvider()
     private var appliedSortField: SortField?
+    private var optionHold = OptionHoldTracker()
+    private var isJigglingFromOption = false
     private lazy var settingsWindow = SettingsWindowController(
         onWillShow: { [weak self] in self?.controller.hide(.settings) },
         makeContent: { [unowned self] in
@@ -119,6 +121,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 ? nil
                 : wallpaperProvider.wallpaper(for: screen, blurred: settings.background == .blurredWallpaper)
             controller.model.updateWallpaper(wallpaper)
+            optionHold.reset(optionDown: NSEvent.modifierFlags.contains(.option))
+            isJigglingFromOption = false
         }
         controller.model.canUninstall = { [weak self] app in
             self?.uninstallCoordinator.canUninstall(app) ?? false
@@ -130,7 +134,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             isEditingText: { [weak self] in self?.controller.model.renamingFolderID != nil },
             canUndoLayout: { [weak self] in self?.controller.model.query.isEmpty ?? false },
             canSelectAll: { [weak self] in self?.controller.model.mainMenu.canSelectAll ?? false },
-            onCommand: { [weak self] command in self?.controller.handle(command) }
+            onCommand: { [weak self] command in self?.controller.handle(command) },
+            onModifiersChanged: { [weak self] flags in self?.handleModifiers(flags) }
         )
         itemDragController.start()
         HotKeyService.register { [weak self] in
@@ -215,6 +220,26 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // 按住 Option 进入抖动，松开只结束由 Option 开始的抖动
+    private func handleModifiers(_ flags: NSEvent.ModifierFlags) {
+        let model = controller.model
+        switch optionHold.update(flags) {
+        case .began:
+            guard settings.optionEntersUninstallMode, !model.isJiggling, model.canDragItems else {
+                return
+            }
+            model.beginJiggling()
+            isJigglingFromOption = true
+        case .ended:
+            if isJigglingFromOption {
+                isJigglingFromOption = false
+                model.endJiggling()
+            }
+        case nil:
+            break
+        }
+    }
+
     private func refreshAppDates() {
         guard settings.sortField == .dateAdded || settings.sortField == .lastUsed else {
             return
@@ -249,7 +274,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     // 设置变化时同步到模型与菜单栏；观察只触发一次，需要重新登记
     private func applySettings() {
         withObservationTracking {
-            controller.model.reopensAtFirstPage = settings.reopenBehavior == .firstPage
+            controller.model.returnToFirstPageDelay = settings.returnToFirstPage.delay
+            presenter.screenChoice = settings.screenChoice
             controller.model.showsHiddenAppsInSearch = settings.showsHiddenAppsInSearch
             controller.model.updateGrid(settings.grid)
             layoutCoordinator.updatePageCapacity(settings.grid.capacity)

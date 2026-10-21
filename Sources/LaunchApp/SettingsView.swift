@@ -54,11 +54,22 @@ private struct GeneralSettingsView: View {
                     .foregroundStyle(.orange)
             }
             Toggle("显示菜单栏图标", isOn: $settings.showsMenuBarIcon)
-            Picker("重新打开时", selection: $settings.reopenBehavior) {
-                Text("停在上次的位置").tag(ReopenBehavior.resume)
-                Text("回到第一页").tag(ReopenBehavior.firstPage)
+            Picker("显示在", selection: $settings.screenChoice) {
+                Text("鼠标所在屏幕").tag(LauncherScreenChoice.mouse)
+                Text("当前激活屏幕").tag(LauncherScreenChoice.active)
+                Text("程序坞所在屏幕").tag(LauncherScreenChoice.dock)
+                Text("主屏幕").tag(LauncherScreenChoice.main)
             }
-            .pickerStyle(.radioGroup)
+            Picker("回到第一页", selection: $settings.returnToFirstPage) {
+                Text("从不").tag(ReturnToFirstPage.never)
+                Text("5 秒后").tag(ReturnToFirstPage.after5Seconds)
+                Text("15 秒后").tag(ReturnToFirstPage.after15Seconds)
+                Text("30 秒后").tag(ReturnToFirstPage.after30Seconds)
+                Text("1 分钟后").tag(ReturnToFirstPage.after1Minute)
+                Text("5 分钟后").tag(ReturnToFirstPage.after5Minutes)
+                Text("始终").tag(ReturnToFirstPage.always)
+            }
+            Toggle("按住 Option 进入卸载模式", isOn: $settings.optionEntersUninstallMode)
         }
         .formStyle(.grouped)
         .onAppear {

@@ -67,7 +67,10 @@ final class LauncherModel {
     private(set) var hiddenApps: [CatalogApp] = []
     private(set) var wallpaper: Wallpaper?
     var showsHiddenAppsInSearch = false
-    @ObservationIgnored var reopensAtFirstPage = false
+    // 距上次关闭达到这个时长就回到第一页；为空表示从不
+    @ObservationIgnored var returnToFirstPageDelay: TimeInterval?
+    @ObservationIgnored var now: () -> Date = Date.init
+    @ObservationIgnored private var hiddenAt: Date?
     var folderNameDraft = ""
     // 以下每帧都会变化，不参与视图观察，否则每帧都会重建整个网格
     @ObservationIgnored private(set) var isPageDragging = false
@@ -953,7 +956,10 @@ final class LauncherModel {
         closeFolder()
         setQuery("")
         selectedIndex = nil
-        setGridPage(reopensAtFirstPage ? 0 : clampedPage(currentPage), animated: false)
+        let returnsHome = returnToFirstPageDelay.map { delay in
+            hiddenAt.map { now().timeIntervalSince($0) >= delay } ?? true
+        } ?? false
+        setGridPage(returnsHome ? 0 : clampedPage(currentPage), animated: false)
         presentationCount += 1
     }
 
@@ -1017,6 +1023,9 @@ final class LauncherModel {
 
     func setPresented(_ presented: Bool) {
         isPresented = presented
+        if !presented {
+            hiddenAt = now()
+        }
     }
 
     func updateLayout(_ pages: [[ResolvedItem]]) {

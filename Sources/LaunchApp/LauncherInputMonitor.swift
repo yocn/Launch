@@ -11,7 +11,8 @@ final class LauncherInputMonitor {
         isEditingText: @escaping () -> Bool,
         canUndoLayout: @escaping () -> Bool,
         canSelectAll: @escaping () -> Bool,
-        onCommand: @escaping (LauncherCommand) -> Void
+        onCommand: @escaping (LauncherCommand) -> Void,
+        onModifiersChanged: @escaping (NSEvent.ModifierFlags) -> Void
     ) {
         let keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard isLauncherWindow(event.window),
@@ -44,7 +45,13 @@ final class LauncherInputMonitor {
             }
             return nil
         }
-        monitors = [keyMonitor, scrollMonitor].compactMap { $0 }
+        let flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            if isLauncherWindow(event.window) {
+                onModifiersChanged(event.modifierFlags)
+            }
+            return event
+        }
+        monitors = [keyMonitor, scrollMonitor, flagsMonitor].compactMap { $0 }
     }
 }
 

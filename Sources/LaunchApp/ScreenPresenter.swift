@@ -9,6 +9,40 @@ public enum ScreenSelectionPolicy {
     ) -> Int? {
         screenFrames.firstIndex(where: { $0.contains(point) })
     }
+
+    // 找不到所选屏幕时退回鼠标所在屏幕，再退回第一块
+    static func screenIndex(
+        for choice: LauncherScreenChoice,
+        screens: [CGRect],
+        mouse: CGPoint,
+        active: CGRect?,
+        dock: CGRect?
+    ) -> Int {
+        let pointer = screenIndex(containing: mouse, in: screens) ?? 0
+        switch choice {
+        case .mouse:
+            return pointer
+        case .active:
+            return active.flatMap { screens.firstIndex(of: $0) } ?? pointer
+        case .dock:
+            return dock.flatMap { screenIndex(containing: CGPoint(x: $0.midX, y: $0.midY), in: screens) } ?? pointer
+        case .main:
+            return 0
+        }
+    }
+
+    // 程序坞让所在屏幕的可用区域在底部、左侧或右侧内缩；自动隐藏时没有内缩
+    static func dockScreenIndex(frames: [CGRect], visibleFrames: [CGRect]) -> Int? {
+        zip(frames, visibleFrames).enumerated().first { _, pair in
+            let (frame, visible) = pair
+            return visible.minY > frame.minY || visible.minX > frame.minX || visible.maxX < frame.maxX
+        }?.offset
+    }
+
+    // 窗口服务器的坐标以主屏左上角为原点、向下为正
+    static func screenRect(fromWindowServer rect: CGRect, primaryHeight: CGFloat) -> CGRect {
+        CGRect(x: rect.minX, y: primaryHeight - rect.maxY, width: rect.width, height: rect.height)
+    }
 }
 
 public enum LauncherPanelConfiguration {
@@ -63,6 +97,7 @@ final class ScreenPresenter: LauncherPresenting {
     }
 
     var onPresent: ((NSScreen) -> Void)?
+    var screenChoice = LauncherScreenChoice.mouse
 
     // 隐藏动画进行中视为已关闭，此时再次唤起会从当前状态反向
     var isVisible: Bool {
@@ -136,11 +171,37 @@ final class ScreenPresenter: LauncherPresenting {
 
     private func targetScreen() -> NSScreen? {
         let screens = NSScreen.screens
+        guard !screens.isEmpty else {
+            return nil
+        }
         let index = ScreenSelectionPolicy.screenIndex(
-            containing: NSEvent.mouseLocation,
-            in: screens.map(\.frame)
-        ) ?? 0
-        return screens.indices.contains(index) ? screens[index] : nil
+            for: screenChoice,
+            screens: screens.map(\.frame),
+            mouse: NSEvent.mouseLocation,
+            active: screenChoice == .active ? NSScreen.main?.frame : nil,
+            dock: screenChoice == .dock ? dockFrame(primaryHeight: screens[0].frame.height) : nil
+        )
+        return screens[index]
+    }
+
+    // 程序坞窗口不一定标为在屏幕上，所以自动隐藏时查全部窗口
+    private func dockFrame(primaryHeight: CGFloat) -> CGRect? {
+        let screens = NSScreen.screens
+        if let index = ScreenSelectionPolicy.dockScreenIndex(frames: screens.map(\.frame), visibleFrames: screens.map(\.visibleFrame)) {
+            return screens[index].frame
+        }
+        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first,
+              let windows = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else {
+            return nil
+        }
+        let level = Int(CGWindowLevelForKey(.dockWindow))
+        let bounds = windows.first {
+            ($0[kCGWindowOwnerPID as String] as? pid_t) == dock.processIdentifier && ($0[kCGWindowLayer as String] as? Int) == level
+        }?[kCGWindowBounds as String] as CFTypeRef?
+        guard let bounds, let rect = CGRect(dictionaryRepresentation: bounds as! CFDictionary) else {
+            return nil
+        }
+        return ScreenSelectionPolicy.screenRect(fromWindowServer: rect, primaryHeight: primaryHeight)
     }
 }
 
