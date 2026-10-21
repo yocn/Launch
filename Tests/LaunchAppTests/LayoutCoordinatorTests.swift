@@ -8,6 +8,7 @@ private final class FakePrompter: LayoutPrompting {
     var answer = true
     private(set) var firstImportSummaries: [LaunchpadImportSummary] = []
     private(set) var reimportSummaries: [LaunchpadImportSummary] = []
+    private(set) var backupSummaries: [LaunchpadImportSummary] = []
     private(set) var restoreRequests = 0
     private(set) var errors: [String] = []
 
@@ -18,6 +19,11 @@ private final class FakePrompter: LayoutPrompting {
 
     func confirmReimport(_ summary: LaunchpadImportSummary) -> Bool {
         reimportSummaries.append(summary)
+        return answer
+    }
+
+    func confirmBackupImport(_ summary: LaunchpadImportSummary) -> Bool {
+        backupSummaries.append(summary)
         return answer
     }
 
@@ -318,6 +324,55 @@ final class LayoutCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(try store.load()?.pages.map(\.slots.count), [2, 2, 1])
         XCTAssertEqual(published.last?.map(\.count), [2, 2, 1])
+    }
+
+    @MainActor
+    func testExportThenImportRestoresExportedLayout() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: apps.map { .app($0.identity) })], hiddenApps: [apps[2].identity]))
+        let prompter = FakePrompter()
+        let (coordinator, published) = makeCoordinator(store, prompter, FakeLaunchpad())
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+        let exported = try coordinator.exportBackup()
+        coordinator.apply(.move(.app(apps[1].identity.stableKey), to: .insert(page: 0, before: .app(apps[0].identity.stableKey))))
+        let edited = try store.load()
+
+        let summary = coordinator.importBackup(exported)
+
+        XCTAssertEqual(summary, LaunchpadImportSummary(pageCount: 1, folderCount: 0, appCount: 3, installedCount: 3, newAppCount: 0))
+        XCTAssertEqual(prompter.backupSummaries, [summary!])
+        XCTAssertEqual(try store.load(), try LayoutBackup.decode(exported))
+        XCTAssertEqual(published.last, [[.app(apps[0]), .app(apps[1])]])
+        XCTAssertEqual(coordinator.hiddenApps, [apps[2]])
+        XCTAssertTrue(coordinator.canRestore)
+
+        coordinator.undo()
+        XCTAssertEqual(try store.load(), try LayoutBackup.decode(exported))
+        prompter.answer = true
+        coordinator.restoreBackup()
+        XCTAssertEqual(try store.load(), edited)
+    }
+
+    @MainActor
+    func testDeclinedOrInvalidBackupLeavesLayout() async throws {
+        let store = try temporaryStore()
+        try store.save(LayoutDocument(pages: [LayoutPage(slots: apps.map { .app($0.identity) })]))
+        let prompter = FakePrompter()
+        let (coordinator, _) = makeCoordinator(store, prompter, FakeLaunchpad())
+        coordinator.start()
+        await coordinator.catalogDidChange(apps)
+        let before = try store.load()
+        let other = try LayoutBackup.encode(LayoutDocument(pages: [LayoutPage(slots: [.app(apps[2].identity)])]))
+
+        prompter.answer = false
+        XCTAssertNil(coordinator.importBackup(other))
+        XCTAssertNil(coordinator.importBackup(Data("not json".utf8)))
+        XCTAssertNil(coordinator.importBackup(Data(#"{"schemaVersion":99,"pages":[]}"#.utf8)))
+
+        XCTAssertEqual(try store.load(), before)
+        XCTAssertEqual(prompter.errors.count, 2)
+        XCTAssertFalse(coordinator.canRestore)
     }
 
     @MainActor

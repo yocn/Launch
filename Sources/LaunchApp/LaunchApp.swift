@@ -1,6 +1,7 @@
 import AppKit
 import LaunchCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 public enum LauncherPlacement: Equatable, Sendable {
     case mouseScreen
@@ -53,7 +54,17 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 loginItemService: loginItemService,
                 hasHotKeyConflict: { [weak self] in self?.hasHotKeyConflict() ?? false },
                 onUnhide: { [weak self] app in self?.layoutCoordinator.unhide(app) },
-                onUnhideAll: { [weak self] in self?.layoutCoordinator.unhideAll() }
+                onUnhideAll: { [weak self] in self?.layoutCoordinator.unhideAll() },
+                data: DataSettingsActions(
+                    exportLayout: { [weak self] in self?.exportLayout() },
+                    importLayout: { [weak self] in self?.importLayout() },
+                    canImportLaunchpad: { [weak self] in self?.layoutCoordinator.canImport ?? false },
+                    importLaunchpad: { [weak self] in
+                        Task { await self?.layoutCoordinator.importFromLaunchpad() }
+                    },
+                    canRestore: { [weak self] in self?.layoutCoordinator.canRestore ?? false },
+                    restoreLayout: { [weak self] in self?.layoutCoordinator.restoreBackup() }
+                )
             ))
         }
     )
@@ -246,6 +257,48 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         }
         AppDatesProvider.load(controller.model.apps) { [weak self] dates in
             self?.controller.model.updateAppDates(dates)
+        }
+    }
+
+    private func exportLayout() -> String? {
+        let data: Data
+        do {
+            data = try layoutCoordinator.exportBackup()
+        } catch {
+            NSAlert(error: error).runModal()
+            return nil
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "Launch 布局 \(Date().formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())).json"
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return nil
+        }
+        do {
+            try data.write(to: url, options: .atomic)
+            return "已导出到 \((url.path as NSString).abbreviatingWithTildeInPath)"
+        } catch {
+            NSAlert(error: error).runModal()
+            return nil
+        }
+    }
+
+    private func importLayout() -> String? {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return nil
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            NSAlert(error: error).runModal()
+            return nil
+        }
+        return layoutCoordinator.importBackup(data).map {
+            "已导入：\($0.pageCount) 页、\($0.folderCount) 个文件夹、\($0.appCount) 个应用"
         }
     }
 

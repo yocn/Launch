@@ -2,8 +2,8 @@ import AppKit
 import LaunchCore
 
 enum LayoutPromptText {
-    static func summary(_ summary: LaunchpadImportSummary) -> String {
-        var text = "旧 Launchpad 布局：\(summary.pageCount) 页、\(summary.folderCount) 个文件夹、\(summary.appCount) 个应用。已安装 \(summary.installedCount) 个"
+    static func summary(_ summary: LaunchpadImportSummary, source: String = "旧 Launchpad 布局") -> String {
+        var text = "\(source)：\(summary.pageCount) 页、\(summary.folderCount) 个文件夹、\(summary.appCount) 个应用。已安装 \(summary.installedCount) 个"
         if summary.missingCount > 0 {
             text += "；未安装 \(summary.missingCount) 个，会保留位置，重新安装后回到原处"
         }
@@ -30,6 +30,15 @@ final class AlertLayoutPrompter: LayoutPrompting {
         ask(
             title: "从 Launchpad 重新导入布局？",
             message: LayoutPromptText.summary(summary) + "\n\n会覆盖当前布局，覆盖前自动备份。",
+            confirm: "导入",
+            cancel: "取消"
+        )
+    }
+
+    func confirmBackupImport(_ summary: LaunchpadImportSummary) -> Bool {
+        ask(
+            title: "从备份导入布局？",
+            message: LayoutPromptText.summary(summary, source: "备份") + "\n\n会覆盖当前布局，覆盖前自动备份。",
             confirm: "导入",
             cancel: "取消"
         )

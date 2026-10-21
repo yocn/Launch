@@ -5,6 +5,7 @@ import LaunchCore
 protocol LayoutPrompting: AnyObject {
     func confirmFirstImport(_ summary: LaunchpadImportSummary) -> Bool
     func confirmReimport(_ summary: LaunchpadImportSummary) -> Bool
+    func confirmBackupImport(_ summary: LaunchpadImportSummary) -> Bool
     func confirmRestore() -> Bool
     func showError(_ message: String)
 }
@@ -12,6 +13,14 @@ protocol LayoutPrompting: AnyObject {
 protocol LaunchpadSource: Sendable {
     var isAvailable: Bool { get }
     func readSnapshot() async throws -> LaunchpadSnapshot
+}
+
+enum LayoutBackupError: LocalizedError {
+    case noLayout
+
+    var errorDescription: String? {
+        "还没有可导出的布局"
+    }
 }
 
 @MainActor
@@ -146,6 +155,33 @@ final class LayoutCoordinator {
             publish()
         } catch {
             prompter.showError("导入失败：\(error.localizedDescription)")
+        }
+    }
+
+    func exportBackup() throws -> Data {
+        guard let document else {
+            throw LayoutBackupError.noLayout
+        }
+        return try LayoutBackup.encode(document)
+    }
+
+    // 与 Launchpad 导入一样：覆盖前自动备份，可用「恢复导入前的布局」换回
+    func importBackup(_ data: Data) -> LaunchpadImportSummary? {
+        do {
+            let result = LayoutBackup.makeImport(from: try LayoutBackup.decode(data), catalog: catalog, pageCapacity: pageCapacity)
+            guard prompter.confirmBackupImport(result.summary) else {
+                return nil
+            }
+            try store.replace(with: result.document)
+            document = result.document
+            isReadOnly = false
+            needsSetup = false
+            undoStack.removeAll()
+            publish()
+            return result.summary
+        } catch {
+            prompter.showError("导入失败：\(error.localizedDescription)")
+            return nil
         }
     }
 

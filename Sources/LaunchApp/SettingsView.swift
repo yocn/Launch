@@ -10,6 +10,7 @@ struct SettingsView: View {
     let hasHotKeyConflict: () -> Bool
     let onUnhide: (CatalogApp) -> Void
     let onUnhideAll: () -> Void
+    let data: DataSettingsActions
 
     var body: some View {
         TabView {
@@ -23,8 +24,62 @@ struct SettingsView: View {
                 .tabItem { Label("外观", systemImage: "paintpalette") }
             HiddenAppsSettingsView(settings: settings, model: model, onUnhide: onUnhide, onUnhideAll: onUnhideAll)
                 .tabItem { Label("应用", systemImage: "eye.slash") }
+            DataSettingsView(actions: data)
+                .tabItem { Label("数据", systemImage: "externaldrive") }
         }
         .frame(width: 520, height: 440)
+    }
+}
+
+struct DataSettingsActions {
+    // 返回显示在页面上的结果文字；取消或失败时为空
+    let exportLayout: () -> String?
+    let importLayout: () -> String?
+    let canImportLaunchpad: () -> Bool
+    let importLaunchpad: () -> Void
+    let canRestore: () -> Bool
+    let restoreLayout: () -> Void
+}
+
+private struct DataSettingsView: View {
+    let actions: DataSettingsActions
+
+    @State private var status: String?
+    @State private var refresh = 0
+
+    var body: some View {
+        Form {
+            Section("布局备份") {
+                HStack {
+                    Button("导出布局…") {
+                        status = actions.exportLayout() ?? status
+                    }
+                    Button("导入布局…") {
+                        status = actions.importLayout() ?? status
+                        refresh += 1
+                    }
+                }
+                if let status {
+                    Text(status)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+            Section("Launchpad") {
+                Button("从 Launchpad 导入布局…") {
+                    actions.importLaunchpad()
+                    refresh += 1
+                }
+                .disabled(!actions.canImportLaunchpad())
+                Button("恢复导入前的布局") {
+                    actions.restoreLayout()
+                    refresh += 1
+                }
+                .disabled(!actions.canRestore())
+            }
+            .id(refresh)
+        }
+        .formStyle(.grouped)
     }
 }
 
