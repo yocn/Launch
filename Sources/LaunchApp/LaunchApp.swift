@@ -28,7 +28,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         model: LauncherModel(),
         presenter: presenter,
         iconCache: .shared,
-        openApplication: { NSWorkspace.shared.open($0) }
+        openApplication: { LaunchAppDelegate.openApplication(at: $0) }
     )
     private lazy var layoutCoordinator = LayoutCoordinator(
         store: LayoutStore(fileURL: LayoutCoordinator.defaultLayoutURL),
@@ -192,6 +192,25 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private func uninstall(_ app: CatalogApp) {
         Task {
             await uninstallCoordinator.uninstall(app)
+        }
+    }
+
+    // 同步的 NSWorkspace.open 会等目标应用启动完成才返回，启动慢的应用（QQ 约 30 秒）会把启动器卡住
+    private static func openApplication(at url: URL) {
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+            guard let error else {
+                return
+            }
+            let message = error.localizedDescription
+            Task { @MainActor in
+                AppLog.shared.error("启动应用失败：\(url.path)，\(message)")
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "无法打开「\(url.deletingPathExtension().lastPathComponent)」"
+                alert.informativeText = message
+                NSApp.activate(ignoringOtherApps: true)
+                alert.runModal()
+            }
         }
     }
 

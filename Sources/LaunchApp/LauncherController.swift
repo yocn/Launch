@@ -31,7 +31,8 @@ final class LauncherController {
     let model: LauncherModel
     private let presenter: LauncherPresenting
     private let iconCache: IconCache
-    private let openApplication: (URL) -> Bool
+    // 只发出启动请求，不等应用启动完成
+    private let openApplication: (URL) -> Void
     var onUndoLayoutEdit: (() -> Void)?
     var onOpenSettings: (() -> Void)?
     var onHide: (() -> Void)?
@@ -40,7 +41,7 @@ final class LauncherController {
         model: LauncherModel,
         presenter: LauncherPresenting,
         iconCache: IconCache,
-        openApplication: @escaping (URL) -> Bool
+        openApplication: @escaping (URL) -> Void
     ) {
         self.model = model
         self.presenter = presenter
@@ -129,9 +130,10 @@ final class LauncherController {
     }
 
     func launch(_ app: CatalogApp) {
-        guard !model.isJiggling, openApplication(URL(fileURLWithPath: app.identity.path)) else {
+        guard !model.isJiggling else {
             return
         }
+        openApplication(URL(fileURLWithPath: app.identity.path))
         hide(.launchedApp)
     }
 

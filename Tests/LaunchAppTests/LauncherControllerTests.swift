@@ -85,7 +85,6 @@ final class LauncherControllerTests: XCTestCase {
         var openedPaths: [String] = []
         let (controller, presenter) = makeController { url in
             openedPaths.append(url.path)
-            return true
         }
         let app = makeApps(count: 1)[0]
         controller.show()
@@ -96,15 +95,18 @@ final class LauncherControllerTests: XCTestCase {
         XCTAssertEqual(presenter.dismissals, [false])
     }
 
+    // 启动是异步的：慢应用（如 QQ 约 30 秒）不能拖住启动器
     @MainActor
-    func testFailedLaunchKeepsLauncherVisible() {
-        let (controller, presenter) = makeController { _ in false }
+    func testLaunchHidesWithoutWaitingForTheApp() {
+        var pending: [URL] = []
+        let (controller, presenter) = makeController { pending.append($0) }
         controller.show()
 
         controller.launch(makeApps(count: 1)[0])
 
-        XCTAssertTrue(presenter.isVisible)
-        XCTAssertEqual(presenter.dismissals, [])
+        XCTAssertEqual(pending.count, 1)
+        XCTAssertFalse(presenter.isVisible)
+        XCTAssertEqual(presenter.dismissals, [false])
     }
 
     @MainActor
@@ -164,7 +166,6 @@ final class LauncherControllerTests: XCTestCase {
         let apps = makeApps(count: 2)
         let (controller, presenter) = makeController(apps: apps) { url in
             openedPaths.append(url.path)
-            return true
         }
         controller.show()
         controller.model.setQuery("App 1")
@@ -243,7 +244,6 @@ final class LauncherControllerTests: XCTestCase {
         var opened: [URL] = []
         let (controller, presenter) = makeController(apps: apps, openApplication: { url in
             opened.append(url)
-            return true
         })
         controller.show()
         controller.model.updateLayout([apps.map(ResolvedItem.app)])
@@ -295,7 +295,6 @@ final class LauncherControllerTests: XCTestCase {
         var opened: [URL] = []
         let (controller, _) = makeController(apps: apps) { url in
             opened.append(url)
-            return true
         }
         controller.show()
         controller.model.updateLayout([apps.map(ResolvedItem.app)])
@@ -343,7 +342,7 @@ final class LauncherControllerTests: XCTestCase {
     private func makeController(
         apps: [CatalogApp] = [],
         iconCache: IconCache = IconCache { _, _ in },
-        openApplication: @escaping (URL) -> Bool = { _ in true }
+        openApplication: @escaping (URL) -> Void = { _ in }
     ) -> (LauncherController, FakePresenter) {
         let presenter = FakePresenter()
         let controller = LauncherController(
