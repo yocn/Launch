@@ -104,6 +104,7 @@ private struct GeneralSettingsView: View {
 
     @State private var startsAtLogin = false
     @State private var hasConflict = false
+    @State private var isTrusted = SystemInputTap.isTrusted
 
     var body: some View {
         Form {
@@ -154,12 +155,49 @@ private struct GeneralSettingsView: View {
                 Text("⚠︎ 可能与 LaunchOS 的触发角冲突")
                     .foregroundStyle(.orange)
             }
+            Toggle("系统 F4 键", isOn: $settings.f4Launches)
+            if settings.f4Launches {
+                Text("按 F4 打开启动器，F4 原来的功能（本机为 Spotlight）不再响应，Spotlight 仍可用 ⌘空格")
+                    .foregroundStyle(.secondary)
+            }
+            Picker("触控板", selection: $settings.pinchGesture) {
+                Text("关").tag(PinchGesture.off)
+                Text("三指捏合").tag(PinchGesture.threeFingers)
+                Text("四指或五指捏合").tag(PinchGesture.fourOrFiveFingers)
+                Text("五指捏合").tag(PinchGesture.fiveFingers)
+            }
+            if settings.pinchGesture == .fourOrFiveFingers, isSystemPinchEnabled {
+                Text("⚠︎ 可能同时触发系统的「拇指加三指捏合」，可在「系统设置 → 触控板 → 更多手势」中关闭")
+                    .foregroundStyle(.orange)
+            }
+            if settings.f4Launches || settings.pinchGesture != .off, !isTrusted {
+                HStack {
+                    Text("需要允许 Launch 使用辅助功能，才能接管 F4 键与触控板手势")
+                        .foregroundStyle(.orange)
+                    Spacer()
+                    Button("授予权限…") {
+                        SystemInputTap.requestPermission()
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .onAppear {
             startsAtLogin = loginItemService.isEnabled
             hasConflict = hasHotKeyConflict()
         }
+        .task {
+            // 授权在系统设置里完成，这里定时刷新状态
+            while !Task.isCancelled {
+                isTrusted = SystemInputTap.isTrusted
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+
+    // 系统「拇指加三指捏合」：2 为开启
+    private var isSystemPinchEnabled: Bool {
+        UserDefaults(suiteName: "com.apple.AppleMultitouchTrackpad")?.object(forKey: "TrackpadFourFingerPinchGesture") as? Int == 2
     }
 
     // 只读 LaunchOS 的设置，取值含义按其界面推测

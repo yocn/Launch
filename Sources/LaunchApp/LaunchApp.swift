@@ -42,6 +42,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private lazy var hotCornerMonitor = HotCornerMonitor { [weak self] in
         self?.controller.toggle()
     }
+    private lazy var inputTap = SystemInputTap { [weak self] in
+        self?.controller.toggle()
+    }
     private let appActions = AppActions()
     private let settings = LauncherSettings()
     private let wallpaperProvider = WallpaperProvider()
@@ -444,6 +447,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             controller.model.updateBrowsingStyle(settings.browsingStyle)
             controller.model.updateDisplayMode(settings.displayMode)
             hotCornerMonitor.corner = settings.hotCorner
+            inputTap.f4Enabled = settings.f4Launches
+            inputTap.pinch = settings.pinchGesture
             statusItemController?.setIconVisible(settings.showsMenuBarIcon)
         } onChange: { [weak self] in
             Task { @MainActor in
