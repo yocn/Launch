@@ -178,8 +178,29 @@ private struct HiddenAppsSettingsView: View {
     let onUnhide: (CatalogApp) -> Void
     let onUnhideAll: () -> Void
 
+    @State private var skippedSources: [String] = []
+
     var body: some View {
         Form {
+            Section {
+                ForEach(ApplicationSources.defaultRoots(), id: \.path) { root in
+                    SourceRow(path: root.path, onRemove: nil)
+                }
+                ForEach(settings.customSourcePaths, id: \.self) { path in
+                    SourceRow(path: path) {
+                        settings.customSourcePaths.removeAll { $0 == path }
+                    }
+                }
+                Button("添加目录…", action: addSources)
+                if !skippedSources.isEmpty {
+                    Text("已在扫描范围内，跳过：\(skippedSources.map(SourceRow.displayPath).joined(separator: "、"))")
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("应用来源")
+            } footer: {
+                Text("子文件夹一并扫描")
+            }
             Toggle("在搜索结果中显示隐藏应用", isOn: $settings.showsHiddenAppsInSearch)
             Section("隐藏的应用") {
                 if model.hiddenApps.isEmpty {
@@ -202,5 +223,49 @@ private struct HiddenAppsSettingsView: View {
                 .disabled(model.hiddenApps.isEmpty)
         }
         .formStyle(.grouped)
+    }
+
+    private func addSources() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = true
+        panel.prompt = "添加"
+        guard panel.runModal() == .OK else {
+            return
+        }
+        let result = ApplicationSources.adding(panel.urls, to: settings.customSourcePaths)
+        settings.customSourcePaths = result.custom
+        skippedSources = result.skipped
+    }
+}
+
+private struct SourceRow: View {
+    let path: String
+    var onRemove: (() -> Void)?
+
+    static func displayPath(_ path: String) -> String {
+        (path as NSString).abbreviatingWithTildeInPath
+    }
+
+    var body: some View {
+        HStack {
+            Image(systemName: "folder")
+                .foregroundStyle(.secondary)
+            Text(Self.displayPath(path))
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer()
+            if let onRemove {
+                if !FileManager.default.fileExists(atPath: path) {
+                    Text("不存在")
+                        .foregroundStyle(.secondary)
+                }
+                Button("移除", action: onRemove)
+            } else {
+                Text("默认路径")
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }

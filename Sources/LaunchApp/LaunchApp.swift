@@ -44,6 +44,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private let wallpaperProvider = WallpaperProvider()
     private var appliedSortField: SortField?
     private var optionHold = OptionHoldTracker()
+    private var watchedSourcePaths: [String]?
+    private var catalogGeneration = 0
     private var isJigglingFromOption = false
     private lazy var settingsWindow = SettingsWindowController(
         onWillShow: { [weak self] in self?.controller.hide(.settings) },
@@ -170,13 +172,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             onOpenSettings: { [weak self] in self?.settingsWindow.show() }
         )
         applySettings()
-        let watcher = CatalogWatcher(roots: ApplicationSources.defaultRoots()) { [weak self] apps in
-            self?.controller.updateCatalog(apps)
-            self?.refreshAppDates()
-            Task { await self?.layoutCoordinator.catalogDidChange(apps) }
-        }
-        watcher.start()
-        catalogWatcher = watcher
+        startCatalogWatcher()
         warnIfHotKeyConflicts()
     }
 
@@ -249,6 +245,23 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         case nil:
             break
         }
+    }
+
+    // 来源目录变化时换一个新的监听器，旧监听器迟到的扫描结果丢掉
+    private func startCatalogWatcher() {
+        catalogGeneration += 1
+        let generation = catalogGeneration
+        watchedSourcePaths = settings.customSourcePaths
+        let watcher = CatalogWatcher(roots: ApplicationSources.roots(custom: settings.customSourcePaths)) { [weak self] apps in
+            guard let self, generation == catalogGeneration else {
+                return
+            }
+            controller.updateCatalog(apps)
+            refreshAppDates()
+            Task { await self.layoutCoordinator.catalogDidChange(apps) }
+        }
+        watcher.start()
+        catalogWatcher = watcher
     }
 
     private func refreshAppDates() {
@@ -326,7 +339,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
 
     // 设置变化时同步到模型与菜单栏；观察只触发一次，需要重新登记
     private func applySettings() {
+        var sourcePaths: [String] = []
         withObservationTracking {
+            sourcePaths = settings.customSourcePaths
             controller.model.returnToFirstPageDelay = settings.returnToFirstPage.delay
             presenter.screenChoice = settings.screenChoice
             controller.model.showsHiddenAppsInSearch = settings.showsHiddenAppsInSearch
@@ -338,6 +353,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 self?.applySettings()
             }
+        }
+        if catalogWatcher != nil, sourcePaths != watchedSourcePaths {
+            startCatalogWatcher()
         }
         if settings.sortField != appliedSortField {
             appliedSortField = settings.sortField

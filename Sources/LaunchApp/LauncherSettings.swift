@@ -57,6 +57,10 @@ final class LauncherSettings {
         didSet { defaults.set(optionEntersUninstallMode, forKey: Key.optionEntersUninstallMode) }
     }
 
+    var customSourcePaths: [String] {
+        didSet { defaults.set(customSourcePaths, forKey: Key.customSourcePaths) }
+    }
+
     var background: LauncherBackgroundStyle {
         didSet { defaults.set(background.rawValue, forKey: Key.background) }
     }
@@ -121,6 +125,7 @@ final class LauncherSettings {
             ?? (defaults.string(forKey: Key.legacyReopenBehavior) == "firstPage" ? .always : .never)
         screenChoice = defaults.string(forKey: Key.screenChoice).flatMap(LauncherScreenChoice.init) ?? .mouse
         optionEntersUninstallMode = defaults.object(forKey: Key.optionEntersUninstallMode) as? Bool ?? true
+        customSourcePaths = defaults.stringArray(forKey: Key.customSourcePaths) ?? []
         background = defaults.string(forKey: Key.background).flatMap(LauncherBackgroundStyle.init) ?? .glass
         dimming = defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming
         hidesNames = defaults.bool(forKey: Key.hidesNames)
@@ -139,6 +144,7 @@ final class LauncherSettings {
         static let returnToFirstPage = "returnToFirstPage"
         static let screenChoice = "screenChoice"
         static let optionEntersUninstallMode = "optionEntersUninstallMode"
+        static let customSourcePaths = "customSourcePaths"
         static let background = "background"
         static let dimming = "dimming"
         static let hidesNames = "hidesNames"

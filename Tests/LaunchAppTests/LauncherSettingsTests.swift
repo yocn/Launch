@@ -37,6 +37,16 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertEqual(ReturnToFirstPage.always.delay, 0)
     }
 
+    func testCustomSourcesPersist() {
+        let defaults = makeDefaults()
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(settings.customSourcePaths, [])
+
+        settings.customSourcePaths = ["/Volumes/Tools"]
+
+        XCTAssertEqual(LauncherSettings(defaults: defaults).customSourcePaths, ["/Volumes/Tools"])
+    }
+
     func testSortDefaultsAndPersists() {
         let defaults = makeDefaults()
         let settings = LauncherSettings(defaults: defaults)
