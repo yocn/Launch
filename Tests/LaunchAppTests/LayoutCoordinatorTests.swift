@@ -382,7 +382,11 @@ final class LayoutCoordinatorTests: XCTestCase {
         _ launchpad: FakeLaunchpad
     ) -> (LayoutCoordinator, PublishedPages) {
         let published = PublishedPages()
-        let coordinator = LayoutCoordinator(store: store, launchpad: launchpad, prompter: prompter)
+        // 出错分支会写日志，用临时目录，不写进真实的日志文件
+        let logDirectory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        addTeardownBlock { try? FileManager.default.removeItem(at: logDirectory) }
+        let log = AppLog(directory: logDirectory)
+        let coordinator = LayoutCoordinator(store: store, launchpad: launchpad, prompter: prompter, log: log)
         coordinator.onLayoutChange = { published.values.append($0) }
         return (coordinator, published)
     }

@@ -14,7 +14,12 @@ enum ApplicationIconResolver {
     // 读取应用包属性可能被系统卡住数秒（如挂起的授权弹窗），不能放在主线程
     static func loadInBackground(_ path: String, _ completion: @escaping @MainActor @Sendable (CGImage?) -> Void) {
         queue.addOperation {
+            let start = Date()
             let image = icon(for: path)
+            let elapsed = Date().timeIntervalSince(start)
+            if elapsed > 1 {
+                AppLog.shared.warning(String(format: "读取图标耗时 %.1f 秒：%@", elapsed, path))
+            }
             Task { @MainActor in
                 completion(image)
             }

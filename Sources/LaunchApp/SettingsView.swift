@@ -34,6 +34,7 @@ struct SettingsView: View {
 struct DataSettingsActions {
     // 返回显示在页面上的结果文字；取消或失败时为空
     let exportLayout: () -> String?
+    let exportDiagnostics: () -> String?
     let importLayout: () -> String?
     let canImportLaunchpad: () -> Bool
     let importLaunchpad: () -> Void
@@ -64,6 +65,15 @@ private struct DataSettingsView: View {
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+            }
+            Section {
+                Button("导出诊断信息…") {
+                    status = actions.exportDiagnostics() ?? status
+                }
+            } header: {
+                Text("诊断")
+            } footer: {
+                Text("包含日志、崩溃报告、设置、布局和系统信息，只保存到你选的位置")
             }
             Section("Launchpad") {
                 Button("从 Launchpad 导入布局…") {

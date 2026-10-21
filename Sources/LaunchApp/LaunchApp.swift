@@ -59,6 +59,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 onUnhideAll: { [weak self] in self?.layoutCoordinator.unhideAll() },
                 data: DataSettingsActions(
                     exportLayout: { [weak self] in self?.exportLayout() },
+                    exportDiagnostics: { [weak self] in self?.exportDiagnostics() },
                     importLayout: { [weak self] in self?.importLayout() },
                     canImportLaunchpad: { [weak self] in self?.layoutCoordinator.canImport ?? false },
                     importLaunchpad: { [weak self] in
@@ -88,6 +89,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppLog.shared.info("启动 Launch \(Self.appVersion)，\(ProcessInfo.processInfo.operatingSystemVersionString)")
         presenter.setContent(
             LauncherView(
                 model: controller.model,
@@ -252,7 +254,15 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         catalogGeneration += 1
         let generation = catalogGeneration
         watchedSourcePaths = settings.customSourcePaths
-        let watcher = CatalogWatcher(roots: ApplicationSources.roots(custom: settings.customSourcePaths)) { [weak self] apps in
+        let watcher = CatalogWatcher(
+            roots: ApplicationSources.roots(custom: settings.customSourcePaths),
+            scan: { roots in
+                let start = Date()
+                let apps = (try? AppCatalog().scan(roots: roots)) ?? []
+                AppLog.shared.info(String(format: "扫描 %d 个目录，找到 %d 个应用，耗时 %.0f 毫秒", roots.count, apps.count, Date().timeIntervalSince(start) * 1000))
+                return apps
+            }
+        ) { [weak self] apps in
             guard let self, generation == catalogGeneration else {
                 return
             }
@@ -294,6 +304,56 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             NSAlert(error: error).runModal()
             return nil
         }
+    }
+
+    private static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        return "\(info?["CFBundleShortVersionString"] as? String ?? "?")（\(info?["CFBundleVersion"] as? String ?? "?")）"
+    }
+
+    private func exportDiagnostics() -> String? {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.zip]
+        panel.nameFieldStringValue = "Launch 诊断 \(Date().formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())).zip"
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return nil
+        }
+        AppLog.shared.flush()
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let layout = LayoutCoordinator.defaultLayoutURL
+        do {
+            try DiagnosticsExporter.export(
+                DiagnosticsSources(
+                    logFiles: [AppLog.shared.fileURL, AppLog.shared.rotatedURL],
+                    crashReportsDirectory: home.appending(path: "Library/Logs/DiagnosticReports", directoryHint: .isDirectory),
+                    layoutFiles: [layout, layout.appendingPathExtension("backup")],
+                    settings: UserDefaults.standard.persistentDomain(forName: "dev.yocn.launch").flatMap {
+                        try? PropertyListSerialization.data(fromPropertyList: $0, format: .xml, options: 0)
+                    },
+                    systemInfo: systemInfo()
+                ),
+                to: url
+            )
+            return "已导出到 \((url.path as NSString).abbreviatingWithTildeInPath)"
+        } catch {
+            AppLog.shared.error("导出诊断信息失败：\(error.localizedDescription)")
+            NSAlert(error: error).runModal()
+            return nil
+        }
+    }
+
+    private func systemInfo() -> String {
+        let screens = NSScreen.screens.map { screen in
+            "  \(screen.localizedName)：\(Int(screen.frame.width))×\(Int(screen.frame.height)) @\(screen.backingScaleFactor)x，位置 \(Int(screen.frame.minX)),\(Int(screen.frame.minY))"
+        }
+        return ([
+            "Launch \(Self.appVersion)",
+            ProcessInfo.processInfo.operatingSystemVersionString,
+            "应用数：\(controller.model.apps.count)，隐藏：\(controller.model.hiddenApps.count)",
+            "来源目录：\(ApplicationSources.roots(custom: settings.customSourcePaths).map(\.path).joined(separator: "、"))",
+            "网格：\(settings.grid.columns)×\(settings.grid.rows)，排序：\(settings.sortField.rawValue)，背景：\(settings.background.rawValue)",
+            "屏幕：",
+        ] + screens).joined(separator: "\n") + "\n"
     }
 
     private func importLayout() -> String? {

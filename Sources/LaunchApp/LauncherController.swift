@@ -52,9 +52,14 @@ final class LauncherController {
         guard !presenter.isVisible else {
             return
         }
+        let start = ContinuousClock.now
         model.prepareForPresentation()
         presenter.present()
         model.setPresented(true)
+        let elapsed = ContinuousClock.now - start
+        if elapsed > .milliseconds(300) {
+            AppLog.shared.warning("唤起时主线程耗时 \(Int(elapsed / .milliseconds(1))) 毫秒")
+        }
     }
 
     func toggle() {

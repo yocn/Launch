@@ -22,7 +22,7 @@ LaunchOS「诊断」：日志导出、崩溃日志、「日志文件打包失败
 ### 3.2 导出诊断信息
 
 - 数据页「诊断」：「导出诊断信息…」，保存对话框默认文件名「Launch 诊断 2026-10-21.zip」，结果显示在下方。
-- 压缩包内：日志文件、本应用的崩溃报告（`~/Library/Logs/DiagnosticReports` 中以 LaunchApp 开头的）、设置（导出的偏好设置）、布局文件、`系统信息.txt`（应用版本、macOS 版本、各屏幕尺寸与缩放、应用数、来源目录）。
+- 压缩包内（目录 `Launch Diagnostics`，包内用英文名，避免其他解压工具把中文名显示成乱码）：`logs/` 日志文件、`crash-reports/` 本应用的崩溃报告（`~/Library/Logs/DiagnosticReports` 中以 LaunchApp 开头的）、`settings.plist` 设置、`layout/` 布局文件、`system-info.txt`（应用版本、macOS 版本、各屏幕尺寸与缩放、应用数、来源目录）。不带文件扩展属性。
 - 只保存到所选位置，不上传。打包失败时提示原因。
 
 ## 4. 组件

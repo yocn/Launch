@@ -38,6 +38,7 @@ final class LayoutCoordinator {
     private let launchpad: LaunchpadSource
     private let prompter: LayoutPrompting
     private var pageCapacity: Int
+    private let log: AppLog
     private var document: LayoutDocument?
     private var catalog: [CatalogApp] = []
     private var needsSetup = false
@@ -51,12 +52,14 @@ final class LayoutCoordinator {
         store: LayoutStore,
         launchpad: LaunchpadSource,
         prompter: LayoutPrompting,
-        pageCapacity: Int = GridSize.default.capacity
+        pageCapacity: Int = GridSize.default.capacity,
+        log: AppLog = .shared
     ) {
         self.store = store
         self.launchpad = launchpad
         self.prompter = prompter
         self.pageCapacity = pageCapacity
+        self.log = log
     }
 
     // 只影响之后的编辑、导入与追加；已保存的页在下次编辑时按新容量拆分
@@ -117,7 +120,7 @@ final class LayoutCoordinator {
             needsSetup = document == nil
         } catch {
             isReadOnly = true
-            prompter.showError("布局文件无法读取，暂时按名称排列；文件保持原样。")
+            fail("布局文件无法读取，暂时按名称排列；文件保持原样。")
         }
     }
 
@@ -154,7 +157,7 @@ final class LayoutCoordinator {
             undoStack.removeAll()
             publish()
         } catch {
-            prompter.showError("导入失败：\(error.localizedDescription)")
+            fail("导入失败：\(error.localizedDescription)")
         }
     }
 
@@ -180,7 +183,7 @@ final class LayoutCoordinator {
             publish()
             return result.summary
         } catch {
-            prompter.showError("导入失败：\(error.localizedDescription)")
+            fail("导入失败：\(error.localizedDescription)")
             return nil
         }
     }
@@ -197,7 +200,7 @@ final class LayoutCoordinator {
             undoStack.removeAll()
             publish()
         } catch {
-            prompter.showError("恢复失败：\(error.localizedDescription)")
+            fail("恢复失败：\(error.localizedDescription)")
         }
     }
 
@@ -211,7 +214,7 @@ final class LayoutCoordinator {
                     imported = result.document
                 }
             } catch {
-                prompter.showError(error.localizedDescription)
+                fail(error.localizedDescription)
             }
         }
         let document = imported ?? LayoutEngine.defaultDocument(catalog: catalog, pageCapacity: pageCapacity)
@@ -235,6 +238,11 @@ final class LayoutCoordinator {
         onLayoutChange?(reconciled.pages)
     }
 
+    private func fail(_ message: String) {
+        log.error(message)
+        prompter.showError(message)
+    }
+
     private func save(_ document: LayoutDocument) {
         guard !isReadOnly else {
             return
@@ -246,7 +254,7 @@ final class LayoutCoordinator {
                 return
             }
             hasReportedSaveError = true
-            prompter.showError("保存布局失败：\(error.localizedDescription)")
+            fail("保存布局失败：\(error.localizedDescription)")
         }
     }
 }
