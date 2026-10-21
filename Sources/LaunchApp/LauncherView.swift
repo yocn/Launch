@@ -293,7 +293,7 @@ struct LauncherView: View {
                 set: { model.setQuery($0) }
             ))
                 .textFieldStyle(.plain)
-                .font(.system(size: layout.searchFontSize, weight: .semibold))
+                .font(.system(size: layout.searchFontSize, weight: .regular))
                 .foregroundStyle(.white)
                 // macOS 上占位文字不认 prompt 的颜色，深色外观下系统占位色才是浅色
                 .environment(\.colorScheme, .dark)
@@ -312,25 +312,22 @@ struct LauncherView: View {
             } else if SearchPresentation.showsMoreControl(for: model.query) {
                 Button(action: onMainMenu) {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: layout.searchIconSize))
+                        .font(.system(size: layout.moreIconSize))
                         .foregroundStyle(.white.opacity(0.7))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("更多选项")
             }
         }
-        .padding(.horizontal, layout.searchBarPadding)
+        .padding(.leading, layout.searchBarLeadingPadding)
+        .padding(.trailing, layout.searchBarPadding)
         .frame(width: layout.searchBarWidth, height: layout.searchBarHeight)
-        .background(.white.opacity(0.11), in: Capsule())
+        // 底色与边框按 LaunchOS 录屏测量：底色约 5% 白，边框约 20% 白、外亮内暗约 0.75pt
+        .background(.white.opacity(0.05), in: Capsule())
         .overlay {
             Capsule()
-                .stroke(.white.opacity(0.45), lineWidth: 1)
+                .strokeBorder(.white.opacity(0.2), lineWidth: 0.75)
         }
-        .shadow(
-            color: .black.opacity(0.18),
-            radius: layout.searchShadowRadius,
-            y: layout.searchShadowOffset
-        )
     }
 
     private func pageIndicator(layout: LauncherHomeLayout) -> some View {

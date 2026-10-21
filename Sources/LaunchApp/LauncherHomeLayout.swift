@@ -78,14 +78,15 @@ struct LauncherHomeLayout: Equatable {
 
     var topInset: CGFloat { 51 * sizeScale }
     var searchBarWidth: CGFloat { 240 * sizeScale }
-    var searchBarHeight: CGFloat { 42 * sizeScale }
+    var searchBarHeight: CGFloat { 40 * sizeScale }
+    // 搜索框各尺寸按 LaunchOS 录屏测量
+    var searchBarLeadingPadding: CGFloat { 15 * sizeScale }
     var searchBarPadding: CGFloat { 12 * sizeScale }
-    var searchBarSpacing: CGFloat { 14 * sizeScale }
-    var searchFontSize: CGFloat { 14 * sizeScale }
-    var searchIconSize: CGFloat { 15 * sizeScale }
+    var searchBarSpacing: CGFloat { 9 * sizeScale }
+    var searchFontSize: CGFloat { 13.5 * sizeScale }
+    var searchIconSize: CGFloat { 16 * sizeScale }
+    var moreIconSize: CGFloat { 17 * sizeScale }
     var clearIconSize: CGFloat { 13 * sizeScale }
-    var searchShadowRadius: CGFloat { 14 * sizeScale }
-    var searchShadowOffset: CGFloat { 8 * sizeScale }
     var searchToGrid: CGFloat { 42 * sizeScale }
     var pageDotSize: CGFloat { 10 * sizeScale }
     var pageDotSpacing: CGFloat { 18 * sizeScale }
