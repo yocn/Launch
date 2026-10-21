@@ -37,7 +37,9 @@ final class LauncherModel {
         let from: CGRect
     }
 
-    private(set) var apps: [CatalogApp]
+    private(set) var apps: [CatalogApp] {
+        didSet { searchIndex = SearchIndex(apps: apps) }
+    }
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
     private(set) var currentPage = 0
@@ -79,14 +81,16 @@ final class LauncherModel {
     @ObservationIgnored var isModifiedClick = false
     @ObservationIgnored private var marqueeStart: CGPoint?
     @ObservationIgnored private var dragGroup: [LayoutItemID] = []
+    @ObservationIgnored private var searchIndex: SearchIndex
 
     init(apps: [CatalogApp] = []) {
         self.apps = apps
+        searchIndex = SearchIndex(apps: apps)
     }
 
     var results: [CatalogApp] {
         let hidden = showsHiddenAppsInSearch ? [] : Set(hiddenApps.map(\.identity))
-        return SearchService.results(for: query, in: apps, hidden: hidden)
+        return searchIndex.results(for: query, hidden: hidden)
     }
 
     var pages: [[ResolvedItem]] {
