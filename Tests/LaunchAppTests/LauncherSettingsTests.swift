@@ -22,6 +22,17 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertTrue(settings.showsMenuBarIcon)
     }
 
+    func testGridDefaultsAndPersists() {
+        let defaults = makeDefaults()
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(settings.grid, .default)
+
+        settings.gridColumns = 5
+        settings.gridRows = 4
+
+        XCTAssertEqual(LauncherSettings(defaults: defaults).grid, GridSize(columns: 5, rows: 4))
+    }
+
     func testChangesPersist() {
         let defaults = makeDefaults()
         let settings = LauncherSettings(defaults: defaults)

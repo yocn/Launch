@@ -43,6 +43,18 @@ final class LauncherSettings {
         didSet { defaults.set(showsMenuBarIcon, forKey: Key.showsMenuBarIcon) }
     }
 
+    var gridColumns: Int {
+        didSet { defaults.set(gridColumns, forKey: Key.gridColumns) }
+    }
+
+    var gridRows: Int {
+        didSet { defaults.set(gridRows, forKey: Key.gridRows) }
+    }
+
+    var grid: GridSize {
+        GridSize(columns: gridColumns, rows: gridRows)
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         reopenBehavior = defaults.string(forKey: Key.reopenBehavior).flatMap(ReopenBehavior.init) ?? .resume
@@ -51,6 +63,8 @@ final class LauncherSettings {
         hidesNames = defaults.bool(forKey: Key.hidesNames)
         showsHiddenAppsInSearch = defaults.bool(forKey: Key.showsHiddenAppsInSearch)
         showsMenuBarIcon = defaults.object(forKey: Key.showsMenuBarIcon) as? Bool ?? true
+        gridColumns = defaults.object(forKey: Key.gridColumns) as? Int ?? GridSize.default.columns
+        gridRows = defaults.object(forKey: Key.gridRows) as? Int ?? GridSize.default.rows
     }
 
     private enum Key {
@@ -60,5 +74,7 @@ final class LauncherSettings {
         static let hidesNames = "hidesNames"
         static let showsHiddenAppsInSearch = "showsHiddenAppsInSearch"
         static let showsMenuBarIcon = "showsMenuBarIcon"
+        static let gridColumns = "gridColumns"
+        static let gridRows = "gridRows"
     }
 }
