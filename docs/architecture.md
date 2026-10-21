@@ -114,7 +114,7 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 1. **补齐证据**：核实系统布局来源；观察 LaunchOS 的文件夹、拖拽、右键、多选、分页与键盘细节，形成行为清单和兼容性结论。
 2. **验证核心系统交互**：建立最小 macOS 原生工程，验证鼠标所在屏幕唤起、焦点、关闭、普通/全屏 Space 及快捷键冲突；必要原型结果记录清楚。
 3. **完成可日用的主流程**：应用目录、图标、启动、搜索、网格、键盘选择、分页、文件夹、布局保存和旧布局导入。
-4. **完善编辑与设置**：拖拽跨页、多选、隐藏、来源管理、排序、行列、滚动/窗口模式、背景、返回首页策略和备份恢复。2026-10-20 拆为 4a 拖拽重排与文件夹编辑（已完成，见 `docs/superpowers/specs/2026-10-20-drag-edit-design.md`）、4b 多选与批量操作（已完成，见 `docs/superpowers/specs/2026-10-20-multi-select-design.md`）、4c 右键菜单与隐藏（已完成，见 `docs/superpowers/specs/2026-10-20-context-menu-hide-design.md`）；设置类内容归入第 5 期，2026-10-20 拆为 5a 设置窗口与显示（已完成，见 `docs/superpowers/specs/2026-10-20-settings-window-design.md`）、行列数、5b 排序与整理、5c 浏览模式、5d 数据。
+4. **完善编辑与设置**：拖拽跨页、多选、隐藏、来源管理、排序、行列、滚动/窗口模式、背景、返回首页策略和备份恢复。2026-10-20 拆为 4a 拖拽重排与文件夹编辑（已完成，见 `docs/superpowers/specs/2026-10-20-drag-edit-design.md`）、4b 多选与批量操作（已完成，见 `docs/superpowers/specs/2026-10-20-multi-select-design.md`）、4c 右键菜单与隐藏（已完成，见 `docs/superpowers/specs/2026-10-20-context-menu-hide-design.md`）；设置类内容归入第 5 期，2026-10-20 拆为 5a 设置窗口与显示（已完成，见 `docs/superpowers/specs/2026-10-20-settings-window-design.md`）、行列数（已完成，见 `docs/superpowers/specs/2026-10-21-grid-size-design.md`）、5b 排序与整理、5c 浏览模式、5d 数据。
 5. **补齐系统入口与配套**：按验证结果实现 F4、手势、触发角、登录启动、菜单栏、卸载流程、诊断；定义签名、分发和更新渠道。
 6. **实际日用验收**：在目标系统持续使用，修正唤起、焦点、数据保留和性能问题，再考虑替换现有启动器。
 
