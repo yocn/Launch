@@ -35,6 +35,14 @@ final class SettingsWindowController {
         window?.level = .normal
     }
 
+    func closeIfAboveLauncher() -> Bool {
+        guard let window, window.isVisible, window.level == .aboveLauncher else {
+            return false
+        }
+        window.close()
+        return true
+    }
+
     private func makeWindow() -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 440),

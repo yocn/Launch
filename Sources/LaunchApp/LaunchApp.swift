@@ -110,7 +110,12 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 model: controller.model,
                 settings: settings,
                 onEscape: { [weak self] in self?.controller.handleEscape() },
-                onBackgroundClick: { [weak self] in self?.controller.handleBackgroundClick() },
+                onBackgroundClick: { [weak self] in
+                    guard let self, !itemDragController.consumesBackgroundClick() else {
+                        return
+                    }
+                    controller.handleBackgroundClick()
+                },
                 onLaunch: { [weak self] app in self?.controller.launch(app) },
                 // 在 SwiftUI 按钮动作里同步弹菜单时，从菜单首次打开的设置窗口开关圆钮画不出来，等按钮动作结束再弹
                 onMainMenu: { [weak self] in
@@ -178,6 +183,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             onCommand: { [weak self] command in self?.controller.handle(command) },
             onModifiersChanged: { [weak self] flags in self?.handleModifiers(flags) }
         )
+        itemDragController.dismissOverlay = { [weak self] in self?.settingsWindow.closeIfAboveLauncher() ?? false }
         itemDragController.start()
         HotKeyService.register { [weak self] in
             self?.controller.toggle()

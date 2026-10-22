@@ -16,6 +16,12 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private lazy var itemMenu = ItemMenu { [weak self] command in
         self?.onMenuCommand(command)
     }
+    // 设置窗口浮在启动器上时，点启动器任意处只关掉设置，这一下不再落到启动器上；返回是否关了
+    var dismissOverlay: () -> Bool = { false }
+    // 关设置的那一下点击，后续拖动与抬起也要吞掉
+    private var isDismissingClick = false
+    // 本地监听吞掉了这一下，SwiftUI 仍会在抬起后识别成点空白处，按抬起时刻忽略
+    private var dismissedClickTime: TimeInterval?
     private var monitors: [Any] = []
     private var press: LauncherModel.ItemPress?
     private var badgePress: CatalogApp?
@@ -74,6 +80,10 @@ final class ItemDragController: NSObject, NSDraggingSource {
         guard let point = globalPoint(of: event) else {
             return event
         }
+        if dismissOverlay() {
+            isDismissingClick = true
+            return nil
+        }
         let flags = event.modifierFlags
         model.isModifiedClick = flags.contains(.command) || flags.contains(.control)
         if flags.contains(.control) {
@@ -99,6 +109,9 @@ final class ItemDragController: NSObject, NSDraggingSource {
     }
 
     private func mouseDragged(_ event: NSEvent) -> NSEvent? {
+        if isDismissingClick {
+            return nil
+        }
         if let start = marqueePoint {
             if let point = globalPoint(of: event),
                isMarqueeing || hypot(point.x - start.x, point.y - start.y) > Self.dragThreshold {
@@ -129,6 +142,11 @@ final class ItemDragController: NSObject, NSDraggingSource {
     }
 
     private func mouseUp(_ event: NSEvent) -> NSEvent? {
+        if isDismissingClick {
+            isDismissingClick = false
+            dismissedClickTime = ProcessInfo.processInfo.systemUptime
+            return nil
+        }
         if marqueePoint != nil {
             marqueePoint = nil
             model.endMarquee()
@@ -150,9 +168,20 @@ final class ItemDragController: NSObject, NSDraggingSource {
         return nil
     }
 
+    func consumesBackgroundClick() -> Bool {
+        guard let time = dismissedClickTime, ProcessInfo.processInfo.systemUptime - time < 0.3 else {
+            return false
+        }
+        dismissedClickTime = nil
+        return true
+    }
+
     private func rightMouseDown(_ event: NSEvent) -> NSEvent? {
         guard let point = globalPoint(of: event) else {
             return event
+        }
+        if dismissOverlay() {
+            return nil
         }
         return contextClick(at: point, event: event)
     }
