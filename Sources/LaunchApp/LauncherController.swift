@@ -7,13 +7,12 @@ enum LauncherHideReason: Equatable {
     case backgroundClick
     case launchedApp
     case resignedActive
-    case settings
 
     var restoresPreviousApp: Bool {
         switch self {
         case .toggle, .escape, .backgroundClick:
             true
-        case .launchedApp, .resignedActive, .settings:
+        case .launchedApp, .resignedActive:
             false
         }
     }
@@ -36,6 +35,8 @@ final class LauncherController {
     var onUndoLayoutEdit: (() -> Void)?
     var onOpenSettings: (() -> Void)?
     var onHide: (() -> Void)?
+    // 设置窗口开着时关启动器不切回之前的应用，免得设置窗口被那个应用盖住
+    var isSettingsOpen: () -> Bool = { false }
 
     init(
         model: LauncherModel,
@@ -76,7 +77,7 @@ final class LauncherController {
             return
         }
         model.setPresented(false)
-        presenter.dismiss(restoringPreviousApp: reason.restoresPreviousApp)
+        presenter.dismiss(restoringPreviousApp: reason.restoresPreviousApp && !isSettingsOpen())
         onHide?()
     }
 

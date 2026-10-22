@@ -67,13 +67,30 @@ final class AlertUninstallPrompter: UninstallPrompting {
     }
 }
 
+extension NSWindow.Level {
+    // 启动器面板在 statusBar 层级
+    static let aboveLauncher = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+}
+
 extension NSAlert {
     // 启动器面板在 statusBar 层级；runModal 会把层级重设为模态面板层级，要在模态会话里再调高
     // 主线程 Task 内模态期间主队列不会重入，只能用运行循环的模态模式执行
     func runAboveLauncher() -> NSApplication.ModalResponse {
         RunLoop.main.perform(inModes: [.modalPanel]) {
             MainActor.assumeIsolated {
-                self.window.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+                self.window.level = .aboveLauncher
+            }
+        }
+        return runModal()
+    }
+}
+
+extension NSSavePanel {
+    // 同 NSAlert.runAboveLauncher：设置窗口可能浮在启动器上，从设置里弹的打开、存储面板也要跟上
+    func runAboveLauncher() -> NSApplication.ModalResponse {
+        RunLoop.main.perform(inModes: [.modalPanel]) {
+            MainActor.assumeIsolated {
+                self.level = .aboveLauncher
             }
         }
         return runModal()

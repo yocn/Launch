@@ -54,7 +54,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private var catalogGeneration = 0
     private var isJigglingFromOption = false
     private lazy var settingsWindow = SettingsWindowController(
-        onWillShow: { [weak self] in self?.controller.hide(.settings) },
+        isLauncherVisible: { [weak self] in self?.presenter.isVisible ?? false },
         makeContent: { [unowned self] in
             AnyView(SettingsView(
                 settings: settings,
@@ -136,7 +136,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         // 关闭后刷新日期，打开期间不重排
         controller.onHide = { [weak self] in
             self?.refreshAppDates()
+            self?.settingsWindow.launcherDidHide()
         }
+        controller.isSettingsOpen = { [weak self] in self?.settingsWindow.isOpen ?? false }
         presenter.onPresent = { [weak self] screen in
             guard let self else {
                 return
@@ -326,20 +328,20 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         do {
             data = try layoutCoordinator.exportBackup()
         } catch {
-            NSAlert(error: error).runModal()
+            _ = NSAlert(error: error).runAboveLauncher()
             return nil
         }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "Launch 布局 \(Date().formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())).json"
-        guard panel.runModal() == .OK, let url = panel.url else {
+        guard panel.runAboveLauncher() == .OK, let url = panel.url else {
             return nil
         }
         do {
             try data.write(to: url, options: .atomic)
             return "已导出到 \((url.path as NSString).abbreviatingWithTildeInPath)"
         } catch {
-            NSAlert(error: error).runModal()
+            _ = NSAlert(error: error).runAboveLauncher()
             return nil
         }
     }
@@ -354,7 +356,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.zip]
         panel.nameFieldStringValue = "Launch 诊断 \(Date().formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())).zip"
-        guard panel.runModal() == .OK, let url = panel.url else {
+        guard panel.runAboveLauncher() == .OK, let url = panel.url else {
             return nil
         }
         AppLog.shared.flush()
@@ -376,7 +378,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             return "已导出到 \((url.path as NSString).abbreviatingWithTildeInPath)"
         } catch {
             AppLog.shared.error("导出诊断信息失败：\(error.localizedDescription)")
-            NSAlert(error: error).runModal()
+            _ = NSAlert(error: error).runAboveLauncher()
             return nil
         }
     }
@@ -399,14 +401,14 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else {
+        guard panel.runAboveLauncher() == .OK, let url = panel.url else {
             return nil
         }
         let data: Data
         do {
             data = try Data(contentsOf: url)
         } catch {
-            NSAlert(error: error).runModal()
+            _ = NSAlert(error: error).runAboveLauncher()
             return nil
         }
         return layoutCoordinator.importBackup(data).map {

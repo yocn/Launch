@@ -59,7 +59,7 @@ final class AlertLayoutPrompter: LayoutPrompting {
         alert.messageText = "布局"
         alert.informativeText = message
         NSApp.activate(ignoringOtherApps: true)
-        alert.runModal()
+        _ = alert.runAboveLauncher()
     }
 
     private func ask(title: String, message: String, confirm: String, cancel: String) -> Bool {
@@ -69,7 +69,7 @@ final class AlertLayoutPrompter: LayoutPrompting {
         alert.addButton(withTitle: confirm)
         alert.addButton(withTitle: cancel)
         NSApp.activate(ignoringOtherApps: true)
-        return alert.runModal() == .alertFirstButtonReturn
+        return alert.runAboveLauncher() == .alertFirstButtonReturn
     }
 }
 

@@ -214,7 +214,7 @@ private struct GeneralSettingsView: View {
         do {
             try loginItemService.setEnabled(enabled)
         } catch {
-            NSAlert(error: error).runModal()
+            _ = NSAlert(error: error).runAboveLauncher()
         }
         startsAtLogin = loginItemService.isEnabled
     }
@@ -308,7 +308,7 @@ private struct HiddenAppsSettingsView: View {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = true
         panel.prompt = "添加"
-        guard panel.runModal() == .OK else {
+        guard panel.runAboveLauncher() == .OK else {
             return
         }
         let result = ApplicationSources.adding(panel.urls, to: settings.customSourcePaths)

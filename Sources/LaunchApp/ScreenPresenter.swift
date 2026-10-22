@@ -218,6 +218,11 @@ private final class LauncherHostingView<Content: View>: NSHostingView<Content> {
         super.cursorUpdate(with: event)
     }
 
+    // 设置窗口浮在上面时面板不是主窗口，不接第一下点击的话点空白处要点两次才关
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
     // 只接受启动器内部的图标拖拽，拖到面板外或按 Esc 时系统会把图标飞回原位
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         Self.carriesItem(sender) ? .move : super.draggingEntered(sender)

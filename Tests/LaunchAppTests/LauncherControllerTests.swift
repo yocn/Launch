@@ -62,13 +62,24 @@ final class LauncherControllerTests: XCTestCase {
 
     func testHideReasonsDecideFocusRestoration() {
         let reasons: [LauncherHideReason] = [
-            .toggle, .escape, .backgroundClick, .launchedApp, .resignedActive, .settings,
+            .toggle, .escape, .backgroundClick, .launchedApp, .resignedActive,
         ]
 
         XCTAssertEqual(
             reasons.map(\.restoresPreviousApp),
-            [true, true, true, false, false, false]
+            [true, true, true, false, false]
         )
+    }
+
+    @MainActor
+    func testHideKeepsAppActiveWhileSettingsOpen() {
+        let (controller, presenter) = makeController()
+        controller.isSettingsOpen = { true }
+        controller.show()
+
+        controller.hide(.escape)
+
+        XCTAssertEqual(presenter.dismissals, [false])
     }
 
     @MainActor

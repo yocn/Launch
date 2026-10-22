@@ -3,24 +3,33 @@ import SwiftUI
 
 @MainActor
 final class SettingsWindowController {
-    private let onWillShow: () -> Void
+    private let isLauncherVisible: () -> Bool
     private let makeContent: () -> AnyView
     private var window: NSWindow?
 
-    init(onWillShow: @escaping () -> Void, makeContent: @escaping () -> AnyView) {
-        self.onWillShow = onWillShow
+    init(isLauncherVisible: @escaping () -> Bool, makeContent: @escaping () -> AnyView) {
+        self.isLauncherVisible = isLauncherVisible
         self.makeContent = makeContent
     }
 
+    var isOpen: Bool {
+        window?.isVisible ?? false
+    }
+
     func show() {
-        onWillShow()
         let window = window ?? makeWindow()
         self.window = window
         if !window.isVisible {
             center(window)
         }
+        // 启动器开着时设置窗口要在它上面一层，关掉后恢复普通窗口，免得一直浮在其他应用上
+        window.level = isLauncherVisible() ? .aboveLauncher : .normal
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    func launcherDidHide() {
+        window?.level = .normal
     }
 
     private func makeWindow() -> NSWindow {
