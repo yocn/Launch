@@ -22,6 +22,7 @@ final class UninstallReview: NSObject {
         alert.informativeText = "只默认选择应用本体。关联文件可能包含账号、历史记录和个人数据，请逐项检查。\(isRunning ? "应用正在运行，确认后先请求正常退出。" : "")"
         alert.addButton(withTitle: isRunning ? "退出并移到废纸篓" : "移到废纸篓")
         alert.addButton(withTitle: "取消")
+        alert.icon = NSWorkspace.shared.icon(forFile: plan.app.identity.path)
         alert.accessoryView = makeContent()
         guard alert.runAboveLauncher() == .alertFirstButtonReturn else { return nil }
         return Set(boxes.filter { $0.0.isSelectable && $0.1.state == .on }.map { $0.0.id })
@@ -57,6 +58,8 @@ final class UninstallReview: NSObject {
         for notice in plan.notices { stack.addArrangedSubview(label(notice, secondary: true)) }
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
+        // 清单放得下时不显示滚动条
+        scroll.autohidesScrollers = true
         scroll.drawsBackground = false
         // 翻转文档坐标，让短清单从顶部显示；不把文档顶边绑到非翻转的 clipView。
         let height = stack.fittingSize.height
@@ -66,9 +69,10 @@ final class UninstallReview: NSObject {
         document.addSubview(stack)
         scroll.documentView = document
         scroll.translatesAutoresizingMaskIntoConstraints = false
+        // 高度随清单内容，超过上限才滚动
         NSLayoutConstraint.activate([
             scroll.widthAnchor.constraint(equalToConstant: 560),
-            scroll.heightAnchor.constraint(equalToConstant: plan.items.isEmpty ? 130 : 330),
+            scroll.heightAnchor.constraint(equalToConstant: min(document.frame.height, 330)),
         ])
         summary.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         let content = NSStackView(views: [scroll, summary,
@@ -78,7 +82,7 @@ final class UninstallReview: NSObject {
         content.spacing = 10
         changed()
         // NSAlert 按 accessoryView.frame 留空间，不会按 Auto Layout 的 intrinsic size 自动扩展。
-        content.setFrameSize(NSSize(width: 560, height: plan.items.isEmpty ? 190 : 390))
+        content.setFrameSize(NSSize(width: 560, height: content.fittingSize.height))
         content.layoutSubtreeIfNeeded()
         return content
     }
