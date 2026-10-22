@@ -7,6 +7,9 @@ struct LauncherHomeLayout: Equatable {
     static let baseGridHeight: CGFloat = 141 * 5 + 17 * 4
     private static let baseTileWidth: CGFloat = 112
     private static let baseTileHeight: CGFloat = 141
+    private static let baseIconSide: CGFloat = 88
+    // 名称连同它上方的间距；隐藏名称时让给图标，格子变成正方形、行高不变
+    private static let baseLabelSpace: CGFloat = 12 + 17
     private static let baseRowSpacing: CGFloat = 17
     private static let insetRatio: CGFloat = 0.09
 
@@ -18,10 +21,11 @@ struct LauncherHomeLayout: Equatable {
     let contentSize: CGSize
     let sizeScale: CGFloat
     let grid: GridSize
+    let showsNames: Bool
     // 行列放不下时格子整体缩小的比例，放得下时为 1
     let fitScale: CGFloat
 
-    init(screenSize: CGSize, referenceSize: CGSize, grid: GridSize = .default) {
+    init(screenSize: CGSize, referenceSize: CGSize, grid: GridSize = .default, showsNames: Bool = true) {
         let screenScale = min(
             screenSize.width / referenceSize.width,
             screenSize.height / referenceSize.height
@@ -36,6 +40,8 @@ struct LauncherHomeLayout: Equatable {
         )
         sizeScale = referenceScale * screenScale
         self.grid = grid
+        self.showsNames = showsNames
+        let baseTileWidth = Self.baseTileWidth + (showsNames ? 0 : Self.baseLabelSpace)
         let rows = CGFloat(grid.rows)
         let columns = CGFloat(grid.columns)
         let availableWidth = contentSize.width * (1 - Self.insetRatio * 2) / sizeScale
@@ -43,17 +49,18 @@ struct LauncherHomeLayout: Equatable {
         fitScale = min(
             1,
             Self.baseGridHeight / (Self.baseTileHeight * rows + Self.baseRowSpacing * (rows - 1)),
-            availableWidth / (Self.baseTileWidth * columns + Self.baseRowSpacing * (columns - 1))
+            availableWidth / (baseTileWidth * columns + Self.baseRowSpacing * (columns - 1))
         )
     }
 
     private var tileScale: CGFloat { sizeScale * fitScale }
-    var iconSide: CGFloat { 88 * tileScale }
-    var tileWidth: CGFloat { Self.baseTileWidth * tileScale }
+    private var nameSpace: CGFloat { showsNames ? 0 : Self.baseLabelSpace }
+    var iconSide: CGFloat { (Self.baseIconSide + nameSpace) * tileScale }
+    var tileWidth: CGFloat { (Self.baseTileWidth + nameSpace) * tileScale }
     var tilePadding: CGFloat { 12 * tileScale }
-    var iconLabelSpacing: CGFloat { 12 * tileScale }
+    var iconLabelSpacing: CGFloat { showsNames ? 12 * tileScale : 0 }
     var labelFontSize: CGFloat { 14 * tileScale }
-    var labelHeight: CGFloat { 17 * tileScale }
+    var labelHeight: CGFloat { showsNames ? 17 * tileScale : 0 }
     var tileCornerRadius: CGFloat { 24 * tileScale }
     var folderRowSpacing: CGFloat { Self.baseRowSpacing * tileScale }
 

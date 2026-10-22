@@ -38,7 +38,8 @@ struct LauncherView: View {
             let layout = LauncherHomeLayout(
                 screenSize: windowed ? LauncherHomeLayout.windowArea(for: proxy.size) : proxy.size,
                 referenceSize: NSScreen.screens.first?.frame.size ?? proxy.size,
-                grid: model.grid
+                grid: model.grid,
+                showsNames: !settings.hidesNames
             )
             ZStack {
                 // 窗口模式下窗口外透明，点到也按点空白处理

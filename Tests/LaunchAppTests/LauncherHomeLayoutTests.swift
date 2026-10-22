@@ -17,6 +17,29 @@ final class LauncherHomeLayoutTests: XCTestCase {
         XCTAssertEqual(layout.folderRowSpacing, 17, accuracy: 0.0001)
     }
 
+    func testHiddenNamesGiveLabelSpaceToIcon() {
+        let layout = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen, showsNames: false)
+
+        XCTAssertEqual(layout.iconSide, 117)
+        XCTAssertEqual(layout.labelHeight, 0)
+        XCTAssertEqual(layout.tileHeight, 141)
+        XCTAssertEqual(layout.tileWidth, 141)
+        XCTAssertEqual(layout.rowSpacing, 17, accuracy: 0.0001)
+        XCTAssertGreaterThanOrEqual(layout.columnSpacing, 17)
+    }
+
+    func testHiddenNamesStillFitManyColumns() {
+        let grid = GridSize(columns: 10, rows: 8)
+        for screen in [mainScreen, CGSize(width: 1280, height: 1024), CGSize(width: 1024, height: 768)] {
+            let hidden = LauncherHomeLayout(screenSize: screen, referenceSize: screen, grid: grid, showsNames: false)
+            let shown = LauncherHomeLayout(screenSize: screen, referenceSize: screen, grid: grid)
+
+            XCTAssertGreaterThanOrEqual(hidden.columnSpacing, 17 * hidden.sizeScale * hidden.fitScale - 0.0001, "\(screen)")
+            XCTAssertEqual(hidden.tileHeight * 8 + hidden.rowSpacing * 7, hidden.gridHeight, accuracy: 0.0001, "\(screen)")
+            XCTAssertGreaterThan(hidden.iconSide, shown.iconSide, "\(screen)")
+        }
+    }
+
     func testWindowAreaIsCenteredFractionOfScreen() {
         XCTAssertEqual(LauncherHomeLayout.windowArea(for: mainScreen), CGSize(width: 1512 * 0.7, height: 982 * 0.75))
         let layout = LauncherHomeLayout(screenSize: LauncherHomeLayout.windowArea(for: mainScreen), referenceSize: mainScreen)
