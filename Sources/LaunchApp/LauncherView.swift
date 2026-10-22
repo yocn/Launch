@@ -288,15 +288,15 @@ struct LauncherView: View {
                 .font(.system(size: layout.searchIconSize, weight: .medium))
                 .foregroundStyle(.white.opacity(0.9))
 
+            // 液态玻璃会按背后亮暗切换外观，系统占位色在亮背景下变深灰，所以显式给白色
             TextField("搜索应用", text: Binding(
                 get: { model.query },
                 set: { model.setQuery($0) }
-            ))
+            ), prompt: Text("搜索应用").foregroundStyle(.white.opacity(0.6)))
                 .textFieldStyle(.plain)
                 .font(.system(size: layout.searchFontSize, weight: .regular))
                 .foregroundStyle(.white)
                 .tint(.white)
-                // macOS 上占位文字不认 prompt 的颜色，深色外观下系统占位色才是浅色
                 .environment(\.colorScheme, .dark)
                 .focused($searchFieldIsFocused)
 
