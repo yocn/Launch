@@ -38,6 +38,8 @@ final class SettingsWindowController {
         }
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+        // 重新打开时焦点会落到快捷键录制框并直接进入录制，随手按的组合键会被录成新快捷键
+        window.makeFirstResponder(nil)
     }
 
     func launcherDidHide() {
