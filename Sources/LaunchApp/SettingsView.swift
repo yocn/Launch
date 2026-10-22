@@ -258,6 +258,7 @@ private struct AppearanceSettingsView: View {
                 }
             }
             Toggle("隐藏图标名称", isOn: $settings.hidesNames)
+            Toggle("显示程序坞", isOn: $settings.showsDock)
             LabeledContent("网格") {
                 HStack(spacing: 6) {
                     Picker("列数", selection: $settings.gridColumns) {

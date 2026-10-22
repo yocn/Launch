@@ -143,13 +143,16 @@ final class LauncherSettingsTests: XCTestCase {
         let settings = LauncherSettings(defaults: defaults)
         XCTAssertEqual(settings.grid, .default)
         XCTAssertEqual(settings.gridPlacement, .spread)
+        XCTAssertFalse(settings.showsDock)
 
         settings.gridColumns = 5
         settings.gridRows = 4
         settings.gridPlacement = .centered
+        settings.showsDock = true
 
         XCTAssertEqual(LauncherSettings(defaults: defaults).grid, GridSize(columns: 5, rows: 4))
         XCTAssertEqual(LauncherSettings(defaults: defaults).gridPlacement, .centered)
+        XCTAssertTrue(LauncherSettings(defaults: defaults).showsDock)
     }
 
     func testChangesPersist() {

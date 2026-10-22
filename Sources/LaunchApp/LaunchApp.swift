@@ -129,6 +129,14 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             ),
             skipsCursorUpdate: { [weak self] in self?.controller.model.needsPagerFrames ?? false }
         )
+        presenter.setStripContent(
+            DockStripView(model: controller.model, settings: settings) { [weak self] in
+                guard let self, !settingsWindow.closeIfAboveLauncher() else {
+                    return
+                }
+                controller.handleBackgroundClick()
+            }
+        )
         controller.model.onNeedsFrames = { [weak self] in
             self?.pagerDriver.start()
         }
@@ -471,6 +479,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             sourcePaths = settings.customSourcePaths
             controller.model.returnToFirstPageDelay = settings.returnToFirstPage.delay
             presenter.screenChoice = settings.screenChoice
+            presenter.showsDock = settings.showsDock
+            presenter.isWindowMode = settings.displayMode == .window
             controller.model.showsHiddenAppsInSearch = settings.showsHiddenAppsInSearch
             controller.model.updateGrid(settings.grid)
             layoutCoordinator.updatePageCapacity(settings.grid.capacity)

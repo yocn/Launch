@@ -160,6 +160,10 @@ final class LauncherSettings {
         didSet { defaults.set(gridPlacement.rawValue, forKey: Key.gridPlacement) }
     }
 
+    var showsDock: Bool {
+        didSet { defaults.set(showsDock, forKey: Key.showsDock) }
+    }
+
     var sortField: SortField {
         didSet { defaults.set(sortField.rawValue, forKey: Key.sortField) }
     }
@@ -211,6 +215,7 @@ final class LauncherSettings {
         gridColumns = defaults.object(forKey: Key.gridColumns) as? Int ?? GridSize.default.columns
         gridRows = defaults.object(forKey: Key.gridRows) as? Int ?? GridSize.default.rows
         gridPlacement = defaults.string(forKey: Key.gridPlacement).flatMap(GridPlacement.init) ?? .spread
+        showsDock = defaults.bool(forKey: Key.showsDock)
         sortField = defaults.string(forKey: Key.sortField).flatMap(SortField.init) ?? .custom
         sortDescending = defaults.bool(forKey: Key.sortDescending)
         sortsFolderContents = defaults.bool(forKey: Key.sortsFolderContents)
@@ -241,6 +246,7 @@ final class LauncherSettings {
         static let gridColumns = "gridColumns"
         static let gridRows = "gridRows"
         static let gridPlacement = "gridPlacement"
+        static let showsDock = "showsDock"
         static let sortField = "sortField"
         static let sortDescending = "sortDescending"
         static let sortsFolderContents = "sortsFolderContents"

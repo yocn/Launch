@@ -63,6 +63,37 @@ final class ScreenPresenterTests: XCTestCase {
         ]))
     }
 
+    func testDockStripSplitsOffTheDockSide() {
+        let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
+
+        let bottom = DockStrip.split(screen: screen, visible: CGRect(x: 0, y: 61, width: 1512, height: 888))
+        XCTAssertEqual(bottom.panel, CGRect(x: 0, y: 61, width: 1512, height: 921))
+        XCTAssertEqual(bottom.strip, CGRect(x: 0, y: 0, width: 1512, height: 61))
+
+        let left = DockStrip.split(screen: screen, visible: CGRect(x: 70, y: 0, width: 1442, height: 949))
+        XCTAssertEqual(left.panel, CGRect(x: 70, y: 0, width: 1442, height: 982))
+        XCTAssertEqual(left.strip, CGRect(x: 0, y: 0, width: 70, height: 982))
+
+        let right = DockStrip.split(screen: screen, visible: CGRect(x: 0, y: 0, width: 1442, height: 949))
+        XCTAssertEqual(right.panel, CGRect(x: 0, y: 0, width: 1442, height: 982))
+        XCTAssertEqual(right.strip, CGRect(x: 1442, y: 0, width: 70, height: 982))
+
+        let none = DockStrip.split(screen: screen, visible: CGRect(x: 0, y: 0, width: 1512, height: 949))
+        XCTAssertEqual(none.panel, screen)
+        XCTAssertNil(none.strip)
+    }
+
+    func testCanvasPlacesScreenInWindowTopLeftCoordinates() {
+        let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
+
+        XCTAssertEqual(DockStrip.canvas(screen, in: CGRect(x: 0, y: 61, width: 1512, height: 921)),
+                       CGRect(x: 0, y: 0, width: 1512, height: 982))
+        XCTAssertEqual(DockStrip.canvas(screen, in: CGRect(x: 0, y: 0, width: 1512, height: 61)),
+                       CGRect(x: 0, y: -921, width: 1512, height: 982))
+        XCTAssertEqual(DockStrip.canvas(screen, in: CGRect(x: 70, y: 0, width: 1442, height: 982)),
+                       CGRect(x: -70, y: 0, width: 1512, height: 982))
+    }
+
     func testWindowServerRectConvertsToScreenCoordinates() {
         XCTAssertEqual(
             ScreenSelectionPolicy.screenRect(fromWindowServer: CGRect(x: 0, y: 900, width: 1512, height: 82), primaryHeight: 982),

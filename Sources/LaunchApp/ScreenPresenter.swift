@@ -45,6 +45,39 @@ public enum ScreenSelectionPolicy {
     }
 }
 
+// 显示程序坞时，屏幕切成启动器区域和程序坞那一条（AppKit 坐标）；菜单栏不算
+enum DockStrip {
+    static func split(screen: CGRect, visible: CGRect) -> (panel: CGRect, strip: CGRect?) {
+        let bottom = visible.minY - screen.minY
+        let left = visible.minX - screen.minX
+        let right = screen.maxX - visible.maxX
+        if bottom > 0 {
+            return (
+                CGRect(x: screen.minX, y: screen.minY + bottom, width: screen.width, height: screen.height - bottom),
+                CGRect(x: screen.minX, y: screen.minY, width: screen.width, height: bottom)
+            )
+        }
+        if left > 0 {
+            return (
+                CGRect(x: screen.minX + left, y: screen.minY, width: screen.width - left, height: screen.height),
+                CGRect(x: screen.minX, y: screen.minY, width: left, height: screen.height)
+            )
+        }
+        if right > 0 {
+            return (
+                CGRect(x: screen.minX, y: screen.minY, width: screen.width - right, height: screen.height),
+                CGRect(x: screen.maxX - right, y: screen.minY, width: right, height: screen.height)
+            )
+        }
+        return (screen, nil)
+    }
+
+    // 整块屏幕在窗口里的位置（SwiftUI 左上原点），两块窗口的壁纸据此对齐
+    static func canvas(_ screen: CGRect, in window: CGRect) -> CGRect {
+        CGRect(x: screen.minX - window.minX, y: window.maxY - screen.maxY, width: screen.width, height: screen.height)
+    }
+}
+
 public enum LauncherPanelConfiguration {
     public static let styleMask: NSWindow.StyleMask = [.borderless]
 }
@@ -64,6 +97,11 @@ final class ScreenPresenter: LauncherPresenting {
     static let itemDragType = NSPasteboard.PasteboardType("dev.yocn.launch.item")
     var onResignActive: (() -> Void)?
     private let panel: LauncherPanel
+    // 显示程序坞时垫在程序坞下面的那一条背景
+    private let stripPanel: NSPanel
+    private let mainCanvas = BackgroundCanvas()
+    private let stripCanvas = BackgroundCanvas()
+    private var screen: NSScreen?
     private var resignObserver: NSObjectProtocol?
     private let dismissal = DelayedDismissal()
 
@@ -87,6 +125,13 @@ final class ScreenPresenter: LauncherPresenting {
         // 启动器打开时触发角靠本地鼠标移动事件
         panel.acceptsMouseMovedEvents = true
         panel.hidesOnDeactivate = false
+        stripPanel = NSPanel(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+        stripPanel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)) - 1)
+        stripPanel.collectionBehavior = panel.collectionBehavior
+        stripPanel.backgroundColor = .clear
+        stripPanel.isOpaque = false
+        stripPanel.hasShadow = false
+        stripPanel.hidesOnDeactivate = false
         resignObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didResignActiveNotification,
             object: nil,
@@ -100,6 +145,13 @@ final class ScreenPresenter: LauncherPresenting {
 
     var onPresent: ((NSScreen) -> Void)?
     var screenChoice = LauncherScreenChoice.mouse
+    var showsDock = false {
+        didSet { relayoutIfVisible(changed: showsDock != oldValue) }
+    }
+    // 窗口模式窗口外本来就透明，不垫程序坞那一条
+    var isWindowMode = false {
+        didSet { relayoutIfVisible(changed: isWindowMode != oldValue) }
+    }
 
     // 隐藏动画进行中视为已关闭，此时再次唤起会从当前状态反向
     var isVisible: Bool {
@@ -137,10 +189,14 @@ final class ScreenPresenter: LauncherPresenting {
     }
 
     func setContent(_ content: some View, skipsCursorUpdate: @escaping () -> Bool = { false }) {
-        let view = LauncherHostingView(rootView: content)
+        let view = LauncherHostingView(rootView: content.environment(mainCanvas))
         view.skipsCursorUpdate = skipsCursorUpdate
         view.registerForDraggedTypes([Self.itemDragType])
         panel.contentView = view
+    }
+
+    func setStripContent(_ content: some View) {
+        stripPanel.contentView = LauncherHostingView(rootView: content.environment(stripCanvas))
     }
 
     func present() {
@@ -150,10 +206,31 @@ final class ScreenPresenter: LauncherPresenting {
             return
         }
         onPresent?(screen)
-        panel.setFrame(screen.frame, display: true)
+        self.screen = screen
+        layout(on: screen)
         NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    private func layout(on screen: NSScreen) {
+        let split = showsDock ? DockStrip.split(screen: screen.frame, visible: screen.visibleFrame) : (panel: screen.frame, strip: nil)
+        panel.setFrame(split.panel, display: true)
+        mainCanvas.screenFrame = DockStrip.canvas(screen.frame, in: split.panel)
+        guard let strip = split.strip, !isWindowMode else {
+            stripPanel.orderOut(nil)
+            return
+        }
+        stripPanel.setFrame(strip, display: true)
+        stripCanvas.screenFrame = DockStrip.canvas(screen.frame, in: strip)
+        stripPanel.orderFront(nil)
+    }
+
+    private func relayoutIfVisible(changed: Bool) {
+        guard changed, isVisible, let screen else {
+            return
+        }
+        layout(on: screen)
     }
 
     // 等隐藏动画播完再收起；立即切回之前的应用会把动画打断
@@ -164,6 +241,7 @@ final class ScreenPresenter: LauncherPresenting {
                 return
             }
             panel.orderOut(nil)
+            stripPanel.orderOut(nil)
             panel.ignoresMouseEvents = false
             if restoringPreviousApp {
                 NSApp.hide(nil)

@@ -572,14 +572,37 @@ private struct SelectionCheck: View {
 }
 
 // 只有这一层读取背景设置与壁纸，切换时不重建网格
+// 整块屏幕在本窗口里的位置；显示程序坞时启动器和程序坞那一条分属两个窗口，壁纸据此对齐
+@MainActor
+@Observable
+final class BackgroundCanvas {
+    var screenFrame: CGRect?
+}
+
+// 程序坞那一条的背景，垫在程序坞下面，与启动器的背景和淡入淡出一致
+struct DockStripView: View {
+    let model: LauncherModel
+    let settings: LauncherSettings
+    let onTap: () -> Void
+
+    var body: some View {
+        LauncherBackground(model: model, settings: settings)
+            .opacity(model.isPresented ? 1 : 0)
+            .animation(PresentationTransition.backgroundAnimation(presented: model.isPresented), value: model.isPresented)
+            .ignoresSafeArea()
+            .onTapGesture(perform: onTap)
+    }
+}
+
 private struct LauncherBackground: View {
     let model: LauncherModel
     let settings: LauncherSettings
+    @Environment(BackgroundCanvas.self) private var canvas: BackgroundCanvas?
 
     var body: some View {
         ZStack {
             if settings.background != .glass, let wallpaper = model.wallpaper {
-                WallpaperImage(wallpaper: wallpaper)
+                WallpaperImage(wallpaper: wallpaper, canvas: canvas?.screenFrame)
             } else if BackdropBlur.isAvailable {
                 BackdropBlurView()
             } else {
@@ -595,9 +618,11 @@ private struct LauncherBackground: View {
 
 private struct WallpaperImage: View {
     let wallpaper: Wallpaper
+    let canvas: CGRect?
 
     var body: some View {
         GeometryReader { proxy in
+            let rect = canvas ?? CGRect(origin: .zero, size: proxy.size)
             ZStack {
                 Color(nsColor: wallpaper.fillColor ?? .black)
                 switch wallpaper.fill {
@@ -611,9 +636,11 @@ private struct WallpaperImage: View {
                     Image(nsImage: wallpaper.image)
                 }
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            .frame(width: rect.width, height: rect.height)
             .clipped()
+            .offset(x: rect.minX, y: rect.minY)
         }
+        .clipped()
     }
 
     private var image: some View {
