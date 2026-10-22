@@ -49,6 +49,11 @@ enum LauncherScreenChoice: String, CaseIterable {
     case main
 }
 
+enum SettingsWindowStyle: String, CaseIterable {
+    case glass
+    case standard
+}
+
 enum LauncherBackgroundStyle: String, CaseIterable {
     case glass
     case blurredWallpaper
@@ -104,6 +109,15 @@ final class LauncherSettings {
 
     var dimming: Double {
         didSet { defaults.set(dimming, forKey: Key.dimming) }
+    }
+
+    var settingsWindowStyle: SettingsWindowStyle {
+        didSet { defaults.set(settingsWindowStyle.rawValue, forKey: Key.settingsWindowStyle) }
+    }
+
+    // 玻璃上叠窗口底色的比例，0 为纯玻璃
+    var settingsGlassOpacity: Double {
+        didSet { defaults.set(settingsGlassOpacity, forKey: Key.settingsGlassOpacity) }
     }
 
     var hidesNames: Bool {
@@ -170,6 +184,8 @@ final class LauncherSettings {
         pinchGesture = defaults.string(forKey: Key.pinchGesture).flatMap(PinchGesture.init) ?? .off
         background = defaults.string(forKey: Key.background).flatMap(LauncherBackgroundStyle.init) ?? .glass
         dimming = defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming
+        settingsWindowStyle = defaults.string(forKey: Key.settingsWindowStyle).flatMap(SettingsWindowStyle.init) ?? .glass
+        settingsGlassOpacity = defaults.object(forKey: Key.settingsGlassOpacity) as? Double ?? 0
         hidesNames = defaults.bool(forKey: Key.hidesNames)
         showsHiddenAppsInSearch = defaults.bool(forKey: Key.showsHiddenAppsInSearch)
         showsMenuBarIcon = defaults.object(forKey: Key.showsMenuBarIcon) as? Bool ?? true
@@ -194,6 +210,8 @@ final class LauncherSettings {
         static let pinchGesture = "pinchGesture"
         static let background = "background"
         static let dimming = "dimming"
+        static let settingsWindowStyle = "settingsWindowStyle"
+        static let settingsGlassOpacity = "settingsGlassOpacity"
         static let hidesNames = "hidesNames"
         static let showsHiddenAppsInSearch = "showsHiddenAppsInSearch"
         static let showsMenuBarIcon = "showsMenuBarIcon"

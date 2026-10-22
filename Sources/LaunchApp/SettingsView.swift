@@ -247,6 +247,23 @@ private struct AppearanceSettingsView: View {
                 Stepper("列数：\(settings.gridColumns)", value: $settings.gridColumns, in: GridSize.columnRange)
                 Stepper("行数：\(settings.gridRows)", value: $settings.gridRows, in: GridSize.rowRange)
             }
+            Section("设置窗口") {
+                Picker("样式", selection: $settings.settingsWindowStyle) {
+                    Text("玻璃").tag(SettingsWindowStyle.glass)
+                    Text("普通").tag(SettingsWindowStyle.standard)
+                }
+                .pickerStyle(.segmented)
+                if settings.settingsWindowStyle == .glass {
+                    LabeledContent("不透明度") {
+                        HStack {
+                            Slider(value: $settings.settingsGlassOpacity, in: 0 ... 0.9)
+                            Text("\(Int((settings.settingsGlassOpacity * 100).rounded()))%")
+                                .monospacedDigit()
+                                .frame(width: 44, alignment: .trailing)
+                        }
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
     }

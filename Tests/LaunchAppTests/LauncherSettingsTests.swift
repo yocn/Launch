@@ -25,6 +25,20 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertTrue(settings.showsMenuBarIcon)
     }
 
+    func testSettingsWindowStyleDefaultsToGlassAndPersists() {
+        let defaults = makeDefaults()
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(settings.settingsWindowStyle, .glass)
+        XCTAssertEqual(settings.settingsGlassOpacity, 0)
+
+        settings.settingsWindowStyle = .standard
+        settings.settingsGlassOpacity = 0.4
+
+        let reloaded = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(reloaded.settingsWindowStyle, .standard)
+        XCTAssertEqual(reloaded.settingsGlassOpacity, 0.4)
+    }
+
     func testReturnToFirstPageMigratesOldChoice() {
         let defaults = makeDefaults()
         defaults.set("firstPage", forKey: "reopenBehavior")

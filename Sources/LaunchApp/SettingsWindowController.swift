@@ -3,11 +3,14 @@ import SwiftUI
 
 @MainActor
 final class SettingsWindowController {
+    private let settings: LauncherSettings
     private let isLauncherVisible: () -> Bool
     private let makeContent: () -> AnyView
     private var window: NSWindow?
+    private let glass = NSGlassEffectView()
 
-    init(isLauncherVisible: @escaping () -> Bool, makeContent: @escaping () -> AnyView) {
+    init(settings: LauncherSettings, isLauncherVisible: @escaping () -> Bool, makeContent: @escaping () -> AnyView) {
+        self.settings = settings
         self.isLauncherVisible = isLauncherVisible
         self.makeContent = makeContent
     }
@@ -41,17 +44,44 @@ final class SettingsWindowController {
         )
         window.title = "Launch 设置"
         window.isReleasedWhenClosed = false
-        // 窗口透明，内容嵌在液态玻璃里，标题栏透明让玻璃铺满整个窗口
+        // 标题栏透明，玻璃或窗口底色铺满整个窗口；切换样式时不改，免得窗口跳动
         window.titlebarAppearsTransparent = true
-        window.isOpaque = false
-        window.backgroundColor = .clear
         let hosting = NSHostingView(rootView: makeContent())
         // 不是窗口的直接内容视图时，要显式打开桥接，标签页才会进标题栏
         hosting.sceneBridgingOptions = .all
-        let glass = NSGlassEffectView()
-        glass.contentView = hosting
-        window.contentView = glass
+        // 玻璃垫在内容下面，切换样式只显隐玻璃，不搬动内容视图（搬动后内容不再绘制）
+        let container = NSView()
+        for view in [glass, hosting] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(view)
+            NSLayoutConstraint.activate([
+                view.topAnchor.constraint(equalTo: container.topAnchor),
+                view.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+                view.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            ])
+        }
+        window.contentView = container
+        applyStyle(to: window)
         return window
+    }
+
+    // 设置窗口打开期间改样式或拖滑块立即生效
+    private func applyStyle(to window: NSWindow) {
+        withObservationTracking {
+            let isGlass = settings.settingsWindowStyle == .glass
+            glass.isHidden = !isGlass
+            glass.tintColor = NSColor.windowBackgroundColor.withAlphaComponent(settings.settingsGlassOpacity)
+            window.isOpaque = !isGlass
+            window.backgroundColor = isGlass ? .clear : .windowBackgroundColor
+        } onChange: { [weak self, weak window] in
+            Task { @MainActor in
+                guard let self, let window else {
+                    return
+                }
+                self.applyStyle(to: window)
+            }
+        }
     }
 
     private func center(_ window: NSWindow) {

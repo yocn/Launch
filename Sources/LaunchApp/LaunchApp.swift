@@ -54,6 +54,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private var catalogGeneration = 0
     private var isJigglingFromOption = false
     private lazy var settingsWindow = SettingsWindowController(
+        settings: settings,
         isLauncherVisible: { [weak self] in self?.presenter.isVisible ?? false },
         makeContent: { [unowned self] in
             AnyView(SettingsView(
