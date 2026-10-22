@@ -35,13 +35,22 @@ final class SettingsWindowController {
     private func makeWindow() -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 440),
-            styleMask: [.titled, .closable],
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Launch 设置"
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: makeContent())
+        // 窗口透明，内容嵌在液态玻璃里，标题栏透明让玻璃铺满整个窗口
+        window.titlebarAppearsTransparent = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        let hosting = NSHostingView(rootView: makeContent())
+        // 不是窗口的直接内容视图时，要显式打开桥接，标签页才会进标题栏
+        hosting.sceneBridgingOptions = .all
+        let glass = NSGlassEffectView()
+        glass.contentView = hosting
+        window.contentView = glass
         return window
     }
 

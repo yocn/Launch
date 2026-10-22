@@ -27,6 +27,9 @@ struct SettingsView: View {
             DataSettingsView(actions: data)
                 .tabItem { Label("数据", systemImage: "externaldrive") }
         }
+        // 表单不画自己的底，透出窗口的玻璃
+        .scrollContentBackground(.hidden)
+        .buttonStyle(.glass)
         .frame(width: 520, height: 440)
     }
 }
