@@ -29,7 +29,7 @@ final class LauncherSettingsTests: XCTestCase {
         let defaults = makeDefaults()
         let settings = LauncherSettings(defaults: defaults)
         XCTAssertEqual(settings.settingsWindowStyle, .glass)
-        XCTAssertEqual(settings.settingsGlassOpacity, 0)
+        XCTAssertEqual(settings.settingsGlassOpacity, 0.5)
 
         settings.settingsWindowStyle = .standard
         settings.settingsGlassOpacity = 0.4

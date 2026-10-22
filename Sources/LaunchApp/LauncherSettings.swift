@@ -185,7 +185,7 @@ final class LauncherSettings {
         background = defaults.string(forKey: Key.background).flatMap(LauncherBackgroundStyle.init) ?? .glass
         dimming = defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming
         settingsWindowStyle = defaults.string(forKey: Key.settingsWindowStyle).flatMap(SettingsWindowStyle.init) ?? .glass
-        settingsGlassOpacity = defaults.object(forKey: Key.settingsGlassOpacity) as? Double ?? 0
+        settingsGlassOpacity = defaults.object(forKey: Key.settingsGlassOpacity) as? Double ?? 0.5
         hidesNames = defaults.bool(forKey: Key.hidesNames)
         showsHiddenAppsInSearch = defaults.bool(forKey: Key.showsHiddenAppsInSearch)
         showsMenuBarIcon = defaults.object(forKey: Key.showsMenuBarIcon) as? Bool ?? true
