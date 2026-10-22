@@ -126,8 +126,6 @@ private struct GeneralSettingsView: View {
                 Text("⚠︎ 与 LaunchOS 的快捷键冲突")
                     .foregroundStyle(.orange)
             }
-            Toggle("显示在 ⌘Tab／程序坞", isOn: $settings.showsInAppSwitcher)
-            Toggle("显示在状态栏", isOn: $settings.showsMenuBarIcon)
             Picker("显示在", selection: $settings.screenChoice) {
                 Text("鼠标所在屏幕").tag(LauncherScreenChoice.mouse)
                 Text("当前激活屏幕").tag(LauncherScreenChoice.active)
@@ -242,6 +240,8 @@ private struct AppearanceSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                Toggle("显示在 ⌘Tab／程序坞", isOn: $settings.showsInAppSwitcher)
+                Toggle("显示在状态栏", isOn: $settings.showsMenuBarIcon)
             }
             Picker("背景", selection: $settings.background) {
                 Text("玻璃材质").tag(LauncherBackgroundStyle.glass)
