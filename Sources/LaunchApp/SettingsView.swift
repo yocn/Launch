@@ -258,9 +258,19 @@ private struct AppearanceSettingsView: View {
                 }
             }
             Toggle("隐藏图标名称", isOn: $settings.hidesNames)
-            Section("网格") {
-                Stepper("列数：\(settings.gridColumns)", value: $settings.gridColumns, in: GridSize.columnRange)
-                Stepper("行数：\(settings.gridRows)", value: $settings.gridRows, in: GridSize.rowRange)
+            LabeledContent("网格") {
+                HStack(spacing: 6) {
+                    Picker("列数", selection: $settings.gridColumns) {
+                        ForEach(GridSize.columnRange, id: \.self) { Text("\($0) 列").tag($0) }
+                    }
+                    Text("×")
+                        .foregroundStyle(.secondary)
+                    Picker("行数", selection: $settings.gridRows) {
+                        ForEach(GridSize.rowRange, id: \.self) { Text("\($0) 行").tag($0) }
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
             }
             Section("设置窗口") {
                 Picker("样式", selection: $settings.settingsWindowStyle) {
