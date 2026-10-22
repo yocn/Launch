@@ -50,8 +50,13 @@ struct AppUninstaller {
     }
 
     func runningInstance(of app: CatalogApp) -> (any RunningAppHandle)? {
+        runningInstances(of: app).first
+    }
+
+    func runningInstances(of app: CatalogApp) -> [any RunningAppHandle] {
         let path = Self.normalized(app.identity.path)
-        return runningApplications().first { running in
+        return runningApplications().filter { running in
+            guard !running.isTerminated else { return false }
             if let bundlePath = running.bundlePath, Self.normalized(bundlePath) == path {
                 return true
             }

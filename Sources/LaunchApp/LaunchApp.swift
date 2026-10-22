@@ -84,6 +84,12 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private lazy var uninstallCoordinator = UninstallCoordinator(
         uninstaller: AppUninstaller(),
         prompter: AlertUninstallPrompter(),
+        makeCleanup: { [weak self] in
+            UninstallCleanup(
+                scanner: ResidualScanner(applicationRoots: ApplicationSources.roots(custom: self?.settings.customSourcePaths ?? [])),
+                recordDirectory: UninstallCleanup.defaultRecordDirectory
+            )
+        },
         onRemoved: { [weak self] in self?.catalogWatcher?.rescan() }
     )
     private lazy var itemDragController = ItemDragController(

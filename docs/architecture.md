@@ -148,3 +148,11 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 - [Apple：在 Mac 上查看和打开 App](https://support.apple.com/guide/mac-help/open-apps-in-spotlight-mh35840/mac)：当前系统的 Spotlight 应用浏览入口背景。
 
 官方 API 文档用于核实能力边界；旧布局格式和本机权限情况仍须实际验证。
+
+## 11. 卸载关联文件清理（2026-10-22）
+
+用户确认采用保守方案，设计与局限见 [卸载关联文件清理](superpowers/specs/2026-10-22-residual-cleanup-design.md)。`ResidualScanner` 后台只读检查固定目录与精确标识、验证签名并单独枚举应用来源（保留重复安装信息）；`UninstallReview` 显示路径/大小/依据与禁选原因，残留默认全不选；`UninstallCleanup` 执行固定计划、每项移动前复核并原子写入 JSON 记录。`UninstallCoordinator` 串行协调扫描、确认、正常退出全部匹配实例及执行，取消不退出应用、不移动文件。
+
+移动只走系统废纸篓接口；本体失败就停止，残留变化或失败逐项保留。签名无法核对、其他安装副本（含大小写相同及子标识的独立应用）、共享组、名称匹配、链接/硬链接、读取不完整或超限项均禁选。不提权，不处理系统 Library、钥匙串、服务或扩展，不宣称全盘或彻底清理。记录在 `~/Library/Application Support/Launch/UninstallRecords`，完成后可在访达显示。记录提供原路径与实际废纸篓路径，手动移回；不保证访达有「放回原处」菜单或恢复应用运行状态。
+
+卸载目标的实际文件移动前仍保留原权限限制；不卸载系统应用及 Launch 自身。扫描与 trashItem 之间存在非原子窗口，不能抵御同一用户恶意进程制造的精确竞态。测试覆盖失败/替换/共享保护；真机仅使用自制空应用和假残留。`scripts/make-cleanup-fixture.sh` 可重建测试材料，需明确运行授权及 Apple Development 签名，拒绝覆盖现有目标。
