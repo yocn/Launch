@@ -53,12 +53,22 @@ final class ResidualScannerTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(scanner.scan(app).items.first).isSelectable)
     }
 
-    func testContainerRequiresMatchingMetadata() throws {
-        let (scanner, app, root) = try setup()
-        let container = try directory("Containers/dev.example.fixture", in: root)
-        XCTAssertFalse(try XCTUnwrap(scanner.scan(app).items.first).isSelectable)
-        try writePlist(["MCMMetadataIdentifier": "dev.example.fixture"], at: container.appending(path: ".com.apple.containermanagerd.metadata.plist"))
-        XCTAssertTrue(try XCTUnwrap(scanner.scan(app).items.first).isSelectable)
+    // 目录都不存在仍列出，说明没有探测磁盘
+    func testProtectedContainersComeFromSignatureWithoutTouchingDisk() throws {
+        var (scanner, app, _) = try setup()
+        scanner.signing = { _ in
+            ResidualSigning(identifier: "dev.example.fixture", team: "TESTTEAM", groups: ["group.dev.example.shared"], sandboxed: true)
+        }
+
+        let plan = try scanner.scan(app)
+
+        let protected = plan.items.filter { $0.url.path.contains("Containers/") }
+        XCTAssertEqual(protected.map(\.url.lastPathComponent), ["dev.example.fixture", "group.dev.example.shared"])
+        XCTAssertTrue(protected.allSatisfy { !$0.isSelectable && $0.snapshot == nil })
+        XCTAssertTrue(plan.notices.isEmpty)
+
+        scanner.signing = { _ in ResidualSigning(identifier: "dev.example.fixture", team: "TESTTEAM", groups: []) }
+        XCTAssertTrue(try scanner.scan(app).items.isEmpty)
     }
 
     func testSymlinksAndHardLinksCannotBeSelected() throws {

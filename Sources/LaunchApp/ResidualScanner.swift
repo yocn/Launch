@@ -8,6 +8,7 @@ struct ResidualSigning: Equatable, Sendable {
     let identifier: String
     let team: String
     var groups: [String]
+    var sandboxed = false
     var codeHash = ""
 
     static func read(_ url: URL) -> Self? {
@@ -26,6 +27,7 @@ struct ResidualSigning: Equatable, Sendable {
         let entitlements = info[kSecCodeInfoEntitlementsDict as String] as? [String: Any]
         let groups = entitlements?["com.apple.security.application-groups"] as? [String] ?? []
         return Self(identifier: identifier, team: team, groups: groups,
+                    sandboxed: entitlements?["com.apple.security.app-sandbox"] as? Bool == true,
                     codeHash: (info[kSecCodeInfoUnique as String] as? Data)?.base64EncodedString() ?? "")
     }
 }
@@ -106,6 +108,7 @@ struct ResidualScanner: Sendable {
             let category: String
             let evidence: String
             let blocked: String?
+            var isProtected = false
         }
         var candidates = [
             Candidate(relative: "Caches/\(identifier)", category: "缓存", evidence: "目录名与完整应用标识一致", blocked: nil),
@@ -113,11 +116,14 @@ struct ResidualScanner: Sendable {
             Candidate(relative: "Preferences/\(identifier).plist", category: "偏好设置", evidence: "文件名与完整应用标识一致；可能包含账号与个人设置", blocked: nil),
             Candidate(relative: "Saved Application State/\(identifier).savedState", category: "窗口状态", evidence: "目录名与完整应用标识一致", blocked: nil),
             Candidate(relative: "Application Support/\(identifier)", category: "应用数据", evidence: "目录名与完整应用标识一致；可能包含历史记录和用户数据", blocked: nil),
-            Candidate(relative: "Containers/\(identifier)", category: "应用容器", evidence: "完整应用标识及容器所属标识；可能包含用户数据", blocked: nil),
         ]
+        if proof?.sandboxed == true {
+            candidates.append(Candidate(relative: "Containers/\(identifier)", category: "应用容器", evidence: "应用签名声明为沙盒应用",
+                                        blocked: "沙盒容器由系统保护且含系统创建的链接，读取需要额外授权，本版保留", isProtected: true))
+        }
         for group in proof?.groups ?? [] where Self.validIdentifier(group) {
             candidates.append(Candidate(relative: "Group Containers/\(group)", category: "共享容器",
-                                        evidence: "应用签名声明的共享组", blocked: "共享容器可能被其他应用使用，本版保留"))
+                                        evidence: "应用签名声明的共享组", blocked: "共享容器可能被其他应用使用，本版保留", isProtected: true))
         }
         let names = [app.displayName, url.deletingPathExtension().lastPathComponent,
                      Self.metadata(url)?["CFBundleName"] as? String ?? ""]
@@ -130,6 +136,12 @@ struct ResidualScanner: Sendable {
         var notices: [String] = []
         for candidate in candidates {
             let candidateURL = home.appending(path: "Library/" + candidate.relative)
+            // 其他应用的容器连探测是否存在都会弹「访问其他 App 的数据」授权，只按签名列出，不碰磁盘
+            if candidate.isProtected {
+                items.append(ResidualItem(url: candidateURL, category: candidate.category, evidence: candidate.evidence,
+                                          snapshot: nil, blockedReason: candidate.blocked))
+                continue
+            }
             // 不先用 fileExists；它会把权限错误和断链误报为不存在。
             do {
                 _ = try manager.attributesOfItem(atPath: candidateURL.path)
@@ -142,23 +154,10 @@ struct ResidualScanner: Sendable {
             var blocked = candidate.blocked ?? trustReason
             var captured: ResidualSnapshot?
             do {
-                if candidate.category == "共享容器" {
-                    items.append(ResidualItem(url: candidateURL, category: candidate.category, evidence: candidate.evidence,
-                                              snapshot: nil, blockedReason: candidate.blocked))
-                    continue
-                }
                 try validateCandidatePath(candidateURL)
                 captured = try snapshot(candidateURL)
                 if !manager.isWritableFile(atPath: candidateURL.path) || !manager.isWritableFile(atPath: candidateURL.deletingLastPathComponent().path) {
                     blocked = "当前用户无法直接移动，本版保留"
-                }
-                if candidate.category == "应用容器" {
-                    let metadata = candidateURL.appending(path: ".com.apple.containermanagerd.metadata.plist")
-                    let data = try Data(contentsOf: metadata)
-                    let container = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
-                    if container?["MCMMetadataIdentifier"] as? String != identifier {
-                        blocked = "容器所属标识无法核对，本版保留"
-                    }
                 }
             } catch {
                 blocked = "无法安全检查：\(error.localizedDescription)"
