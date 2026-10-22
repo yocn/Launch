@@ -541,7 +541,7 @@ final class LauncherModel {
 
     private func homeTester(_ frame: CGRect, layout: LauncherHomeLayout) -> GridHitTester {
         guard browsingStyle == .scroll else {
-            return GridHitTester(layout: layout, frame: frame)
+            return GridHitTester(layout: layout, frame: frame, topInset: layout.gridTopInset)
         }
         var tester = GridHitTester(layout: layout, frame: frame, rowSpacing: layout.folderRowSpacing)
         tester.detectsPageEdges = false

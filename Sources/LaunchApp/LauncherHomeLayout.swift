@@ -22,10 +22,17 @@ struct LauncherHomeLayout: Equatable {
     let sizeScale: CGFloat
     let grid: GridSize
     let showsNames: Bool
+    let placement: GridPlacement
     // 行列放不下时格子整体缩小的比例，放得下时为 1
     let fitScale: CGFloat
 
-    init(screenSize: CGSize, referenceSize: CGSize, grid: GridSize = .default, showsNames: Bool = true) {
+    init(
+        screenSize: CGSize,
+        referenceSize: CGSize,
+        grid: GridSize = .default,
+        showsNames: Bool = true,
+        placement: GridPlacement = .spread
+    ) {
         let screenScale = min(
             screenSize.width / referenceSize.width,
             screenSize.height / referenceSize.height
@@ -41,6 +48,7 @@ struct LauncherHomeLayout: Equatable {
         sizeScale = referenceScale * screenScale
         self.grid = grid
         self.showsNames = showsNames
+        self.placement = placement
         let baseTileWidth = Self.baseTileWidth + (showsNames ? 0 : Self.baseLabelSpace)
         let rows = CGFloat(grid.rows)
         let columns = CGFloat(grid.columns)
@@ -70,17 +78,39 @@ struct LauncherHomeLayout: Equatable {
 
     var gridHeight: CGFloat { Self.baseGridHeight * sizeScale }
 
-    // 行少时多出的高度均分到行距
+    // 行少时多出的高度均分到行距；集中排列时不超过默认行数的行距
     var rowSpacing: CGFloat {
-        let rows = CGFloat(grid.rows)
-        return (gridHeight - tileHeight * rows) / (rows - 1)
+        let spread = Self.spacing(total: gridHeight, tile: tileHeight, count: grid.rows)
+        guard placement == .centered else {
+            return spread
+        }
+        return min(spread, Self.spacing(total: gridHeight, tile: tileHeight, count: GridSize.default.rows))
     }
 
-    var horizontalInset: CGFloat { contentSize.width * Self.insetRatio }
+    private var gridWidth: CGFloat { contentSize.width * (1 - Self.insetRatio * 2) }
 
     var columnSpacing: CGFloat {
+        let spread = Self.spacing(total: gridWidth, tile: tileWidth, count: grid.columns)
+        guard placement == .centered else {
+            return spread
+        }
+        return min(spread, Self.spacing(total: gridWidth, tile: tileWidth, count: GridSize.default.columns))
+    }
+
+    // 集中排列且列少时两侧留白加大；铺满时为固定比例
+    var horizontalInset: CGFloat {
         let columns = CGFloat(grid.columns)
-        return (contentSize.width - horizontalInset * 2 - tileWidth * columns) / (columns - 1)
+        return (contentSize.width - tileWidth * columns - columnSpacing * (columns - 1)) / 2
+    }
+
+    // 集中排列且行少时网格在区域内上下居中；铺满时为 0
+    var gridTopInset: CGFloat {
+        let rows = CGFloat(grid.rows)
+        return (gridHeight - tileHeight * rows - rowSpacing * (rows - 1)) / 2
+    }
+
+    private static func spacing(total: CGFloat, tile: CGFloat, count: Int) -> CGFloat {
+        (total - tile * CGFloat(count)) / CGFloat(count - 1)
     }
 
     var topInset: CGFloat { 51 * sizeScale }

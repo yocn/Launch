@@ -39,7 +39,8 @@ struct LauncherView: View {
                 screenSize: windowed ? LauncherHomeLayout.windowArea(for: proxy.size) : proxy.size,
                 referenceSize: NSScreen.screens.first?.frame.size ?? proxy.size,
                 grid: model.grid,
-                showsNames: !settings.hidesNames
+                showsNames: !settings.hidesNames,
+                placement: settings.gridPlacement
             )
             ZStack {
                 // 窗口模式下窗口外透明，点到也按点空白处理
@@ -152,6 +153,7 @@ struct LauncherView: View {
                             }
                         }
                         .padding(.horizontal, layout.horizontalInset)
+                        .padding(.top, layout.gridTopInset)
                         .frame(width: layout.contentSize.width, height: layout.gridHeight, alignment: .top)
                         .allowsHitTesting(pageIndex == model.currentPage)
                     }

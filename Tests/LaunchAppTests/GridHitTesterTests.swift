@@ -27,6 +27,22 @@ final class GridHitTesterTests: XCTestCase {
         XCTAssertEqual(tester.tileRect(19).minY, 135 + (narrow.tileHeight + narrow.rowSpacing) * 3, accuracy: 0.001)
     }
 
+    func testTopInsetShiftsRowsDown() {
+        let centered = LauncherHomeLayout(
+            screenSize: LauncherHomeLayout.canvasSize,
+            referenceSize: LauncherHomeLayout.canvasSize,
+            grid: GridSize(columns: 4, rows: 3),
+            placement: .centered
+        )
+        let tester = GridHitTester(layout: centered, frame: CGRect(x: 0, y: 135, width: 1512, height: centered.gridHeight),
+                                   topInset: centered.gridTopInset)
+        let rect = tester.tileRect(4)
+
+        XCTAssertEqual(rect.minY, 135 + centered.gridTopInset + centered.tileHeight + centered.rowSpacing, accuracy: 0.001)
+        let iconCenter = CGPoint(x: rect.midX, y: rect.minY + centered.tilePadding + centered.iconSide / 2)
+        XCTAssertEqual(tester.hit(iconCenter, itemCount: 12), .item(4, .center))
+    }
+
     func testCustomRowSpacingForFolders() {
         let narrow = LauncherHomeLayout(
             screenSize: LauncherHomeLayout.canvasSize,

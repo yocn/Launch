@@ -40,6 +40,32 @@ final class LauncherHomeLayoutTests: XCTestCase {
         }
     }
 
+    func testCenteredPlacementUsesDefaultSpacingAndCentersGrid() {
+        let spread = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen)
+        let layout = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen,
+                                        grid: GridSize(columns: 4, rows: 3), placement: .centered)
+
+        XCTAssertEqual(layout.columnSpacing, spread.columnSpacing, accuracy: 0.0001)
+        XCTAssertEqual(layout.rowSpacing, 17, accuracy: 0.0001)
+        let usedWidth = layout.tileWidth * 4 + layout.columnSpacing * 3
+        XCTAssertEqual(layout.horizontalInset * 2 + usedWidth, layout.contentSize.width, accuracy: 0.0001)
+        let usedHeight = layout.tileHeight * 3 + layout.rowSpacing * 2
+        XCTAssertEqual(layout.gridTopInset * 2 + usedHeight, layout.gridHeight, accuracy: 0.0001)
+        XCTAssertEqual(spread.gridTopInset, 0, accuracy: 0.0001)
+    }
+
+    func testCenteredPlacementMatchesSpreadWhenGridIsFull() {
+        for grid in [GridSize.default, GridSize(columns: 10, rows: 8)] {
+            let spread = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen, grid: grid)
+            let centered = LauncherHomeLayout(screenSize: mainScreen, referenceSize: mainScreen, grid: grid, placement: .centered)
+
+            XCTAssertEqual(centered.columnSpacing, spread.columnSpacing, accuracy: 0.0001, "\(grid)")
+            XCTAssertEqual(centered.rowSpacing, spread.rowSpacing, accuracy: 0.0001, "\(grid)")
+            XCTAssertEqual(centered.horizontalInset, spread.horizontalInset, accuracy: 0.0001, "\(grid)")
+            XCTAssertEqual(centered.gridTopInset, 0, accuracy: 0.0001, "\(grid)")
+        }
+    }
+
     func testWindowAreaIsCenteredFractionOfScreen() {
         XCTAssertEqual(LauncherHomeLayout.windowArea(for: mainScreen), CGSize(width: 1512 * 0.7, height: 982 * 0.75))
         let layout = LauncherHomeLayout(screenSize: LauncherHomeLayout.windowArea(for: mainScreen), referenceSize: mainScreen)

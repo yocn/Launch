@@ -22,12 +22,15 @@ struct GridHitTester {
     var rowSpacing: CGFloat
     // 滚动浏览时左右两侧不翻页
     var detectsPageEdges = true
+    // 集中排列时首行离区域顶部的距离
+    var topInset: CGFloat
 
-    init(layout: LauncherHomeLayout, frame: CGRect, rowCount: Int? = nil, rowSpacing: CGFloat? = nil) {
+    init(layout: LauncherHomeLayout, frame: CGRect, rowCount: Int? = nil, rowSpacing: CGFloat? = nil, topInset: CGFloat = 0) {
         self.layout = layout
         self.frame = frame
         self.rowCount = rowCount ?? layout.grid.rows
         self.rowSpacing = rowSpacing ?? layout.rowSpacing
+        self.topInset = topInset
     }
 
     private var columns: Int { layout.grid.columns }
@@ -39,7 +42,7 @@ struct GridHitTester {
         let row = index / columns
         return CGRect(
             x: frame.minX + layout.horizontalInset + CGFloat(column) * columnPitch,
-            y: frame.minY + CGFloat(row) * rowPitch,
+            y: frame.minY + topInset + CGFloat(row) * rowPitch,
             width: layout.tileWidth,
             height: layout.tileHeight
         )
@@ -65,7 +68,7 @@ struct GridHitTester {
             return .edge(.next)
         }
         let rawColumn = (point.x - frame.minX - layout.horizontalInset + layout.columnSpacing / 2) / columnPitch
-        let rawRow = (point.y - frame.minY + rowSpacing / 2) / rowPitch
+        let rawRow = (point.y - frame.minY - topInset + rowSpacing / 2) / rowPitch
         let column = min(max(Int(rawColumn.rounded(.down)), 0), columns - 1)
         let row = min(max(Int(rawRow.rounded(.down)), 0), rowCount - 1)
         let index = row * columns + column

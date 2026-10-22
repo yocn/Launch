@@ -272,6 +272,11 @@ private struct AppearanceSettingsView: View {
                 .labelsHidden()
                 .fixedSize()
             }
+            Picker("图标排列", selection: $settings.gridPlacement) {
+                Text("铺满屏幕").tag(GridPlacement.spread)
+                Text("集中在中央").tag(GridPlacement.centered)
+            }
+            .pickerStyle(.segmented)
             Section("设置窗口") {
                 Picker("样式", selection: $settings.settingsWindowStyle) {
                     Text("玻璃").tag(SettingsWindowStyle.glass)
