@@ -15,6 +15,7 @@ final class IconCache {
     static let shared = IconCache(load: ApplicationIconResolver.loadInBackground)
 
     private var entries: [String: IconEntry] = [:]
+    private var overrides: [String: NSImage] = [:]
     private let load: Load
 
     init(load: @escaping Load) {
@@ -28,8 +29,12 @@ final class IconCache {
         }
         let entry = IconEntry()
         entries[path] = entry
+        if let image = overrides[path] {
+            entry.image = image
+            return image
+        }
         load(path) { [weak self, weak entry] image in
-            guard let self, let entry, entries[path] === entry, let image else {
+            guard let self, let entry, entries[path] === entry, overrides[path] == nil, let image else {
                 return
             }
             entry.image = NSImage(cgImage: image, size: .zero)
@@ -39,6 +44,11 @@ final class IconCache {
 
     func removeAll() {
         entries.removeAll()
+    }
+
+    func setOverride(_ image: NSImage, for path: String) {
+        overrides[path] = image
+        entries[path]?.image = image
     }
 }
 

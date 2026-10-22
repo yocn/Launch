@@ -149,6 +149,16 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 
 官方 API 文档用于核实能力边界；旧布局格式和本机权限情况仍须实际验证。
 
+## 应用图标选择（2026-10-22）
+
+通用设置新增 `showsInAppSwitcher`，默认 false，运行时切换 `NSApplication` 的 regular / accessory 策略，同时控制 ⌘Tab 与程序坞；不能把两者拆为独立选项。状态栏沿用 `showsMenuBarIcon` 的存储键，默认 true；两者独立，可同时关闭，不影响快捷键或访达重开入口。应用从 ⌘Tab 重新激活时打开启动器；设置窗口可见时不抢焦点。启动包继续保留 LSUIElement=true，启动后按偏好应用策略，不修改程序坞的全局配置。
+
+用户最终确认三套：四瓣开合、黑白九宫格、蓝紫四格（2×2，右上格倾斜），每套浅/深色；折光 L 不接入。概念稿与生产提示词保留在 `design/icon-concepts-2026-10-22`。
+
+`AppIconController` 使用公开 `NSApplication.applicationIconImage` 更新运行中图标，监听应用有效外观；偏好 `appIconStyle` / `appIconTheme` 由 `LauncherSettings` 保存。设置 → 外观 → 应用图标中选三套之一，并选择跟随系统、浅色或深色。`IconCache` 对 Launch 自身应用路径提供可观察覆盖，目录刷新和旧异步图标结果不能覆盖当前选择。
+
+六张透明 PNG 通过 SwiftPM 复制到 `Launch_LaunchApp.bundle/AppIcons`；打包脚本复制资源 bundle，并从 `grid-light.png` 生成多尺寸 AppIcon.icns。安装包默认图标为浅色九宫格；设置切换仅影响运行中的 Dock 图标与启动器内 Launch 图标，访达的静态图标不随偏好切换。禁止用 NSWorkspace.setIcon 修改本体：临时假应用探测发现它添加 FinderInfo，导致严格签名校验失败。切换不改写安装包，不影响布局数据。
+
 ## 11. 卸载关联文件清理（2026-10-22）
 
 用户确认采用保守方案，设计与局限见 [卸载关联文件清理](superpowers/specs/2026-10-22-residual-cleanup-design.md)。`ResidualScanner` 后台只读检查固定目录与精确标识、验证签名并单独枚举应用来源（保留重复安装信息）；`UninstallReview` 显示路径/大小/依据与禁选原因，残留默认全不选；`UninstallCleanup` 执行固定计划、每项移动前复核并原子写入 JSON 记录。`UninstallCoordinator` 串行协调扫描、确认、正常退出全部匹配实例及执行，取消不退出应用、不移动文件。

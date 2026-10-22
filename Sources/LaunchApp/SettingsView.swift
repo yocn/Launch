@@ -126,7 +126,8 @@ private struct GeneralSettingsView: View {
                 Text("⚠︎ 与 LaunchOS 的快捷键冲突")
                     .foregroundStyle(.orange)
             }
-            Toggle("显示菜单栏图标", isOn: $settings.showsMenuBarIcon)
+            Toggle("显示在 ⌘Tab／程序坞", isOn: $settings.showsInAppSwitcher)
+            Toggle("显示在状态栏", isOn: $settings.showsMenuBarIcon)
             Picker("显示在", selection: $settings.screenChoice) {
                 Text("鼠标所在屏幕").tag(LauncherScreenChoice.mouse)
                 Text("当前激活屏幕").tag(LauncherScreenChoice.active)
@@ -225,9 +226,23 @@ private struct GeneralSettingsView: View {
 
 private struct AppearanceSettingsView: View {
     @Bindable var settings: LauncherSettings
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Form {
+            Section("应用图标") {
+                HStack(spacing: 8) {
+                    ForEach(AppIconStyle.allCases) { style in
+                        iconChoice(style)
+                    }
+                }
+                Picker("图标外观", selection: $settings.appIconTheme) {
+                    ForEach(AppIconTheme.allCases) { theme in
+                        Text(theme.title).tag(theme)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
             Picker("背景", selection: $settings.background) {
                 Text("玻璃材质").tag(LauncherBackgroundStyle.glass)
                 Text("模糊壁纸").tag(LauncherBackgroundStyle.blurredWallpaper)
@@ -266,6 +281,35 @@ private struct AppearanceSettingsView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func iconChoice(_ style: AppIconStyle) -> some View {
+        let selected = settings.appIconStyle == style
+        let dark = settings.appIconTheme.isDark(systemIsDark: colorScheme == .dark)
+        return Button {
+            settings.appIconStyle = style
+        } label: {
+            VStack(spacing: 4) {
+                if let image = AppIconAssets.image(style: style, dark: dark) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: 64, height: 64)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(selected ? Color.accentColor.opacity(0.12) : Color.clear,
+                    in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(selected ? Color.accentColor.opacity(0.6) : Color.secondary.opacity(0.15), lineWidth: 1)
+        }
+        .accessibilityLabel("应用图标：\(style.title)")
+        .accessibilityValue(selected ? "已选择" : "未选择")
     }
 }
 

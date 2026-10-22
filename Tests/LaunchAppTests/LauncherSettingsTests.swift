@@ -39,6 +39,30 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertEqual(reloaded.settingsGlassOpacity, 0.4)
     }
 
+    func testAppSwitcherAndStatusBarVisibilityPersistIndependently() {
+        let defaults = makeDefaults()
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertFalse(settings.showsInAppSwitcher)
+        XCTAssertTrue(settings.showsMenuBarIcon)
+
+        settings.showsInAppSwitcher = true
+        settings.showsMenuBarIcon = false
+        let dockOnly = LauncherSettings(defaults: defaults)
+        XCTAssertTrue(dockOnly.showsInAppSwitcher)
+        XCTAssertFalse(dockOnly.showsMenuBarIcon)
+
+        dockOnly.showsInAppSwitcher = false
+        dockOnly.showsMenuBarIcon = true
+        let statusOnly = LauncherSettings(defaults: defaults)
+        XCTAssertFalse(statusOnly.showsInAppSwitcher)
+        XCTAssertTrue(statusOnly.showsMenuBarIcon)
+
+        statusOnly.showsMenuBarIcon = false
+        let hidden = LauncherSettings(defaults: defaults)
+        XCTAssertFalse(hidden.showsInAppSwitcher)
+        XCTAssertFalse(hidden.showsMenuBarIcon)
+    }
+
     func testReturnToFirstPageMigratesOldChoice() {
         let defaults = makeDefaults()
         defaults.set("firstPage", forKey: "reopenBehavior")

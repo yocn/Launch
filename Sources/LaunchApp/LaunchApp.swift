@@ -47,6 +47,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     }
     private let appActions = AppActions()
     private let settings = LauncherSettings()
+    private let appIconController = AppIconController()
     private let wallpaperProvider = WallpaperProvider()
     private var appliedSortField: SortField?
     private var optionHold = OptionHoldTracker()
@@ -206,6 +207,12 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         controller.show()
         return false
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // 从 ⌘Tab 切回来也要有可见内容；编辑设置期间不能抢焦点或打开覆盖面板。
+        guard settings.showsInAppSwitcher, !settingsWindow.isOpen, !presenter.isVisible else { return }
+        controller.show()
     }
 
     private func uninstall(_ app: CatalogApp) {
@@ -463,6 +470,11 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             inputTap.f4Enabled = settings.f4Launches
             inputTap.pinch = settings.pinchGesture
             statusItemController?.setIconVisible(settings.showsMenuBarIcon)
+            let policy: NSApplication.ActivationPolicy = settings.showsInAppSwitcher ? .regular : .accessory
+            if NSApp.activationPolicy() != policy {
+                NSApp.setActivationPolicy(policy)
+            }
+            appIconController.apply(style: settings.appIconStyle, theme: settings.appIconTheme)
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.applySettings()

@@ -115,6 +115,14 @@ final class LauncherSettings {
         didSet { defaults.set(settingsWindowStyle.rawValue, forKey: Key.settingsWindowStyle) }
     }
 
+    var appIconStyle: AppIconStyle {
+        didSet { defaults.set(appIconStyle.rawValue, forKey: Key.appIconStyle) }
+    }
+
+    var appIconTheme: AppIconTheme {
+        didSet { defaults.set(appIconTheme.rawValue, forKey: Key.appIconTheme) }
+    }
+
     // 玻璃上叠窗口底色的比例，0 为纯玻璃
     var settingsGlassOpacity: Double {
         didSet { defaults.set(settingsGlassOpacity, forKey: Key.settingsGlassOpacity) }
@@ -130,6 +138,10 @@ final class LauncherSettings {
 
     var showsMenuBarIcon: Bool {
         didSet { defaults.set(showsMenuBarIcon, forKey: Key.showsMenuBarIcon) }
+    }
+
+    var showsInAppSwitcher: Bool {
+        didSet { defaults.set(showsInAppSwitcher, forKey: Key.showsInAppSwitcher) }
     }
 
     var gridColumns: Int {
@@ -185,10 +197,13 @@ final class LauncherSettings {
         background = defaults.string(forKey: Key.background).flatMap(LauncherBackgroundStyle.init) ?? .glass
         dimming = defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming
         settingsWindowStyle = defaults.string(forKey: Key.settingsWindowStyle).flatMap(SettingsWindowStyle.init) ?? .glass
+        appIconStyle = defaults.string(forKey: Key.appIconStyle).flatMap(AppIconStyle.init) ?? .grid
+        appIconTheme = defaults.string(forKey: Key.appIconTheme).flatMap(AppIconTheme.init) ?? .system
         settingsGlassOpacity = defaults.object(forKey: Key.settingsGlassOpacity) as? Double ?? 0.5
         hidesNames = defaults.bool(forKey: Key.hidesNames)
         showsHiddenAppsInSearch = defaults.bool(forKey: Key.showsHiddenAppsInSearch)
         showsMenuBarIcon = defaults.object(forKey: Key.showsMenuBarIcon) as? Bool ?? true
+        showsInAppSwitcher = defaults.bool(forKey: Key.showsInAppSwitcher)
         gridColumns = defaults.object(forKey: Key.gridColumns) as? Int ?? GridSize.default.columns
         gridRows = defaults.object(forKey: Key.gridRows) as? Int ?? GridSize.default.rows
         sortField = defaults.string(forKey: Key.sortField).flatMap(SortField.init) ?? .custom
@@ -211,10 +226,13 @@ final class LauncherSettings {
         static let background = "background"
         static let dimming = "dimming"
         static let settingsWindowStyle = "settingsWindowStyle"
+        static let appIconStyle = "appIconStyle"
+        static let appIconTheme = "appIconTheme"
         static let settingsGlassOpacity = "settingsGlassOpacity"
         static let hidesNames = "hidesNames"
         static let showsHiddenAppsInSearch = "showsHiddenAppsInSearch"
         static let showsMenuBarIcon = "showsMenuBarIcon"
+        static let showsInAppSwitcher = "showsInAppSwitcher"
         static let gridColumns = "gridColumns"
         static let gridRows = "gridRows"
         static let sortField = "sortField"

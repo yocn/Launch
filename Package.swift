@@ -18,7 +18,8 @@ let package = Package(
             dependencies: [
                 "LaunchCore",
                 .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
-            ]
+            ],
+            resources: [.copy("AppIcons")]
         ),
         .testTarget(name: "LaunchCoreTests", dependencies: ["LaunchCore"]),
         .testTarget(name: "LaunchAppTests", dependencies: ["LaunchApp", "LaunchCore"]),

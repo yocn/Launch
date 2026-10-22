@@ -23,6 +23,18 @@ cp "${bin_dir}/LaunchApp" "${contents_dir}/MacOS/LaunchApp"
 cp "${project_dir}/Resources/Info.plist" "${contents_dir}/Info.plist"
 # KeyboardShortcuts 的 Bundle.module 从 Contents/Resources 加载，缺失时直接 fatalError
 cp -R "${bin_dir}/KeyboardShortcuts_KeyboardShortcuts.bundle" "${contents_dir}/Resources/"
+cp -R "${bin_dir}/Launch_LaunchApp.bundle" "${contents_dir}/Resources/"
+
+# 生成标准 macOS 多尺寸图标；透明边缘保留，默认安装图标为浅色九宫格。
+iconset_dir="${project_dir}/.build/LaunchAppIcon.iconset"
+mkdir -p "${iconset_dir}"
+icon_master="${project_dir}/Sources/LaunchApp/AppIcons/grid-light.png"
+for side in 16 32 128 256 512; do
+    sips -z "${side}" "${side}" "${icon_master}" --out "${iconset_dir}/icon_${side}x${side}.png" >/dev/null
+    double_side=$((side * 2))
+    sips -z "${double_side}" "${double_side}" "${icon_master}" --out "${iconset_dir}/icon_${side}x${side}@2x.png" >/dev/null
+done
+iconutil -c icns "${iconset_dir}" -o "${contents_dir}/Resources/AppIcon.icns"
 
 if [[ "${install}" != true ]]; then
     echo "${bundle_dir}"
