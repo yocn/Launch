@@ -70,9 +70,8 @@ struct UninstallCleanup: Sendable {
         for index in record.entries.indices {
             let url = URL(fileURLWithPath: record.entries[index].originalPath)
             do {
-                if index == 0 {
-                    try scanner.revalidateApp(plan, needsResiduals: !selection.isEmpty)
-                } else {
+                // 应用本体已在写记录前复核过，其间只写了记录
+                if index > 0 {
                     guard scanner.residualsStillExclusive(plan) else { throw ResidualSafetyError.unsafe("应用来源变化，无法排除共享使用") }
                     try scanner.revalidate(selected[index - 1])
                 }
