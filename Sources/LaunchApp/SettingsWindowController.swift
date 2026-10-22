@@ -4,14 +4,15 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController {
     private let settings: LauncherSettings
-    private let isLauncherVisible: () -> Bool
+    // 启动器开着时返回它的窗口
+    private let launcherWindow: () -> NSWindow?
     private let makeContent: () -> AnyView
     private var window: NSWindow?
     private let glass = NSGlassEffectView()
 
-    init(settings: LauncherSettings, isLauncherVisible: @escaping () -> Bool, makeContent: @escaping () -> AnyView) {
+    init(settings: LauncherSettings, launcherWindow: @escaping () -> NSWindow?, makeContent: @escaping () -> AnyView) {
         self.settings = settings
-        self.isLauncherVisible = isLauncherVisible
+        self.launcherWindow = launcherWindow
         self.makeContent = makeContent
     }
 
@@ -26,17 +27,35 @@ final class SettingsWindowController {
             center(window)
         }
         // 启动器开着时设置窗口要在它上面一层，关掉后恢复普通窗口，免得一直浮在其他应用上
-        window.level = isLauncherVisible() ? .aboveLauncher : .normal
+        if let launcher = launcherWindow() {
+            window.level = .aboveLauncher
+            // 显示在程序坞时普通窗口进不去其他应用的全屏空间；挂成启动器的子窗口才能跟它在同一空间
+            if window.parent !== launcher {
+                launcher.addChildWindow(window, ordered: .above)
+            }
+        } else {
+            window.level = .normal
+        }
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
 
     func launcherDidHide() {
+        detachFromLauncher()
         window?.level = .normal
     }
 
+    // 不摘下的话，下次启动器出现会把已关的设置窗口一起带出来
+    private func detachFromLauncher() {
+        guard let window, let parent = window.parent else {
+            return
+        }
+        parent.removeChildWindow(window)
+    }
+
     func closeIfAboveLauncher() -> Bool {
-        guard let window, window.isVisible, window.level == .aboveLauncher else {
+        // 挂成子窗口后层级会被改成与启动器相同，只能按是否挂在启动器上判断
+        guard let window, window.isVisible, window.parent != nil else {
             return false
         }
         window.close()
@@ -71,6 +90,11 @@ final class SettingsWindowController {
         }
         window.contentView = container
         applyStyle(to: window)
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.detachFromLauncher()
+            }
+        }
         return window
     }
 
