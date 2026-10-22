@@ -37,9 +37,10 @@ final class UninstallCoordinatorTests: XCTestCase {
         let coordinator: UninstallCoordinator
         let removals: () -> Int
         let root: URL
+        let progress: () -> [String?]
     }
 
-    private func makeSetup(running: [any RunningAppHandle] = [], cleanup: Bool = false) throws -> Setup {
+    private func makeSetup(running: [any RunningAppHandle] = [], cleanup: Bool = false, scanDelay: TimeInterval = 0) throws -> Setup {
         let root = try makeTemporaryDirectory()
         let app = try makeFakeApp(named: "Foo", in: root, bundleIdentifier: "com.example.foo")
         let data = try PropertyListSerialization.data(fromPropertyList: ["CFBundleIdentifier": "com.example.foo"], format: .xml, options: 0)
@@ -58,11 +59,17 @@ final class UninstallCoordinatorTests: XCTestCase {
         }
         let prompter = FakeUninstallPrompter()
         var removals = 0
-        let service = UninstallCleanup(scanner: ResidualScanner(home: root, applicationRoots: [root]),
-                                       recordDirectory: root.appending(path: "Records"), trash: { _ in nil })
+        let scanner = ResidualScanner(home: root, applicationRoots: [root], signing: { url in
+            Thread.sleep(forTimeInterval: scanDelay)
+            return ResidualSigning.read(url)
+        })
+        let service = UninstallCleanup(scanner: scanner, recordDirectory: root.appending(path: "Records"), trash: { _ in nil })
+        var progress: [String?] = []
         let coordinator = UninstallCoordinator(uninstaller: uninstaller, prompter: prompter,
-                                              makeCleanup: cleanup ? { service } : nil) { removals += 1 }
-        return Setup(app: app, recorder: recorder, prompter: prompter, coordinator: coordinator, removals: { removals }, root: root)
+                                              makeCleanup: cleanup ? { service } : nil,
+                                              onProgress: { progress.append($0) }) { removals += 1 }
+        return Setup(app: app, recorder: recorder, prompter: prompter, coordinator: coordinator, removals: { removals }, root: root,
+                     progress: { progress })
     }
 
     func testCancelLeavesAppInPlace() async throws {
@@ -127,6 +134,24 @@ final class UninstallCoordinatorTests: XCTestCase {
         XCTAssertEqual(setup.prompter.errors.count, 1)
         XCTAssertEqual(setup.removals(), 0)
         XCTAssertFalse(FileManager.default.fileExists(atPath: setup.root.appending(path: "Records").path))
+    }
+
+    func testSlowCheckShowsProgressUntilDone() async throws {
+        let setup = try makeSetup(cleanup: true, scanDelay: 0.8)
+        setup.prompter.answer = false
+
+        await setup.coordinator.uninstall(setup.app)
+
+        XCTAssertEqual(setup.progress(), ["正在检查关联文件…", nil])
+    }
+
+    func testFastCheckShowsNoProgress() async throws {
+        let setup = try makeSetup(cleanup: true)
+        setup.prompter.answer = false
+
+        await setup.coordinator.uninstall(setup.app)
+
+        XCTAssertEqual(setup.progress(), [])
     }
 
     func testConcurrentCleanupRequestsOnlyOpenOneReview() async throws {

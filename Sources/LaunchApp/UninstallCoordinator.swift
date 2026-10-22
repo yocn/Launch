@@ -22,14 +22,19 @@ final class UninstallCoordinator {
     private let prompter: UninstallPrompting
     private let onRemoved: () -> Void
     private let makeCleanup: (() -> UninstallCleanup)?
+    // 后台检查或移动较慢时显示的提示，nil 表示收起
+    private let onProgress: (String?) -> Void
     private var isBusy = false
+    private var isShowingProgress = false
 
     init(uninstaller: AppUninstaller, prompter: UninstallPrompting,
-         makeCleanup: (() -> UninstallCleanup)? = nil, onRemoved: @escaping () -> Void) {
+         makeCleanup: (() -> UninstallCleanup)? = nil, onProgress: @escaping (String?) -> Void = { _ in },
+         onRemoved: @escaping () -> Void) {
         self.uninstaller = uninstaller
         self.prompter = prompter
         self.onRemoved = onRemoved
         self.makeCleanup = makeCleanup
+        self.onProgress = onProgress
     }
 
     func canUninstall(_ app: CatalogApp) -> Bool {
@@ -67,7 +72,7 @@ final class UninstallCoordinator {
 
     private func uninstallWithCleanup(_ app: CatalogApp, cleanup: UninstallCleanup) async {
         do {
-            let plan = try await Task.detached(priority: .userInitiated) { try cleanup.scanner.scan(app) }.value
+            let plan = try await withProgress("正在检查关联文件…") { try cleanup.scanner.scan(app) }
             guard let selection = prompter.reviewCleanup(plan, isRunning: uninstaller.runningInstance(of: app) != nil) else { return }
             // 确认窗口打开期间应用可能启动，因此此处重新查询。
             for running in uninstaller.runningInstances(of: app) {
@@ -80,12 +85,32 @@ final class UninstallCoordinator {
                 prompter.showUninstallError("应用的运行状态或权限已变化，未移动任何文件。")
                 return
             }
-            let result = try await Task.detached(priority: .userInitiated) { try cleanup.execute(plan, selection: selection) }.value
+            let result = try await withProgress("正在移到废纸篓…") { try cleanup.execute(plan, selection: selection) }
             if result.appRemoved { onRemoved() }
             prompter.showCleanupResult(result)
         } catch {
             prompter.showUninstallError("未能完成卸载检查：\(error.localizedDescription)")
         }
+    }
+
+    // 超过半秒才提示，免得快的时候一闪而过
+    private func withProgress<T: Sendable>(_ text: String, _ work: @escaping @Sendable () throws -> T) async throws -> T {
+        let notice = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let self, !Task.isCancelled else {
+                return
+            }
+            isShowingProgress = true
+            onProgress(text)
+        }
+        defer {
+            notice.cancel()
+            if isShowingProgress {
+                isShowingProgress = false
+                onProgress(nil)
+            }
+        }
+        return try await Task.detached(priority: .userInitiated, operation: work).value
     }
 }
 

@@ -345,6 +345,12 @@ final class LauncherModel {
         showHint("仅在自定义排序时可以拖动调整顺序")
     }
 
+    // 耗时操作期间一直显示，传 nil 收起
+    func setProgressHint(_ text: String?) {
+        hintGeneration += 1
+        hint = text
+    }
+
     func showHint(_ text: String) {
         hintGeneration += 1
         let generation = hintGeneration

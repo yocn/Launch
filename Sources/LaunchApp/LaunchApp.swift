@@ -90,6 +90,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 recordDirectory: UninstallCleanup.defaultRecordDirectory
             )
         },
+        onProgress: { [weak self] in self?.controller.model.setProgressHint($0) },
         onRemoved: { [weak self] in self?.catalogWatcher?.rescan() }
     )
     private lazy var itemDragController = ItemDragController(
