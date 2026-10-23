@@ -577,6 +577,8 @@ private struct SelectionCheck: View {
 @Observable
 final class BackgroundCanvas {
     var screenFrame: CGRect?
+    // 显示程序坞时启动器背景在这条边上渐隐，透出垫在下面的那一条
+    var fadeEdge: Edge?
 }
 
 // 程序坞那一条的背景，垫在程序坞下面，与启动器的背景和淡入淡出一致
@@ -612,7 +614,48 @@ private struct LauncherBackground: View {
             // 压暗用深灰不用纯黑，按 LaunchOS 录屏拟合
             Color(white: 0.12).opacity(settings.dimming)
         }
+        .mask {
+            if let edge = canvas?.fadeEdge {
+                EdgeFade(edge: edge, length: DockStrip.blendLength)
+            } else {
+                Rectangle()
+            }
+        }
         .contentShape(Rectangle())
+    }
+}
+
+private struct EdgeFade: View {
+    let edge: Edge
+    let length: CGFloat
+
+    var body: some View {
+        switch edge {
+        case .leading:
+            HStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: length)
+                Rectangle()
+            }
+        case .trailing:
+            HStack(spacing: 0) {
+                Rectangle()
+                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: length)
+            }
+        case .top:
+            VStack(spacing: 0) {
+                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                    .frame(height: length)
+                Rectangle()
+            }
+        case .bottom:
+            VStack(spacing: 0) {
+                Rectangle()
+                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: length)
+            }
+        }
     }
 }
 

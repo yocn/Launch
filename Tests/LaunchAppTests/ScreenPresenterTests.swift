@@ -1,4 +1,5 @@
 import CoreGraphics
+import SwiftUI
 import XCTest
 @testable import LaunchApp
 
@@ -81,6 +82,23 @@ final class ScreenPresenterTests: XCTestCase {
         let none = DockStrip.split(screen: screen, visible: CGRect(x: 0, y: 0, width: 1512, height: 949))
         XCTAssertEqual(none.panel, screen)
         XCTAssertNil(none.strip)
+    }
+
+    func testUnderlayExtendsStripUnderPanelAndNamesFadeEdge() {
+        let bottomPanel = CGRect(x: 0, y: 61, width: 1512, height: 921)
+        let bottomStrip = CGRect(x: 0, y: 0, width: 1512, height: 61)
+        XCTAssertEqual(DockStrip.underlay(bottomStrip, panel: bottomPanel, by: 64), CGRect(x: 0, y: 0, width: 1512, height: 125))
+        XCTAssertEqual(DockStrip.fadeEdge(strip: bottomStrip, panel: bottomPanel), .bottom)
+
+        let leftPanel = CGRect(x: 70, y: 0, width: 1442, height: 982)
+        let leftStrip = CGRect(x: 0, y: 0, width: 70, height: 982)
+        XCTAssertEqual(DockStrip.underlay(leftStrip, panel: leftPanel, by: 64), CGRect(x: 0, y: 0, width: 134, height: 982))
+        XCTAssertEqual(DockStrip.fadeEdge(strip: leftStrip, panel: leftPanel), .leading)
+
+        let rightPanel = CGRect(x: 0, y: 0, width: 1442, height: 982)
+        let rightStrip = CGRect(x: 1442, y: 0, width: 70, height: 982)
+        XCTAssertEqual(DockStrip.underlay(rightStrip, panel: rightPanel, by: 64), CGRect(x: 1378, y: 0, width: 134, height: 982))
+        XCTAssertEqual(DockStrip.fadeEdge(strip: rightStrip, panel: rightPanel), .trailing)
     }
 
     func testCanvasPlacesScreenInWindowTopLeftCoordinates() {

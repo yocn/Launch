@@ -72,6 +72,28 @@ enum DockStrip {
         return (screen, nil)
     }
 
+    // 两块窗口各自模糊，接缝处会出硬边；这一条往启动器底下多垫一段，启动器背景在这段里渐隐
+    static let blendLength: CGFloat = 64
+
+    static func underlay(_ strip: CGRect, panel: CGRect, by length: CGFloat) -> CGRect {
+        switch fadeEdge(strip: strip, panel: panel) {
+        case .leading: CGRect(x: strip.minX, y: strip.minY, width: strip.width + length, height: strip.height)
+        case .trailing: CGRect(x: strip.minX - length, y: strip.minY, width: strip.width + length, height: strip.height)
+        default: CGRect(x: strip.minX, y: strip.minY, width: strip.width, height: strip.height + length)
+        }
+    }
+
+    // 启动器靠程序坞的那条边
+    static func fadeEdge(strip: CGRect, panel: CGRect) -> Edge {
+        if strip.maxX <= panel.minX {
+            return .leading
+        }
+        if strip.minX >= panel.maxX {
+            return .trailing
+        }
+        return .bottom
+    }
+
     // 整块屏幕在窗口里的位置（SwiftUI 左上原点），两块窗口的壁纸据此对齐
     static func canvas(_ screen: CGRect, in window: CGRect) -> CGRect {
         CGRect(x: screen.minX - window.minX, y: window.maxY - screen.maxY, width: screen.width, height: screen.height)
@@ -218,11 +240,14 @@ final class ScreenPresenter: LauncherPresenting {
         panel.setFrame(split.panel, display: true)
         mainCanvas.screenFrame = DockStrip.canvas(screen.frame, in: split.panel)
         guard let strip = split.strip, !isWindowMode else {
+            mainCanvas.fadeEdge = nil
             stripPanel.orderOut(nil)
             return
         }
-        stripPanel.setFrame(strip, display: true)
-        stripCanvas.screenFrame = DockStrip.canvas(screen.frame, in: strip)
+        mainCanvas.fadeEdge = DockStrip.fadeEdge(strip: strip, panel: split.panel)
+        let underlay = DockStrip.underlay(strip, panel: split.panel, by: DockStrip.blendLength)
+        stripPanel.setFrame(underlay, display: true)
+        stripCanvas.screenFrame = DockStrip.canvas(screen.frame, in: underlay)
         stripPanel.orderFront(nil)
     }
 
