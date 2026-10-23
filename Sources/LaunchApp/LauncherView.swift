@@ -464,12 +464,6 @@ private struct GridCell<ItemView: View>: View {
                 .frame(width: layout.tileWidth, height: layout.tileHeight)
         case .item(let item, let index):
             itemView(item, index)
-                .background {
-                    if entry.isPicked {
-                        RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                            .fill(.white.opacity(0.32))
-                    }
-                }
                 .background(alignment: .top) {
                     if entry.isMergeTarget {
                         RoundedRectangle(cornerRadius: layout.folderCornerRadius * 1.2, style: .continuous)
