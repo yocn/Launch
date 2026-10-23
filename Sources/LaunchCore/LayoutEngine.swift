@@ -3,84 +3,85 @@ import Foundation
 public struct ReconciledLayout: Equatable, Sendable {
     public let pages: [[ResolvedItem]]
     public let document: LayoutDocument
-    public let appendedApps: [CatalogApp]
-    public let hiddenApps: [CatalogApp]
+    public let appendedApps: [LaunchItem]
+    public let hiddenItems: [LaunchItem]
 }
 
 struct CatalogResolver {
-    private let byBundleIdentifier: [String: CatalogApp]
-    private let byPath: [String: CatalogApp]
+    private let byKey: [String: LaunchItem]
+    private let byPath: [String: LaunchItem]
 
-    init(catalog: [CatalogApp]) {
+    init(catalog: [LaunchItem]) {
         let ordered = catalog.sorted {
-            $0.identity.path.localizedStandardCompare($1.identity.path) == .orderedAscending
+            $0.identity.stableKey < $1.identity.stableKey
         }
-        byBundleIdentifier = Dictionary(
-            ordered.compactMap { app in app.identity.bundleIdentifier.map { ($0, app) } },
+        byKey = Dictionary(
+            ordered.map { ($0.identity.stableKey, $0) },
             uniquingKeysWith: { first, _ in first }
         )
         byPath = Dictionary(
-            ordered.map { ($0.identity.path, $0) },
+            ordered.compactMap { item in item.application.map { ($0.identity.path, item) } },
             uniquingKeysWith: { first, _ in first }
         )
     }
 
-    func app(for identity: AppIdentity) -> CatalogApp? {
-        identity.bundleIdentifier.flatMap { byBundleIdentifier[$0] } ?? byPath[identity.path]
+    func item(for identity: ItemIdentity) -> LaunchItem? {
+        byKey[identity.stableKey] ?? identity.applicationIdentity.flatMap { byPath[$0.path] }
     }
 
-    func keys(of identities: [AppIdentity]) -> Set<String> {
-        Set(identities.compactMap { app(for: $0)?.identity.stableKey })
+    func keys(of identities: [ItemIdentity]) -> Set<String> {
+        Set(identities.compactMap { item(for: $0)?.identity.stableKey })
     }
 }
 
 public enum LayoutEngine {
     public static func reconcile(
         layout: LayoutDocument,
-        catalog: [CatalogApp],
+        catalog: [LaunchItem],
         pageCapacity: Int
     ) -> ReconciledLayout {
         let resolver = CatalogResolver(catalog: catalog)
-        let hidden = resolver.keys(of: layout.hiddenApps)
-        let hiddenApps = catalog
+        let hidden = resolver.keys(of: layout.hiddenItems)
+        let hiddenItems = catalog
             .filter { hidden.contains($0.identity.stableKey) }
             .sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
         let initial = resolve(layout, with: resolver, hidden: hidden)
-        let unplaced = catalog.filter { !initial.placedKeys.contains($0.identity.stableKey) }
+        let unplaced = catalog.filter { $0.application != nil && !initial.placedKeys.contains($0.identity.stableKey) }
         guard !unplaced.isEmpty else {
-            return ReconciledLayout(pages: initial.pages, document: layout, appendedApps: [], hiddenApps: hiddenApps)
+            return ReconciledLayout(pages: initial.pages, document: layout, appendedApps: [], hiddenItems: hiddenItems)
         }
         let document = appending(unplaced.map(\.identity), to: layout, pageCapacity: pageCapacity)
         return ReconciledLayout(
             pages: resolve(document, with: resolver, hidden: hidden).pages,
             document: document,
             appendedApps: unplaced,
-            hiddenApps: hiddenApps
+            hiddenItems: hiddenItems
         )
     }
 
     public static func appending(
-        _ identities: [AppIdentity],
+        _ identities: [ItemIdentity],
         to document: LayoutDocument,
         pageCapacity: Int
     ) -> LayoutDocument {
         var pages = document.pages.map(\.slots)
         for identity in identities {
             if let last = pages.indices.last, pages[last].count < pageCapacity {
-                pages[last].append(.app(identity))
+                pages[last].append(.item(identity))
             } else {
-                pages.append([.app(identity)])
+                pages.append([.item(identity)])
             }
         }
         return LayoutDocument(
             schemaVersion: document.schemaVersion,
             pages: pages.map { LayoutPage(slots: $0) },
-            hiddenApps: document.hiddenApps
+            hiddenItems: document.hiddenItems,
+            extraItems: document.extraItems
         )
     }
 
-    public static func defaultDocument(catalog: [CatalogApp], pageCapacity: Int) -> LayoutDocument {
-        appending(catalog.map(\.identity), to: LayoutDocument(), pageCapacity: pageCapacity)
+    public static func defaultDocument(catalog: [LaunchItem], pageCapacity: Int) -> LayoutDocument {
+        appending(catalog.filter { $0.application != nil }.map(\.identity), to: LayoutDocument(), pageCapacity: pageCapacity)
     }
 
     private static func resolve(
@@ -94,20 +95,20 @@ public enum LayoutEngine {
                 switch slot {
                 case .empty:
                     return .empty
-                case .app(let identity):
-                    guard let app = resolver.app(for: identity) else {
+                case .item(let identity):
+                    guard let app = resolver.item(for: identity) else {
                         return nil
                     }
                     placedKeys.insert(app.identity.stableKey)
-                    return hidden.contains(app.identity.stableKey) ? nil : .app(app)
+                    return hidden.contains(app.identity.stableKey) ? nil : .item(app)
                 case .folder(let folder):
-                    let apps = folder.apps.compactMap { resolver.app(for: $0) }
+                    let apps = folder.items.compactMap { resolver.item(for: $0) }
                     placedKeys.formUnion(apps.map(\.identity.stableKey))
                     let visible = apps.filter { !hidden.contains($0.identity.stableKey) }
                     guard !visible.isEmpty else {
                         return nil
                     }
-                    return .folder(ResolvedFolder(id: folder.id, name: folder.name, apps: visible))
+                    return .folder(ResolvedFolder(id: folder.id, name: folder.name, items: visible))
                 }
             }
             return items.contains { $0 != .empty } ? items : nil

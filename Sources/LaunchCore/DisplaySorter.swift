@@ -49,13 +49,13 @@ public enum DisplaySorter {
             guard sort.sortsFolderContents, case .folder(let folder) = item else {
                 return item == .empty ? nil : item
             }
-            let apps = order(folder.apps.map(ResolvedItem.app), by: sort, dates: dates).compactMap { item -> CatalogApp? in
-                if case .app(let app) = item {
+            let apps = order(folder.items.map(ResolvedItem.item), by: sort, dates: dates).compactMap { item -> LaunchItem? in
+                if case .item(let app) = item {
                     return app
                 }
                 return nil
             }
-            return .folder(ResolvedFolder(id: folder.id, name: folder.name, apps: apps))
+            return .folder(ResolvedFolder(id: folder.id, name: folder.name, items: apps))
         }
         let isFolder = { (item: ResolvedItem) -> Bool in
             if case .folder = item {
@@ -114,7 +114,7 @@ public enum DisplaySorter {
 
     private static func displayName(of item: ResolvedItem) -> String {
         switch item {
-        case .app(let app):
+        case .item(let app):
             app.displayName
         case .folder(let folder):
             folder.name
@@ -124,15 +124,15 @@ public enum DisplaySorter {
     }
 
     private static func date(of item: ResolvedItem, _ field: SortField, _ dates: [String: AppDates]) -> Date? {
-        let pick = { (app: CatalogApp) -> Date? in
+        let pick = { (app: LaunchItem) -> Date? in
             let entry = dates[app.identity.stableKey]
             return field == .dateAdded ? entry?.added : entry?.lastUsed
         }
         switch item {
-        case .app(let app):
+        case .item(let app):
             return pick(app)
         case .folder(let folder):
-            return folder.apps.compactMap(pick).max()
+            return folder.items.compactMap(pick).max()
         case .empty:
             return nil
         }

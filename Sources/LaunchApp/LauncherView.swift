@@ -21,7 +21,7 @@ struct LauncherView: View {
     let settings: LauncherSettings
     let onEscape: () -> Void
     let onBackgroundClick: () -> Void
-    let onLaunch: (CatalogApp) -> Void
+    let onLaunch: (LaunchItem) -> Void
     let onMainMenu: () -> Void
 
     @FocusState private var searchFieldIsFocused: Bool
@@ -261,7 +261,7 @@ struct LauncherView: View {
     @ViewBuilder
     private func itemView(_ item: ResolvedItem, layout: LauncherHomeLayout, isSelected: Bool) -> some View {
         switch item {
-        case .app(let app):
+        case .item(let app):
             LauncherAppTile(app: app, layout: layout, isSelected: isSelected) {
                 if !dragTracker.suppressesTap {
                     onLaunch(app)
@@ -351,7 +351,7 @@ struct LauncherView: View {
 }
 
 private struct LauncherAppTile: View {
-    let app: CatalogApp
+    let app: LaunchItem
     let layout: LauncherHomeLayout
     let isSelected: Bool
     let action: () -> Void
@@ -360,7 +360,7 @@ private struct LauncherAppTile: View {
 
     var body: some View {
         VStack(spacing: layout.iconLabelSpacing) {
-            AppIconImage(path: app.identity.path, side: layout.iconSide)
+            LaunchItemIcon(item: app, side: layout.iconSide)
             Text(app.displayName)
                 .font(.system(size: layout.labelFontSize, weight: .medium))
                 .foregroundStyle(.white)
@@ -396,7 +396,7 @@ private struct LauncherFolderTile: View {
 
     var body: some View {
         VStack(spacing: layout.iconLabelSpacing) {
-            FolderPreview(apps: Array(folder.apps.prefix(9)), layout: layout)
+            FolderPreview(apps: Array(folder.items.prefix(9)), layout: layout)
             Text(folder.name)
                 .font(.system(size: layout.labelFontSize, weight: .medium))
                 .foregroundStyle(.white)
@@ -423,7 +423,7 @@ private struct LauncherFolderTile: View {
 }
 
 private struct FolderPreview: View {
-    let apps: [CatalogApp]
+    let apps: [LaunchItem]
     let layout: LauncherHomeLayout
 
     var body: some View {
@@ -435,7 +435,7 @@ private struct FolderPreview: View {
             spacing: spacing
         ) {
             ForEach(apps, id: \.identity) { app in
-                AppIconImage(path: app.identity.path, side: side)
+                LaunchItemIcon(item: app, side: side)
             }
         }
         .frame(width: gridSide, height: gridSide, alignment: .top)
@@ -496,7 +496,7 @@ private struct GridCell<ItemView: View>: View {
     }
 
     private func showsUninstallBadge(for item: ResolvedItem) -> Bool {
-        guard model.isJiggling, case .app(let app) = item else {
+        guard model.isJiggling, case .item(let app) = item else {
             return false
         }
         return model.canUninstall(app)
@@ -854,11 +854,11 @@ private struct DragCard: View {
     var body: some View {
         VStack(spacing: layout.iconLabelSpacing) {
             switch item {
-            case .app(let app):
-                AppIconImage(path: app.identity.path, side: layout.iconSide)
+            case .item(let app):
+                LaunchItemIcon(item: app, side: layout.iconSide)
                 label(app.displayName)
             case .folder(let folder):
-                FolderPreview(apps: Array(folder.apps.prefix(9)), layout: layout)
+                FolderPreview(apps: Array(folder.items.prefix(9)), layout: layout)
                 label(folder.name)
             case .empty:
                 EmptyView()
@@ -896,7 +896,7 @@ private struct FolderOverlay: View {
     let layout: LauncherHomeLayout
     let columns: [GridItem]
     let dragTracker: PageDragTracker
-    let onLaunch: (CatalogApp) -> Void
+    let onLaunch: (LaunchItem) -> Void
 
     var body: some View {
         let pages = model.folderPages
@@ -906,9 +906,9 @@ private struct FolderOverlay: View {
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, apps in
                     LazyVGrid(columns: columns, spacing: layout.folderRowSpacing) {
-                        ForEach(model.gridEntries(page: pageIndex, items: apps.map(ResolvedItem.app), area: .folder)) { entry in
+                        ForEach(model.gridEntries(page: pageIndex, items: apps.map(ResolvedItem.item), area: .folder)) { entry in
                             GridCell(model: model, entry: entry, layout: layout) { item, index in
-                                if case .app(let app) = item {
+                                if case .item(let app) = item {
                                     LauncherAppTile(
                                         app: app,
                                         layout: layout,
@@ -931,7 +931,7 @@ private struct FolderOverlay: View {
             }
             .frame(
                 width: layout.contentSize.width,
-                height: layout.folderGridHeight(memberCount: folder.apps.count),
+                height: layout.folderGridHeight(memberCount: folder.items.count),
                 alignment: .topLeading
             )
             .clipped()

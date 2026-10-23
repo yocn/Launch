@@ -5,10 +5,10 @@ final class LayoutBackupTests: XCTestCase {
     private let a = layoutApp("A")
     private let b = layoutApp("B")
     private let c = layoutApp("C")
-    private let gone = AppIdentity(bundleIdentifier: "com.example.gone", path: "/Applications/Gone.app")
+    private let gone = ItemIdentity(bundleIdentifier: "com.example.gone", path: "/Applications/Gone.app")
 
     func testEncodingIsStableSortedAndIndented() throws {
-        let document = LayoutDocument(pages: [LayoutPage(slots: [.app(a.identity)])], hiddenApps: [b.identity])
+        let document = LayoutDocument(pages: [LayoutPage(slots: [.item(a.identity)])], hiddenItems: [b.identity])
 
         let data = try LayoutBackup.encode(document)
         let text = String(decoding: data, as: UTF8.self)
@@ -16,7 +16,7 @@ final class LayoutBackupTests: XCTestCase {
         XCTAssertEqual(try LayoutBackup.encode(document), data)
         XCTAssertTrue(text.contains("\n  "))
         XCTAssertFalse(text.contains("\\/"))
-        let keys = ["\"hiddenApps\"", "\"pages\"", "\"schemaVersion\""].map { text.range(of: $0)!.lowerBound }
+        let keys = ["\"hiddenItems\"", "\"pages\"", "\"schemaVersion\""].map { text.range(of: $0)!.lowerBound }
         XCTAssertEqual(keys, keys.sorted())
         XCTAssertEqual(try LayoutBackup.decode(data), document)
     }
@@ -31,16 +31,16 @@ final class LayoutBackupTests: XCTestCase {
     func testImportSummarizesAndKeepsHiddenApps() {
         let backup = LayoutDocument(
             pages: [
-                LayoutPage(slots: [.folder(LayoutFolder(id: "f", name: "效率", apps: [a.identity, gone])), .empty]),
-                LayoutPage(slots: [.app(b.identity)]),
+                LayoutPage(slots: [.folder(LayoutFolder(id: "f", name: "效率", items: [a.identity, gone])), .empty]),
+                LayoutPage(slots: [.item(b.identity)]),
             ],
-            hiddenApps: [b.identity]
+            hiddenItems: [b.identity]
         )
 
         let result = LayoutBackup.makeImport(from: backup, catalog: [a, b, c], pageCapacity: 35)
 
         XCTAssertEqual(result.summary, LaunchpadImportSummary(pageCount: 2, folderCount: 1, appCount: 3, installedCount: 2, newAppCount: 1))
-        XCTAssertEqual(result.document.hiddenApps, [b.identity])
-        XCTAssertEqual(result.document.pages.last?.slots.last, .app(c.identity))
+        XCTAssertEqual(result.document.hiddenItems, [b.identity])
+        XCTAssertEqual(result.document.pages.last?.slots.last, .item(c.identity))
     }
 }

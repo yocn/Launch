@@ -40,13 +40,13 @@ final class LayoutCoordinator {
     private var pageCapacity: Int
     private let log: AppLog
     private var document: LayoutDocument?
-    private var catalog: [CatalogApp] = []
+    private var catalog: [LaunchItem] = []
     private var needsSetup = false
     private var isSettingUp = false
     private var isReadOnly = false
     private var hasReportedSaveError = false
     private var undoStack: [LayoutDocument] = []
-    private(set) var hiddenApps: [CatalogApp] = []
+    private(set) var hiddenApps: [LaunchItem] = []
 
     init(
         store: LayoutStore,
@@ -105,13 +105,13 @@ final class LayoutCoordinator {
         publish()
     }
 
-    func unhide(_ app: CatalogApp) {
+    func unhide(_ app: LaunchItem) {
         apply(.unhide([app.identity]))
     }
 
     // 未安装的隐藏应用也一并取消
     func unhideAll() {
-        apply(.unhide(document?.hiddenApps ?? []))
+        apply(.unhide(document?.hiddenItems ?? []))
     }
 
     func start() {
@@ -124,7 +124,7 @@ final class LayoutCoordinator {
         }
     }
 
-    func catalogDidChange(_ apps: [CatalogApp]) async {
+    func catalogDidChange(_ apps: [LaunchItem]) async {
         catalog = apps
         guard !isSettingUp else {
             return
@@ -141,14 +141,15 @@ final class LayoutCoordinator {
     func importFromLaunchpad() async {
         do {
             let snapshot = try await launchpad.readSnapshot()
-            let result = LaunchpadImporter.makeImport(from: snapshot, catalog: catalog, pageCapacity: pageCapacity)
+            let result = LaunchpadImporter.makeImport(from: snapshot, catalog: catalog.compactMap(\.application), pageCapacity: pageCapacity)
             guard prompter.confirmReimport(result.summary) else {
                 return
             }
             let document = LayoutDocument(
                 schemaVersion: result.document.schemaVersion,
                 pages: result.document.pages,
-                hiddenApps: self.document?.hiddenApps ?? []
+                hiddenItems: self.document?.hiddenItems ?? [],
+                extraItems: self.document?.extraItems ?? []
             )
             try store.replace(with: document)
             self.document = document
@@ -209,7 +210,7 @@ final class LayoutCoordinator {
         if launchpad.isAvailable {
             do {
                 let snapshot = try await launchpad.readSnapshot()
-                let result = LaunchpadImporter.makeImport(from: snapshot, catalog: catalog, pageCapacity: pageCapacity)
+                let result = LaunchpadImporter.makeImport(from: snapshot, catalog: catalog.compactMap(\.application), pageCapacity: pageCapacity)
                 if prompter.confirmFirstImport(result.summary) {
                     imported = result.document
                 }
@@ -234,7 +235,7 @@ final class LayoutCoordinator {
             self.document = reconciled.document
             save(reconciled.document)
         }
-        hiddenApps = reconciled.hiddenApps
+        hiddenApps = reconciled.hiddenItems
         onLayoutChange?(reconciled.pages)
     }
 

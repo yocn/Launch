@@ -47,7 +47,7 @@ final class LauncherModel {
         let from: CGRect
     }
 
-    private(set) var apps: [CatalogApp] {
+    private(set) var apps: [LaunchItem] {
         didSet { searchIndex = SearchIndex(apps: apps) }
     }
     private(set) var layoutPages: [[ResolvedItem]]?
@@ -82,7 +82,7 @@ final class LauncherModel {
     private(set) var multiSelection = MultiSelection()
     private(set) var marqueeRect: CGRect?
     private(set) var isPresented = false
-    private(set) var hiddenApps: [CatalogApp] = []
+    private(set) var hiddenApps: [LaunchItem] = []
     private(set) var wallpaper: Wallpaper?
     var showsHiddenAppsInSearch = false
     // 距上次关闭达到这个时长就回到第一页；为空表示从不
@@ -98,7 +98,7 @@ final class LauncherModel {
     @ObservationIgnored var onNeedsFrames: (() -> Void)?
     @ObservationIgnored var onEdit: ((LayoutEdit) -> Void)?
     @ObservationIgnored var canEditLayout = false
-    @ObservationIgnored var canUninstall: (CatalogApp) -> Bool = { _ in false }
+    @ObservationIgnored var canUninstall: (LaunchItem) -> Bool = { _ in false }
     @ObservationIgnored private(set) var homeLayout: LauncherHomeLayout?
     @ObservationIgnored private(set) var gridFrame: CGRect = .zero
     @ObservationIgnored private(set) var folderGridFrame: CGRect = .zero
@@ -111,12 +111,12 @@ final class LauncherModel {
     @ObservationIgnored private var dragGroup: [LayoutItemID] = []
     @ObservationIgnored private var searchIndex: SearchIndex
 
-    init(apps: [CatalogApp] = []) {
+    init(apps: [LaunchItem] = []) {
         self.apps = apps
         searchIndex = SearchIndex(apps: apps)
     }
 
-    var results: [CatalogApp] {
+    var results: [LaunchItem] {
         let hidden = showsHiddenAppsInSearch ? [] : Set(hiddenApps.map(\.identity))
         return searchIndex.results(for: query, hidden: hidden)
     }
@@ -126,7 +126,7 @@ final class LauncherModel {
         if query.isEmpty, let arrangedPages {
             source = arrangedPages
         } else {
-            source = [results.map(ResolvedItem.app)]
+            source = [results.map(ResolvedItem.item)]
         }
         let paged = source.flatMap {
             LauncherPagination.pages($0, capacity: grid.capacity)
@@ -154,14 +154,14 @@ final class LauncherModel {
         return nil
     }
 
-    var folderPages: [[CatalogApp]] {
+    var folderPages: [[LaunchItem]] {
         guard let openFolder else {
             return []
         }
-        return LauncherPagination.pages(openFolder.apps, capacity: grid.capacity)
+        return LauncherPagination.pages(openFolder.items, capacity: grid.capacity)
     }
 
-    var visibleFolderApps: [CatalogApp] {
+    var visibleFolderApps: [LaunchItem] {
         let pages = folderPages
         guard !pages.isEmpty else {
             return []
@@ -297,8 +297,8 @@ final class LauncherModel {
         }
         clearMultiSelection()
         switch press.item {
-        case .app(let app):
-            return .app(AppMenuContent(
+        case .item(let app):
+            return .item(AppMenuContent(
                 app: app,
                 canOpen: !isJiggling,
                 canEdit: canEditMenuItems,
@@ -578,7 +578,7 @@ final class LauncherModel {
             let apps = visibleFolderApps
             let tester = GridHitTester(layout: homeLayout, frame: folderGridFrame, rowSpacing: homeLayout.folderRowSpacing)
             return tester.tileIndex(at: point, itemCount: apps.count).map {
-                ItemPress(item: .app(apps[$0]), origin: .folder(id: folder.id, page: folderPage, index: $0))
+                ItemPress(item: .item(apps[$0]), origin: .folder(id: folder.id, page: folderPage, index: $0))
             }
         }
         guard let (page, frame) = homePage(at: point) else {
@@ -725,7 +725,7 @@ final class LauncherModel {
 
     static func entryID(_ item: ResolvedItem, index: Int) -> String {
         switch item {
-        case .app(let app):
+        case .item(let app):
             "app:" + app.identity.stableKey
         case .folder(let folder):
             "folder:" + folder.id
@@ -736,7 +736,7 @@ final class LauncherModel {
 
     static func entryID(_ item: LayoutItemID) -> String {
         switch item {
-        case .app(let key):
+        case .item(let key):
             "app:" + key
         case .folder(let id):
             "folder:" + id
@@ -779,7 +779,7 @@ final class LauncherModel {
             tester = GridHitTester(
                 layout: homeLayout,
                 frame: folderGridFrame,
-                rowCount: homeLayout.folderRowCount(memberCount: folder.apps.count),
+                rowCount: homeLayout.folderRowCount(memberCount: folder.items.count),
                 rowSpacing: homeLayout.folderRowSpacing
             )
         } else {
@@ -823,7 +823,7 @@ final class LauncherModel {
         }
         if preview.area == .folder {
             guard case .folder(let folderID, _, _) = preview.origin,
-                  case .app(let app) = preview.item,
+                  case .item(let app) = preview.item,
                   case .insert(let page, let index) = target else {
                 return nil
             }
@@ -855,13 +855,13 @@ final class LauncherModel {
         if preview.isGroup {
             return .moveGroup(dragGroup, to: dropTarget)
         }
-        if case .folder(let folderID, _, _) = preview.origin, case .app(let app) = preview.item {
+        if case .folder(let folderID, _, _) = preview.origin, case .item(let app) = preview.item {
             return .moveOutOfFolder(app: app.identity.stableKey, folder: folderID, to: dropTarget)
         }
         return .move(itemID, to: dropTarget)
     }
 
-    private static func folderAnchor(pages: [[CatalogApp]], page: Int, index: Int, moving: CatalogApp) -> String? {
+    private static func folderAnchor(pages: [[LaunchItem]], page: Int, index: Int, moving: LaunchItem) -> String? {
         let trimmed = pages.map { $0.filter { $0 != moving } }
         let members = Array(trimmed.joined())
         let offset = trimmed.prefix(page).reduce(0) { $0 + $1.count } + index
@@ -1023,11 +1023,11 @@ final class LauncherModel {
         isJiggling = false
     }
 
-    func uninstallTarget(at point: CGPoint) -> CatalogApp? {
+    func uninstallTarget(at point: CGPoint) -> LaunchItem? {
         guard isJiggling,
               let homeLayout,
               let press = itemPress(at: point),
-              case .app(let app) = press.item,
+              case .item(let app) = press.item,
               canUninstall(app),
               let tile = frame(of: press.origin) else {
             return nil
@@ -1075,7 +1075,7 @@ final class LauncherModel {
         }
     }
 
-    func activateSelection() -> CatalogApp? {
+    func activateSelection() -> LaunchItem? {
         if clearMultiSelection() {
             return nil
         }
@@ -1089,7 +1089,7 @@ final class LauncherModel {
             return nil
         }
         switch visibleItems[index] {
-        case .app(let app):
+        case .item(let app):
             return app
         case .folder(let folder):
             showFolder(id: folder.id)
@@ -1142,7 +1142,7 @@ final class LauncherModel {
         return .clearedQuery
     }
 
-    func updateApps(_ newApps: [CatalogApp]) {
+    func updateApps(_ newApps: [LaunchItem]) {
         apps = newApps
         normalizeState()
     }
@@ -1155,7 +1155,7 @@ final class LauncherModel {
         normalizeState()
     }
 
-    func updateHiddenApps(_ apps: [CatalogApp]) {
+    func updateHiddenApps(_ apps: [LaunchItem]) {
         guard apps != hiddenApps else {
             return
         }
@@ -1163,7 +1163,7 @@ final class LauncherModel {
         normalizeState()
     }
 
-    func isHiddenApp(_ app: CatalogApp) -> Bool {
+    func isHiddenApp(_ app: LaunchItem) -> Bool {
         hiddenApps.contains(app)
     }
 

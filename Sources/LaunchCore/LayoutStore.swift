@@ -2,6 +2,7 @@ import Foundation
 
 public enum LayoutStoreError: Error, Equatable {
     case unsupportedSchema(Int)
+    case invalidItems
 }
 
 extension LayoutStoreError: LocalizedError {
@@ -9,6 +10,8 @@ extension LayoutStoreError: LocalizedError {
         switch self {
         case .unsupportedSchema(let version):
             "布局文件版本 \(version) 不受支持"
+        case .invalidItems:
+            "布局中的条目定义无效、重复或图标过大"
         }
     }
 }
@@ -25,6 +28,8 @@ public struct LayoutStore {
     public var backupURL: URL {
         fileURL.appendingPathExtension("backup")
     }
+
+    public var migrationBackupURL: URL { fileURL.appendingPathExtension("v1-backup") }
 
     public var hasBackup: Bool {
         fileManager.fileExists(atPath: backupURL.path(percentEncoded: false))
@@ -71,6 +76,13 @@ public struct LayoutStore {
     private func writeValidatedData(_ data: Data, createBackup: Bool) throws {
         let directory = fileURL.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        if !fileManager.fileExists(atPath: migrationBackupURL.path),
+           let original = try? Data(contentsOf: fileURL),
+           let json = try? JSONSerialization.jsonObject(with: original) as? [String: Any],
+           json["schemaVersion"] as? Int == 1 {
+            // Independent of the import/restore backup; never replace a migration snapshot.
+            try fileManager.copyItem(at: fileURL, to: migrationBackupURL)
+        }
         if createBackup, fileManager.fileExists(atPath: fileURL.path(percentEncoded: false)) {
             try? fileManager.removeItem(at: backupURL)
             try fileManager.copyItem(at: fileURL, to: backupURL)

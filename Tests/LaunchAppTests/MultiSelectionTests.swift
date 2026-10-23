@@ -3,10 +3,10 @@ import XCTest
 @testable import LaunchApp
 
 final class MultiSelectionTests: XCTestCase {
-    private let apps = makeApps(count: 4)
+    private let apps = makeLaunchItems(count: 4)
 
     private func id(_ index: Int) -> LayoutItemID {
-        .app(apps[index].identity.stableKey)
+        .item(apps[index].identity.stableKey)
     }
 
     func testToggleAddsAndRemoves() {
@@ -40,8 +40,8 @@ final class MultiSelectionTests: XCTestCase {
         selection.toggle(.folder("f"))
         selection.toggle(id(0))
         let pages: [[ResolvedItem]] = [
-            [.app(apps[0]), makeFolder(id: "f", name: "效率", apps: [apps[1]])],
-            [.app(apps[2]), .app(apps[3])],
+            [.item(apps[0]), makeFolder(id: "f", name: "效率", apps: [apps[1]])],
+            [.item(apps[2]), .item(apps[3])],
         ]
 
         XCTAssertEqual(selection.ordered(in: pages), [id(0), .folder("f"), id(3)])

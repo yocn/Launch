@@ -111,12 +111,12 @@ final class LauncherControllerTests: XCTestCase {
         let (controller, presenter) = makeController { url in
             openedPaths.append(url.path)
         }
-        let app = makeApps(count: 1)[0]
+        let app = makeLaunchItems(count: 1)[0]
         controller.show()
 
         controller.launch(app)
 
-        XCTAssertEqual(openedPaths, [app.identity.path])
+        XCTAssertEqual(openedPaths, [app.application!.identity.path])
         XCTAssertEqual(presenter.dismissals, [false])
     }
 
@@ -127,7 +127,7 @@ final class LauncherControllerTests: XCTestCase {
         let (controller, presenter) = makeController { pending.append($0) }
         controller.show()
 
-        controller.launch(makeApps(count: 1)[0])
+        controller.launch(makeLaunchItems(count: 1)[0])
 
         XCTAssertEqual(pending.count, 1)
         XCTAssertFalse(presenter.isVisible)
@@ -140,23 +140,23 @@ final class LauncherControllerTests: XCTestCase {
         let iconCache = IconCache { _, _ in
             loads += 1
         }
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let (controller, _) = makeController(apps: apps, iconCache: iconCache)
-        _ = iconCache.icon(for: apps[0].identity.path)
+        _ = iconCache.icon(for: apps[0].application!.identity.path)
 
         controller.updateCatalog(apps)
-        _ = iconCache.icon(for: apps[0].identity.path)
+        _ = iconCache.icon(for: apps[0].application!.identity.path)
         XCTAssertEqual(loads, 1)
 
-        controller.updateCatalog(makeApps(count: 3))
-        _ = iconCache.icon(for: apps[0].identity.path)
+        controller.updateCatalog(makeLaunchItems(count: 3))
+        _ = iconCache.icon(for: apps[0].application!.identity.path)
         XCTAssertEqual(loads, 2)
         XCTAssertEqual(controller.model.apps.count, 3)
     }
 
     @MainActor
     func testBackgroundClickClosesOpenFolderBeforeLauncher() {
-        let apps = makeApps(count: 1)
+        let apps = makeLaunchItems(count: 1)
         let (controller, presenter) = makeController(apps: apps)
         controller.model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
         controller.show()
@@ -172,7 +172,7 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     func testEscapeClosesFolderBeforeHiding() {
-        let apps = makeApps(count: 1)
+        let apps = makeLaunchItems(count: 1)
         let (controller, presenter) = makeController(apps: apps)
         controller.model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
         controller.show()
@@ -188,7 +188,7 @@ final class LauncherControllerTests: XCTestCase {
     @MainActor
     func testActivateCommandLaunchesSelectedApp() {
         var openedPaths: [String] = []
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let (controller, presenter) = makeController(apps: apps) { url in
             openedPaths.append(url.path)
         }
@@ -197,13 +197,13 @@ final class LauncherControllerTests: XCTestCase {
 
         controller.handle(.activate)
 
-        XCTAssertEqual(openedPaths, [apps[1].identity.path])
+        XCTAssertEqual(openedPaths, [apps[1].application!.identity.path])
         XCTAssertEqual(presenter.dismissals, [false])
     }
 
     @MainActor
     func testCommandsAreIgnoredWhileHidden() {
-        let (controller, _) = makeController(apps: makeApps(count: 2))
+        let (controller, _) = makeController(apps: makeLaunchItems(count: 2))
 
         controller.handle(.move(.right))
 
@@ -212,7 +212,7 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     func testPageCommandsTurnPages() {
-        let (controller, _) = makeController(apps: makeApps(count: 40))
+        let (controller, _) = makeController(apps: makeLaunchItems(count: 40))
         controller.show()
 
         controller.handle(.nextPage)
@@ -223,7 +223,7 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     func testDragCommandsFollowAndTurnPages() {
-        let (controller, _) = makeController(apps: makeApps(count: 40))
+        let (controller, _) = makeController(apps: makeLaunchItems(count: 40))
         controller.show()
         controller.model.updatePageWidth(1000)
 
@@ -236,7 +236,7 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     func testUndoCommandForwardsToHandler() {
-        let (controller, _) = makeController(apps: makeApps(count: 3))
+        let (controller, _) = makeController(apps: makeLaunchItems(count: 3))
         controller.show()
         var undos = 0
         controller.onUndoLayoutEdit = { undos += 1 }
@@ -248,10 +248,10 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     func testBackgroundClickStopsJigglingBeforeClosing() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         let (controller, presenter) = makeController(apps: apps)
         controller.show()
-        controller.model.updateLayout([apps.map(ResolvedItem.app)])
+        controller.model.updateLayout([apps.map(ResolvedItem.item)])
         controller.model.canEditLayout = true
         controller.model.beginJiggling()
 
@@ -265,13 +265,13 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     func testLaunchIsIgnoredWhileJiggling() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         var opened: [URL] = []
         let (controller, presenter) = makeController(apps: apps, openApplication: { url in
             opened.append(url)
         })
         controller.show()
-        controller.model.updateLayout([apps.map(ResolvedItem.app)])
+        controller.model.updateLayout([apps.map(ResolvedItem.item)])
         controller.model.canEditLayout = true
         controller.model.beginJiggling()
 
@@ -283,13 +283,13 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     func testBackgroundClickClearsSelectionBeforeJigglingAndClosing() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         let (controller, presenter) = makeController(apps: apps)
         controller.show()
-        controller.model.updateLayout([apps.map(ResolvedItem.app)])
+        controller.model.updateLayout([apps.map(ResolvedItem.item)])
         controller.model.canEditLayout = true
         controller.model.beginJiggling()
-        controller.model.toggleMultiSelection(.app(apps[1].identity.stableKey))
+        controller.model.toggleMultiSelection(.item(apps[1].identity.stableKey))
 
         controller.handleBackgroundClick()
         XCTAssertTrue(controller.model.multiSelection.isEmpty)
@@ -316,16 +316,16 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     func testReturnOnlyClearsSelection() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         var opened: [URL] = []
         let (controller, _) = makeController(apps: apps) { url in
             opened.append(url)
         }
         controller.show()
-        controller.model.updateLayout([apps.map(ResolvedItem.app)])
+        controller.model.updateLayout([apps.map(ResolvedItem.item)])
         controller.model.canEditLayout = true
         controller.handle(.move(.right))
-        controller.model.toggleMultiSelection(.app(apps[2].identity.stableKey))
+        controller.model.toggleMultiSelection(.item(apps[2].identity.stableKey))
 
         controller.handle(.activate)
         XCTAssertTrue(opened.isEmpty)
@@ -365,7 +365,7 @@ final class LauncherControllerTests: XCTestCase {
 
     @MainActor
     private func makeController(
-        apps: [CatalogApp] = [],
+        apps: [LaunchItem] = [],
         iconCache: IconCache = IconCache { _, _ in },
         openApplication: @escaping (URL) -> Void = { _ in }
     ) -> (LauncherController, FakePresenter) {

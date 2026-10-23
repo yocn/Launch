@@ -8,7 +8,7 @@ struct SettingsView: View {
     let model: LauncherModel
     let loginItemService: LoginItemService
     let hasHotKeyConflict: () -> Bool
-    let onUnhide: (CatalogApp) -> Void
+    let onUnhide: (LaunchItem) -> Void
     let onUnhideAll: () -> Void
     let data: DataSettingsActions
 
@@ -336,7 +336,7 @@ private struct AppearanceSettingsView: View {
 private struct HiddenAppsSettingsView: View {
     @Bindable var settings: LauncherSettings
     let model: LauncherModel
-    let onUnhide: (CatalogApp) -> Void
+    let onUnhide: (LaunchItem) -> Void
     let onUnhideAll: () -> Void
 
     @State private var skippedSources: [String] = []
@@ -370,7 +370,7 @@ private struct HiddenAppsSettingsView: View {
                 } else {
                     ForEach(model.hiddenApps, id: \.identity) { app in
                         HStack {
-                            AppIconImage(path: app.identity.path, side: 24)
+                            LaunchItemIcon(item: app, side: 24)
                             Text(app.displayName)
                             Spacer()
                             Button("取消隐藏") {

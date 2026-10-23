@@ -17,7 +17,7 @@ struct SelectionMenuContent: Equatable {
 }
 
 struct AppMenuContent: Equatable {
-    let app: CatalogApp
+    let app: LaunchItem
     let canOpen: Bool
     let canEdit: Bool
     let canUninstall: Bool
@@ -39,7 +39,7 @@ struct MainMenuContent: Equatable {
 
 enum ItemMenuContent: Equatable {
     case selection(SelectionMenuContent)
-    case app(AppMenuContent)
+    case item(AppMenuContent)
     case folder(FolderMenuContent)
     case main(MainMenuContent)
 }
@@ -51,14 +51,14 @@ enum ItemMenuCommand: Equatable {
     case moveToNewPage
     case hideSelection
     case open(ResolvedItem)
-    case revealInFinder(CatalogApp)
-    case showInfo(CatalogApp)
+    case revealInFinder(LaunchItem)
+    case showInfo(LaunchItem)
     case hide(LayoutItemID)
-    case moveToTrash(CatalogApp)
+    case moveToTrash(LaunchItem)
     case rename(folder: String)
     case ungroup(folder: String)
     case openSettings
-    case unhide(CatalogApp)
+    case unhide(LaunchItem)
     case selectAll
     case arrangeLayout
     case sortField(SortField)
@@ -85,7 +85,7 @@ final class ItemMenu: NSObject {
         switch content {
         case .selection(let selection):
             addSelectionItems(selection, to: menu)
-        case .app(let app):
+        case .item(let app):
             addAppItems(app, to: menu)
         case .folder(let folder):
             addFolderItems(folder, to: menu)
@@ -130,7 +130,8 @@ final class ItemMenu: NSObject {
 
     private func addAppItems(_ content: AppMenuContent, to menu: NSMenu) {
         let app = content.app
-        menu.addItem(item("打开", .open(.app(app)), isEnabled: content.canOpen))
+        menu.addItem(item("打开", .open(.item(app)), isEnabled: content.canOpen))
+        guard app.application != nil else { return }
         menu.addItem(.separator())
         menu.addItem(item("在访达中显示", .revealInFinder(app)))
         menu.addItem(item("显示简介", .showInfo(app)))
@@ -138,7 +139,7 @@ final class ItemMenu: NSObject {
         if content.isHidden {
             menu.addItem(item("取消隐藏", .unhide(app), isEnabled: content.canEdit))
         } else {
-            menu.addItem(item("隐藏", .hide(.app(app.identity.stableKey)), isEnabled: content.canEdit))
+            menu.addItem(item("隐藏", .hide(.item(app.identity.stableKey)), isEnabled: content.canEdit))
         }
         if content.canUninstall {
             menu.addItem(item("移到废纸篓…", .moveToTrash(app)))

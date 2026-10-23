@@ -3,17 +3,17 @@ import Foundation
 public enum SearchService {
     public static func results(
         for query: String,
-        in apps: [CatalogApp],
-        hidden: Set<AppIdentity>
-    ) -> [CatalogApp] {
-        SearchIndex(apps: apps).results(for: query, hidden: hidden)
+        in apps: [LaunchItem],
+        hidden: Set<ItemIdentity>
+    ) -> [LaunchItem] {
+        SearchIndex(items: apps).results(for: query, hidden: hidden)
     }
 }
 
 // 拼音在应用列表变化时算好，输入时只做匹配
 public struct SearchIndex: Sendable {
     private struct Entry: Sendable {
-        let app: CatalogApp
+        let item: LaunchItem
         let syllables: [String]
         let fileName: String
     }
@@ -30,35 +30,38 @@ public struct SearchIndex: Sendable {
 
     private let entries: [Entry]
 
-    public init(apps: [CatalogApp]) {
-        entries = apps.map { app in
+    public init(items: [LaunchItem]) {
+        entries = items.map { item in
             Entry(
-                app: app,
-                syllables: SearchName.syllables(of: app.displayName),
-                fileName: URL(fileURLWithPath: app.identity.path).deletingPathExtension().lastPathComponent
+                item: item,
+                syllables: SearchName.syllables(of: item.displayName),
+                fileName: item.application.map { URL(fileURLWithPath: $0.identity.path).deletingPathExtension().lastPathComponent }
+                    ?? Self.searchTarget(item)
             )
         }
     }
 
-    public func results(for query: String, hidden: Set<AppIdentity>) -> [CatalogApp] {
+    public init(apps: [LaunchItem]) { self.init(items: apps) }
+
+    public func results(for query: String, hidden: Set<ItemIdentity>) -> [LaunchItem] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let compact = Array(SearchName.normalized(trimmed))
         return entries
-            .filter { !hidden.contains($0.app.identity) }
-            .compactMap { entry -> (CatalogApp, Rank)? in
+            .filter { !hidden.contains($0.item.identity) }
+            .compactMap { entry -> (LaunchItem, Rank)? in
                 guard !trimmed.isEmpty else {
-                    return (entry.app, .elsewhere)
+                    return (entry.item, .elsewhere)
                 }
-                return Self.rank(of: entry, query: trimmed, compact: compact).map { (entry.app, $0) }
+                return Self.rank(of: entry, query: trimmed, compact: compact).map { (entry.item, $0) }
             }
             .sorted { lhs, rhs in
-                lhs.1 != rhs.1 ? lhs.1 < rhs.1 : appSort(lhs.0, rhs.0)
+                lhs.1 != rhs.1 ? lhs.1 < rhs.1 : itemSort(lhs.0, rhs.0)
             }
             .map(\.0)
     }
 
     private static func rank(of entry: Entry, query: String, compact: [Character]) -> Rank? {
-        let name = entry.app.displayName
+        let name = entry.item.displayName
         if contains(name, query, anchored: true) {
             return .namePrefix
         }
@@ -67,11 +70,16 @@ public struct SearchIndex: Sendable {
         }
         if contains(name, query)
             || contains(entry.fileName, query)
-            || contains(entry.app.identity.bundleIdentifier ?? "", query)
+            || contains(entry.item.application?.identity.bundleIdentifier ?? "", query)
             || entry.syllables.indices.dropFirst().contains(where: { matchesSyllables(entry.syllables, compact, from: $0) }) {
             return .elsewhere
         }
         return nil
+    }
+
+    private static func searchTarget(_ item: LaunchItem) -> String {
+        guard case .website(let url) = item.target else { return "" }
+        return url.host ?? ""
     }
 
     private static func contains(_ value: String, _ query: String, anchored: Bool = false) -> Bool {

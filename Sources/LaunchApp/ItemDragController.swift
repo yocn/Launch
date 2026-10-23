@@ -10,7 +10,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private let model: LauncherModel
     private let presenter: ScreenPresenter
     private let onActivate: (ResolvedItem) -> Void
-    private let onUninstall: (CatalogApp) -> Void
+    private let onUninstall: (LaunchItem) -> Void
     private let onMenuCommand: (ItemMenuCommand) -> Void
     private let makeDragImage: (ResolvedItem, Int) -> NSImage?
     private lazy var itemMenu = ItemMenu { [weak self] command in
@@ -24,7 +24,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
     private var dismissedClickTime: TimeInterval?
     private var monitors: [Any] = []
     private var press: LauncherModel.ItemPress?
-    private var badgePress: CatalogApp?
+    private var badgePress: LaunchItem?
     private var marqueePoint: CGPoint?
     private var isMarqueeing = false
     private var didLongPress = false
@@ -37,7 +37,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
         model: LauncherModel,
         presenter: ScreenPresenter,
         onActivate: @escaping (ResolvedItem) -> Void,
-        onUninstall: @escaping (CatalogApp) -> Void,
+        onUninstall: @escaping (LaunchItem) -> Void,
         onMenuCommand: @escaping (ItemMenuCommand) -> Void,
         makeDragImage: @escaping (ResolvedItem, Int) -> NSImage?
     ) {

@@ -27,8 +27,8 @@ final class LauncherModelSelectionTests: XCTestCase {
         return CGPoint(x: rect.minX + 4, y: rect.maxY - 6)
     }
 
-    private func id(_ app: CatalogApp) -> LayoutItemID {
-        .app(app.identity.stableKey)
+    private func id(_ app: LaunchItem) -> LayoutItemID {
+        .item(app.identity.stableKey)
     }
 
     @MainActor
@@ -52,8 +52,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testCommandClickTogglesItems() {
-        let apps = makeApps(count: 4)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 4)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
 
         commandClick(model, 1)
         commandClick(model, 3)
@@ -65,8 +65,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testMarqueeAddsIntersectingTilesToExistingSelection() {
-        let apps = makeApps(count: 12)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 12)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
         commandClick(model, 10)
 
         XCTAssertTrue(model.beginMarquee(at: CGPoint(x: tile(0).minX - 2, y: tile(0).minY + 1)))
@@ -84,7 +84,7 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testMultiSelectNeedsEditableGridWithoutSearchOrFolder() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         let (model, _) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
 
         XCTAssertFalse(model.beginMarquee(at: CGPoint(x: 5, y: 5)))
@@ -102,8 +102,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testEscapeClearsSelectionBeforeStoppingJiggle() {
-        let apps = makeApps(count: 3)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 3)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
         model.beginJiggling()
         commandClick(model, 0)
 
@@ -114,8 +114,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testSearchActivationAndPresentationClearSelection() {
-        let apps = makeApps(count: 3)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 3)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
 
         commandClick(model, 0)
         model.setQuery("App")
@@ -135,20 +135,20 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testLayoutUpdateDropsMissingItems() {
-        let apps = makeApps(count: 3)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 3)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
         commandClick(model, 0)
         commandClick(model, 1)
 
-        model.updateLayout([[.app(apps[0]), .app(apps[2])]])
+        model.updateLayout([[.item(apps[0]), .item(apps[2])]])
 
         XCTAssertEqual(model.multiSelection.items, [id(apps[0])])
     }
 
     @MainActor
     func testPickedEntriesAreMarked() {
-        let apps = makeApps(count: 3)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 3)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
         commandClick(model, 1)
 
         XCTAssertEqual(
@@ -159,8 +159,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testMenuOnlyOnPickedItemAndListsPickedFolders() {
-        let apps = makeApps(count: 3)
-        let (model, _) = makeModel(pages: [[.app(apps[0]), .app(apps[1]), makeFolder(id: "f", name: "效率", apps: [apps[2]])]])
+        let apps = makeLaunchItems(count: 3)
+        let (model, _) = makeModel(pages: [[.item(apps[0]), .item(apps[1]), makeFolder(id: "f", name: "效率", apps: [apps[2]])]])
         commandClick(model, 2)
         commandClick(model, 1)
 
@@ -173,10 +173,10 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testMenuCommandsBecomeGroupEditsInPageOrder() {
-        let apps = makeApps(count: 4)
+        let apps = makeLaunchItems(count: 4)
         let (model, log) = makeModel(pages: [
-            [.app(apps[0]), .app(apps[1])],
-            [makeFolder(id: "f", name: "效率", apps: [apps[3]]), .app(apps[2])],
+            [.item(apps[0]), .item(apps[1])],
+            [makeFolder(id: "f", name: "效率", apps: [apps[3]]), .item(apps[2])],
         ])
         let picked: [LayoutItemID] = [id(apps[1]), .folder("f"), id(apps[2])]
         let commands: [ItemMenuCommand] = [.mergeIntoNewFolder, .mergeInto(folder: "f"), .moveToPage(0), .moveToNewPage]
@@ -199,8 +199,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testDraggingPickedItemMovesWholeGroup() {
-        let apps = makeApps(count: 8)
-        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 8)
+        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.item)])
         commandClick(model, 3)
         commandClick(model, 1)
         guard let press = model.itemPress(at: center(3)) else {
@@ -222,8 +222,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testGroupDroppedOnAppCenterMerges() {
-        let apps = makeApps(count: 6)
-        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 6)
+        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.item)])
         commandClick(model, 0)
         commandClick(model, 1)
         guard let press = model.itemPress(at: center(0)) else {
@@ -240,8 +240,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testDraggingUnpickedItemDropsSelection() {
-        let apps = makeApps(count: 4)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 4)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
         commandClick(model, 1)
         commandClick(model, 2)
         guard let press = model.itemPress(at: center(0)) else {
@@ -257,8 +257,8 @@ final class LauncherModelSelectionTests: XCTestCase {
 
     @MainActor
     func testModifiedClickDoesNotDragPages() {
-        let apps = makeApps(count: 40)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 40)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
         model.isModifiedClick = true
 
         model.dragPage(by: -300)

@@ -101,8 +101,8 @@ final class SearchServiceTests: XCTestCase {
         XCTAssertEqual(SearchName.syllables(of: "重庆"), ["chong", "qing"])
     }
 
-    private func catalogApp() -> CatalogApp {
-        CatalogApp(
+    private func catalogApp() -> LaunchItem {
+        LaunchItem(
             identity: AppIdentity(
                 bundleIdentifier: "com.example.Reader",
                 path: "/Applications/Reader.app"
@@ -111,8 +111,8 @@ final class SearchServiceTests: XCTestCase {
         )
     }
 
-    private func app(_ name: String, file: String, bundleID: String? = nil) -> CatalogApp {
-        CatalogApp(
+    private func app(_ name: String, file: String, bundleID: String? = nil) -> LaunchItem {
+        LaunchItem(
             identity: AppIdentity(
                 bundleIdentifier: bundleID ?? "com.example.\(file.replacingOccurrences(of: " ", with: ""))",
                 path: "/Applications/\(file).app"

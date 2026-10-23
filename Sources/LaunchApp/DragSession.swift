@@ -62,7 +62,7 @@ struct DragPreview: Equatable {
         if isGroup {
             return true
         }
-        if case .app = item {
+        if case .item = item {
             return true
         }
         return false

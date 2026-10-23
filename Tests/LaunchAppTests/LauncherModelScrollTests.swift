@@ -44,11 +44,11 @@ final class LauncherModelScrollTests: XCTestCase {
     }
 
     @MainActor
-    private func makeModel() -> (LauncherModel, [CatalogApp], EditLog) {
-        let apps = makeApps(count: 12)
+    private func makeModel() -> (LauncherModel, [LaunchItem], EditLog) {
+        let apps = makeLaunchItems(count: 12)
         let model = LauncherModel(apps: apps)
         let log = EditLog()
-        model.updateLayout([apps.prefix(8).map(ResolvedItem.app), apps.dropFirst(8).map(ResolvedItem.app)])
+        model.updateLayout([apps.prefix(8).map(ResolvedItem.item), apps.dropFirst(8).map(ResolvedItem.item)])
         model.canEditLayout = true
         model.onEdit = { log.edits.append($0) }
         model.updateHomeLayout(layout)
@@ -59,8 +59,8 @@ final class LauncherModelScrollTests: XCTestCase {
         return (model, apps, log)
     }
 
-    private func key(_ app: CatalogApp) -> LayoutItemID {
-        .app(app.identity.stableKey)
+    private func key(_ app: LaunchItem) -> LayoutItemID {
+        .item(app.identity.stableKey)
     }
 
     @MainActor
@@ -70,7 +70,7 @@ final class LauncherModelScrollTests: XCTestCase {
 
         let press = model.itemPress(at: center(2, in: second))
 
-        XCTAssertEqual(press, LauncherModel.ItemPress(item: .app(apps[10]), origin: .grid(page: 1, index: 2)))
+        XCTAssertEqual(press, LauncherModel.ItemPress(item: .item(apps[10]), origin: .grid(page: 1, index: 2)))
         XCTAssertEqual(model.frame(of: .grid(page: 1, index: 2)), tile(2, in: second))
     }
 

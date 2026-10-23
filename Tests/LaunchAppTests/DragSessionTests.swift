@@ -3,10 +3,10 @@ import XCTest
 @testable import LaunchApp
 
 final class DragSessionTests: XCTestCase {
-    private let app = makeApps(count: 1)[0]
+    private let app = makeLaunchItems(count: 1)[0]
 
     private func session(origin: DragOrigin = .grid(page: 0, index: 2)) -> DragSession {
-        DragSession(item: .app(app), origin: origin)
+        DragSession(item: .item(app), origin: origin)
     }
 
     private func confirmed(_ target: DragTarget, origin: DragOrigin = .grid(page: 0, index: 2)) -> DragSession {
@@ -111,7 +111,7 @@ final class DragSessionTests: XCTestCase {
     }
 
     func testFolderItemNeverMerges() {
-        let preview = DragSession(item: .folder(ResolvedFolder(id: "f", name: "x", apps: [app])), origin: .grid(page: 0, index: 0)).preview
+        let preview = DragSession(item: .folder(ResolvedFolder(id: "f", name: "x", items: [app])), origin: .grid(page: 0, index: 0)).preview
         let entries = preview.entries(page: 0, itemCount: 3, capacity: 35, in: .grid)
 
         XCTAssertEqual(preview.hit(for: .item(2, .center), entries: entries, itemCount: 3, page: 0, in: .grid), .target(.insert(page: 0, index: 1)))
@@ -124,7 +124,7 @@ final class DragSessionTests: XCTestCase {
     }
 
     private func groupSession(target: DragTarget? = nil) -> DragSession {
-        var session = DragSession(item: .app(app), origin: .grid(page: 0, index: 1), group: [0: [1, 3], 1: [0]])
+        var session = DragSession(item: .item(app), origin: .grid(page: 0, index: 1), group: [0: [1, 3], 1: [0]])
         if let target {
             _ = session.update(hit: .target(target), outsideFolder: false, now: 0)
             _ = session.update(hit: .target(target), outsideFolder: false, now: 1)
@@ -162,7 +162,7 @@ final class DragSessionTests: XCTestCase {
     }
 
     func testGroupLedByFolderCanMerge() {
-        let folder = ResolvedItem.folder(ResolvedFolder(id: "f", name: "x", apps: [app]))
+        let folder = ResolvedItem.folder(ResolvedFolder(id: "f", name: "x", items: [app]))
         let preview = DragSession(item: folder, origin: .grid(page: 0, index: 0), group: [0: [0, 1]]).preview
         let entries = preview.entries(page: 0, itemCount: 4, capacity: 35, in: .grid)
 

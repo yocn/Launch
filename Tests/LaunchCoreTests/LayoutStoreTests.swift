@@ -101,7 +101,7 @@ final class LayoutStoreTests: XCTestCase {
         let store = try temporaryStore()
         let document = LayoutDocument(
             pages: [LayoutPage(slots: [.empty])],
-            hiddenApps: [AppIdentity(bundleIdentifier: "com.example.a", path: "/Applications/A.app")]
+            hiddenItems: [ItemIdentity(bundleIdentifier: "com.example.a", path: "/Applications/A.app")]
         )
 
         try store.save(document)

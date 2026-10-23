@@ -18,7 +18,7 @@ final class LauncherModelJiggleTests: XCTestCase {
     }
 
     @MainActor
-    private func makeModel(apps: [CatalogApp], pages: [[ResolvedItem]]) -> LauncherModel {
+    private func makeModel(apps: [LaunchItem], pages: [[ResolvedItem]]) -> LauncherModel {
         let model = LauncherModel(apps: apps)
         model.updateLayout(pages)
         model.canEditLayout = true
@@ -29,8 +29,8 @@ final class LauncherModelJiggleTests: XCTestCase {
 
     @MainActor
     func testJigglingNeedsEditableLayoutWithoutSearch() {
-        let apps = makeApps(count: 3)
-        let model = makeModel(apps: apps, pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 3)
+        let model = makeModel(apps: apps, pages: [apps.map(ResolvedItem.item)])
 
         model.canEditLayout = false
         model.beginJiggling()
@@ -48,7 +48,7 @@ final class LauncherModelJiggleTests: XCTestCase {
 
     @MainActor
     func testEscapeClosesFolderThenStopsJigglingThenCloses() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         let model = makeModel(apps: apps, pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
         model.showFolder(id: "f")
         model.beginJiggling()
@@ -62,8 +62,8 @@ final class LauncherModelJiggleTests: XCTestCase {
 
     @MainActor
     func testTypingAndPresentingStopJiggling() {
-        let apps = makeApps(count: 3)
-        let model = makeModel(apps: apps, pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 3)
+        let model = makeModel(apps: apps, pages: [apps.map(ResolvedItem.item)])
 
         model.beginJiggling()
         model.setQuery("App")
@@ -77,8 +77,8 @@ final class LauncherModelJiggleTests: XCTestCase {
 
     @MainActor
     func testUninstallTargetOnlyOnBadgeOfUninstallableAppWhileJiggling() {
-        let apps = makeApps(count: 3)
-        let model = makeModel(apps: apps, pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 3)
+        let model = makeModel(apps: apps, pages: [apps.map(ResolvedItem.item)])
         model.canUninstall = { $0 == apps[1] }
         let badge = layout.uninstallBadgeFrame(inTile: tile(1))
         let badgeCenter = CGPoint(x: badge.midX, y: badge.midY)

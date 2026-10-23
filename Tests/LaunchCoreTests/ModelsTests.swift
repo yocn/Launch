@@ -16,7 +16,7 @@ final class ModelsTests: XCTestCase {
             bundleIdentifier: "com.example.Reader",
             path: "/Applications/Reader.app"
         )
-        let page = LayoutPage(slots: [.app(reader), .empty])
+        let page = LayoutPage(slots: [.item(.application(reader)), .empty])
         let document = LayoutDocument(pages: [page])
 
         XCTAssertEqual(document.pages.first?.slots.count, 2)

@@ -2,14 +2,14 @@ import XCTest
 @testable import LaunchCore
 
 final class DisplaySorterTests: XCTestCase {
-    private func app(_ name: String) -> CatalogApp {
-        CatalogApp(identity: AppIdentity(bundleIdentifier: "com.example.\(name)", path: "/Applications/\(name).app"), displayName: name)
+    private func app(_ name: String) -> LaunchItem {
+        LaunchItem(identity: AppIdentity(bundleIdentifier: "com.example.\(name)", path: "/Applications/\(name).app"), displayName: name)
     }
 
     private func names(_ items: [ResolvedItem]) -> [String] {
         items.map { item in
             switch item {
-            case .app(let app): app.displayName
+            case .item(let app): app.displayName
             case .folder(let folder): "[\(folder.name)]"
             case .empty: "-"
             }
@@ -22,7 +22,7 @@ final class DisplaySorterTests: XCTestCase {
 
     func testNameSortInterleavesPinyinAndLatin() {
         let apps = ["微信", "App Store", "备忘录", "地图", "iTerm", "计算器"].map(app)
-        let pages: [[ResolvedItem]] = [Array(apps.prefix(3)).map(ResolvedItem.app), Array(apps.dropFirst(3)).map(ResolvedItem.app) + [.empty]]
+        let pages: [[ResolvedItem]] = [Array(apps.prefix(3)).map(ResolvedItem.item), Array(apps.dropFirst(3)).map(ResolvedItem.item) + [.empty]]
 
         XCTAssertEqual(
             names(DisplaySorter.sorted(pages, by: DisplaySort(field: .name), dates: [:])),
@@ -37,7 +37,7 @@ final class DisplaySorterTests: XCTestCase {
     func testMissingDatesStayLastInBothDirections() {
         let (a, b, c) = (app("A"), app("B"), app("C"))
         let dates = [a.identity.stableKey: AppDates(lastUsed: date(2)), c.identity.stableKey: AppDates(lastUsed: date(1))]
-        let pages: [[ResolvedItem]] = [[.app(a), .app(b), .app(c)]]
+        let pages: [[ResolvedItem]] = [[.item(a), .item(b), .item(c)]]
 
         XCTAssertEqual(names(DisplaySorter.sorted(pages, by: DisplaySort(field: .lastUsed), dates: dates)), ["C", "A", "B"])
         XCTAssertEqual(names(DisplaySorter.sorted(pages, by: DisplaySort(field: .lastUsed, descending: true), dates: dates)), ["A", "C", "B"])
@@ -45,21 +45,21 @@ final class DisplaySorterTests: XCTestCase {
 
     func testFolderDateIsNewestMember() {
         let (a, b, x) = (app("A"), app("B"), app("X"))
-        let folder = ResolvedFolder(id: "f", name: "效率", apps: [a, b])
+        let folder = ResolvedFolder(id: "f", name: "效率", items: [a, b])
         let dates = [
             a.identity.stableKey: AppDates(added: date(1)),
             b.identity.stableKey: AppDates(added: date(5)),
             x.identity.stableKey: AppDates(added: date(3)),
         ]
-        let pages: [[ResolvedItem]] = [[.folder(folder), .app(x)]]
+        let pages: [[ResolvedItem]] = [[.folder(folder), .item(x)]]
 
         XCTAssertEqual(names(DisplaySorter.sorted(pages, by: DisplaySort(field: .dateAdded), dates: dates)), ["X", "[效率]"])
     }
 
     func testFolderPlacement() {
         let (b, z) = (app("B"), app("Z"))
-        let folder = ResolvedFolder(id: "f", name: "M", apps: [app("Q")])
-        let pages: [[ResolvedItem]] = [[.app(z), .folder(folder), .app(b)]]
+        let folder = ResolvedFolder(id: "f", name: "M", items: [app("Q")])
+        let pages: [[ResolvedItem]] = [[.item(z), .folder(folder), .item(b)]]
 
         XCTAssertEqual(names(DisplaySorter.sorted(pages, by: DisplaySort(field: .name, folderPlacement: .mixed), dates: [:])), ["B", "[M]", "Z"])
         XCTAssertEqual(names(DisplaySorter.sorted(pages, by: DisplaySort(field: .name, folderPlacement: .first), dates: [:])), ["[M]", "B", "Z"])
@@ -70,15 +70,15 @@ final class DisplaySorterTests: XCTestCase {
     }
 
     func testFolderContentsSortOnlyWhenAsked() {
-        let folder = ResolvedFolder(id: "f", name: "F", apps: [app("C"), app("A"), app("B")])
+        let folder = ResolvedFolder(id: "f", name: "F", items: [app("C"), app("A"), app("B")])
         let pages: [[ResolvedItem]] = [[.folder(folder)]]
 
         guard case .folder(let kept) = DisplaySorter.sorted(pages, by: DisplaySort(field: .name), dates: [:]).first,
               case .folder(let sorted) = DisplaySorter.sorted(pages, by: DisplaySort(field: .name, sortsFolderContents: true), dates: [:]).first else {
             return XCTFail("expected folder")
         }
-        XCTAssertEqual(kept.apps.map(\.displayName), ["C", "A", "B"])
-        XCTAssertEqual(sorted.apps.map(\.displayName), ["A", "B", "C"])
+        XCTAssertEqual(kept.items.map(\.displayName), ["C", "A", "B"])
+        XCTAssertEqual(sorted.items.map(\.displayName), ["A", "B", "C"])
         XCTAssertEqual(sorted.id, "f")
     }
 }

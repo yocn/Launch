@@ -14,21 +14,37 @@ public enum LayoutBackup {
         guard document.schemaVersion == LayoutDocument.currentVersion else {
             throw LayoutStoreError.unsupportedSchema(document.schemaVersion)
         }
+        var ids = Set<UUID>()
+        var identities = Set<ItemIdentity>()
+        for entry in document.extraItems {
+            guard ids.insert(entry.id).inserted, identities.insert(entry.identity).inserted,
+                  !entry.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  (entry.customIconData?.count ?? 0) <= 1_048_576,
+                  (entry.cachedIconData?.count ?? 0) <= 1_048_576 else {
+                throw LayoutStoreError.invalidItems
+            }
+            if case .website(let url) = entry.target {
+                guard ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
+                      url.host?.isEmpty == false, url.user == nil, url.password == nil else {
+                    throw LayoutStoreError.invalidItems
+                }
+            }
+        }
         return document
     }
 
     // 未安装的应用保留位置；本机有而备份里没有的排在最后
-    public static func makeImport(from backup: LayoutDocument, catalog: [CatalogApp], pageCapacity: Int) -> LaunchpadImport {
+    public static func makeImport(from backup: LayoutDocument, catalog: [LaunchItem], pageCapacity: Int) -> LaunchpadImport {
         let resolver = CatalogResolver(catalog: catalog)
-        var apps: [AppIdentity] = []
+        var apps: [ItemIdentity] = []
         var folderCount = 0
         for slot in backup.pages.flatMap(\.slots) {
             switch slot {
-            case .app(let identity):
+            case .item(let identity):
                 apps.append(identity)
             case .folder(let folder):
                 folderCount += 1
-                apps += folder.apps
+                apps += folder.items
             case .empty:
                 break
             }
@@ -40,7 +56,7 @@ public enum LayoutBackup {
                 pageCount: backup.pages.filter { !$0.slots.allSatisfy { $0 == .empty } }.count,
                 folderCount: folderCount,
                 appCount: apps.count,
-                installedCount: apps.filter { resolver.app(for: $0) != nil }.count,
+                installedCount: apps.filter { resolver.item(for: $0) != nil }.count,
                 newAppCount: reconciled.appendedApps.count
             )
         )

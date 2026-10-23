@@ -18,12 +18,12 @@ final class LauncherModelMenuTests: XCTestCase {
         return CGPoint(x: rect.midX, y: rect.minY + layout.tilePadding + layout.iconSide / 2)
     }
 
-    private func id(_ app: CatalogApp) -> LayoutItemID {
-        .app(app.identity.stableKey)
+    private func id(_ app: LaunchItem) -> LayoutItemID {
+        .item(app.identity.stableKey)
     }
 
     @MainActor
-    private func makeModel(pages: [[ResolvedItem]], apps: [CatalogApp] = []) -> (LauncherModel, EditLog) {
+    private func makeModel(pages: [[ResolvedItem]], apps: [LaunchItem] = []) -> (LauncherModel, EditLog) {
         let model = LauncherModel(apps: apps)
         let log = EditLog()
         model.updateLayout(pages)
@@ -37,25 +37,25 @@ final class LauncherModelMenuTests: XCTestCase {
 
     @MainActor
     func testAppAndFolderMenus() {
-        let apps = makeApps(count: 3)
-        let folder = ResolvedFolder(id: "f", name: "效率", apps: [apps[2]])
-        let (model, _) = makeModel(pages: [[.app(apps[0]), .app(apps[1]), .folder(folder)]])
+        let apps = makeLaunchItems(count: 3)
+        let folder = ResolvedFolder(id: "f", name: "效率", items: [apps[2]])
+        let (model, _) = makeModel(pages: [[.item(apps[0]), .item(apps[1]), .folder(folder)]])
         model.canUninstall = { $0 == apps[1] }
 
-        XCTAssertEqual(model.contextMenu(at: center(0)), .app(AppMenuContent(app: apps[0], canOpen: true, canEdit: true, canUninstall: false)))
-        XCTAssertEqual(model.contextMenu(at: center(1)), .app(AppMenuContent(app: apps[1], canOpen: true, canEdit: true, canUninstall: true)))
+        XCTAssertEqual(model.contextMenu(at: center(0)), .item(AppMenuContent(app: apps[0], canOpen: true, canEdit: true, canUninstall: false)))
+        XCTAssertEqual(model.contextMenu(at: center(1)), .item(AppMenuContent(app: apps[1], canOpen: true, canEdit: true, canUninstall: true)))
         XCTAssertEqual(model.contextMenu(at: center(2)), .folder(FolderMenuContent(folder: folder, canEdit: true)))
         XCTAssertEqual(model.contextMenu(at: CGPoint(x: 5, y: 5)), .main(MainMenuContent(canSelectAll: true, canArrange: true)))
 
         model.beginJiggling()
         model.canEditLayout = false
-        XCTAssertEqual(model.contextMenu(at: center(0)), .app(AppMenuContent(app: apps[0], canOpen: false, canEdit: false, canUninstall: false)))
+        XCTAssertEqual(model.contextMenu(at: center(0)), .item(AppMenuContent(app: apps[0], canOpen: false, canEdit: false, canUninstall: false)))
     }
 
     @MainActor
     func testPickedItemGetsSelectionMenuAndOtherItemClearsSelection() {
-        let apps = makeApps(count: 3)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 3)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
         model.toggleMultiSelection(id(apps[0]))
         model.toggleMultiSelection(id(apps[1]))
 
@@ -63,7 +63,7 @@ final class LauncherModelMenuTests: XCTestCase {
             return XCTFail("expected selection menu")
         }
         XCTAssertEqual(model.multiSelection.count, 2)
-        guard case .app? = model.contextMenu(at: center(2)) else {
+        guard case .item? = model.contextMenu(at: center(2)) else {
             return XCTFail("expected app menu")
         }
         XCTAssertTrue(model.multiSelection.isEmpty)
@@ -71,17 +71,17 @@ final class LauncherModelMenuTests: XCTestCase {
 
     @MainActor
     func testMemberMenuInsideOpenFolder() {
-        let apps = makeApps(count: 2)
-        let (model, _) = makeModel(pages: [[.folder(ResolvedFolder(id: "f", name: "效率", apps: apps))]])
+        let apps = makeLaunchItems(count: 2)
+        let (model, _) = makeModel(pages: [[.folder(ResolvedFolder(id: "f", name: "效率", items: apps))]])
         model.showFolder(id: "f")
 
-        XCTAssertEqual(model.contextMenu(at: center(1)), .app(AppMenuContent(app: apps[1], canOpen: true, canEdit: true, canUninstall: false)))
+        XCTAssertEqual(model.contextMenu(at: center(1)), .item(AppMenuContent(app: apps[1], canOpen: true, canEdit: true, canUninstall: false)))
     }
 
     @MainActor
     func testMenuCommandsBecomeEdits() {
-        let apps = makeApps(count: 3)
-        let (model, log) = makeModel(pages: [[.app(apps[0]), makeFolder(id: "f", name: "效率", apps: [apps[1], apps[2]])]])
+        let apps = makeLaunchItems(count: 3)
+        let (model, log) = makeModel(pages: [[.item(apps[0]), makeFolder(id: "f", name: "效率", apps: [apps[1], apps[2]])]])
 
         model.performMenuCommand(.hide(id(apps[0])))
         model.performMenuCommand(.ungroup(folder: "f"))
@@ -101,7 +101,7 @@ final class LauncherModelMenuTests: XCTestCase {
 
     @MainActor
     func testRenameCommandOpensFolderAndStartsRenaming() {
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let (model, _) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
 
         model.performMenuCommand(.rename(folder: "f"))
@@ -113,7 +113,7 @@ final class LauncherModelMenuTests: XCTestCase {
 
     @MainActor
     func testSearchSkipsHiddenApps() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         let model = LauncherModel(apps: apps)
 
         model.updateHiddenApps([apps[1]])
@@ -124,9 +124,9 @@ final class LauncherModelMenuTests: XCTestCase {
 
     @MainActor
     func testSelectAllPicksEveryItemOnCurrentPage() {
-        let apps = makeApps(count: 3)
-        let folder = ResolvedFolder(id: "f", name: "效率", apps: [apps[2]])
-        let (model, _) = makeModel(pages: [[.app(apps[0]), .folder(folder)], [.app(apps[1])]])
+        let apps = makeLaunchItems(count: 3)
+        let folder = ResolvedFolder(id: "f", name: "效率", items: [apps[2]])
+        let (model, _) = makeModel(pages: [[.item(apps[0]), .folder(folder)], [.item(apps[1])]])
 
         model.selectAllOnPage()
         XCTAssertEqual(model.multiSelection.items, [id(apps[0]), .folder("f")])
@@ -138,8 +138,8 @@ final class LauncherModelMenuTests: XCTestCase {
 
     @MainActor
     func testSelectAllAndArrangeNeedEditableLayoutWithoutQuery() {
-        let apps = makeApps(count: 2)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)], apps: apps)
+        let apps = makeLaunchItems(count: 2)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)], apps: apps)
 
         model.setQuery("a")
         XCTAssertEqual(model.mainMenu, MainMenuContent(canSelectAll: false, canArrange: false))

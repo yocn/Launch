@@ -15,6 +15,10 @@ func makeApps(count: Int) -> [CatalogApp] {
     }
 }
 
+func makeLaunchItems(count: Int) -> [LaunchItem] {
+    makeApps(count: count).map(LaunchItem.init(application:))
+}
+
 extension XCTestCase {
     func makeTemporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
@@ -27,8 +31,8 @@ extension XCTestCase {
     }
 }
 
-func makeFolder(id: String, name: String, apps: [CatalogApp]) -> ResolvedItem {
-    .folder(ResolvedFolder(id: id, name: name, apps: apps))
+func makeFolder(id: String, name: String, apps: [LaunchItem]) -> ResolvedItem {
+    .folder(ResolvedFolder(id: id, name: name, items: apps))
 }
 
 final class FakeRunningApp: RunningAppHandle {

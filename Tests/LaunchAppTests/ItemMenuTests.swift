@@ -47,9 +47,9 @@ final class ItemMenuTests: XCTestCase {
 
     func testAppMenu() {
         var chosen: [ItemMenuCommand] = []
-        let app = makeApps(count: 1)[0]
+        let app = makeLaunchItems(count: 1)[0]
         let builder = ItemMenu { chosen.append($0) }
-        let menu = builder.makeMenu(.app(AppMenuContent(
+        let menu = builder.makeMenu(.item(AppMenuContent(
             app: app,
             canOpen: false,
             canEdit: true,
@@ -61,9 +61,9 @@ final class ItemMenuTests: XCTestCase {
         for index in [2, 3, 5, 6] {
             trigger(menu.items[index])
         }
-        XCTAssertEqual(chosen, [.revealInFinder(app), .showInfo(app), .hide(.app(app.identity.stableKey)), .moveToTrash(app)])
+        XCTAssertEqual(chosen, [.revealInFinder(app), .showInfo(app), .hide(.item(app.identity.stableKey)), .moveToTrash(app)])
 
-        let plain = ItemMenu { _ in }.makeMenu(.app(AppMenuContent(
+        let plain = ItemMenu { _ in }.makeMenu(.item(AppMenuContent(
             app: app,
             canOpen: true,
             canEdit: false,
@@ -76,7 +76,7 @@ final class ItemMenuTests: XCTestCase {
 
     func testFolderMenu() {
         var chosen: [ItemMenuCommand] = []
-        let folder = ResolvedFolder(id: "f", name: "效率", apps: makeApps(count: 2))
+        let folder = ResolvedFolder(id: "f", name: "效率", items: makeLaunchItems(count: 2))
         let builder = ItemMenu { chosen.append($0) }
         let menu = builder.makeMenu(.folder(FolderMenuContent(folder: folder, canEdit: true)))
 
@@ -156,9 +156,9 @@ final class ItemMenuTests: XCTestCase {
 
     func testHiddenAppOffersUnhide() {
         var chosen: [ItemMenuCommand] = []
-        let app = makeApps(count: 1)[0]
+        let app = makeLaunchItems(count: 1)[0]
         let builder = ItemMenu { chosen.append($0) }
-        let menu = builder.makeMenu(.app(AppMenuContent(
+        let menu = builder.makeMenu(.item(AppMenuContent(
             app: app,
             canOpen: true,
             canEdit: true,

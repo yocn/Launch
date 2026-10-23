@@ -179,7 +179,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             isJigglingFromOption = false
         }
         controller.model.canUninstall = { [weak self] app in
-            self?.uninstallCoordinator.canUninstall(app) ?? false
+            guard let application = app.application else { return false }
+            return self?.uninstallCoordinator.canUninstall(application) ?? false
         }
         layoutCoordinator.start()
         inputMonitor.start(
@@ -235,7 +236,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         controller.show()
     }
 
-    private func uninstall(_ app: CatalogApp) {
+    private func uninstall(_ item: LaunchItem) {
+        guard let app = item.application else { return }
         Task {
             await uninstallCoordinator.uninstall(app)
         }
@@ -262,7 +264,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
 
     private func activate(_ item: ResolvedItem) {
         switch item {
-        case .app(let app):
+        case .item(let app):
             controller.launch(app)
         case .folder(let folder):
             controller.model.showFolder(id: folder.id)
@@ -276,9 +278,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         case .open(let item):
             activate(item)
         case .revealInFinder(let app):
-            appActions.revealInFinder(app)
+            if let application = app.application { appActions.revealInFinder(application) }
         case .showInfo(let app):
-            appActions.showInfo(app)
+            if let application = app.application { appActions.showInfo(application) }
         case .moveToTrash(let app):
             uninstall(app)
         case .unhide(let app):
@@ -341,9 +343,10 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             guard let self, generation == catalogGeneration else {
                 return
             }
-            controller.updateCatalog(apps)
+            let items = apps.map(LaunchItem.init(application:))
+            controller.updateCatalog(items)
             refreshAppDates()
-            Task { await self.layoutCoordinator.catalogDidChange(apps) }
+            Task { await self.layoutCoordinator.catalogDidChange(items) }
         }
         watcher.start()
         catalogWatcher = watcher
@@ -353,7 +356,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         guard settings.sortField == .dateAdded || settings.sortField == .lastUsed else {
             return
         }
-        AppDatesProvider.load(controller.model.apps) { [weak self] dates in
+        AppDatesProvider.load(controller.model.apps.compactMap(\.application)) { [weak self] dates in
             self?.controller.model.updateAppDates(dates)
         }
     }

@@ -133,15 +133,15 @@ final class LauncherController {
         }
     }
 
-    func launch(_ app: CatalogApp) {
-        guard !model.isJiggling else {
+    func launch(_ app: LaunchItem) {
+        guard !model.isJiggling, app.isAvailable, let application = app.application else {
             return
         }
-        openApplication(URL(fileURLWithPath: app.identity.path))
+        openApplication(URL(fileURLWithPath: application.identity.path))
         hide(.launchedApp)
     }
 
-    func updateCatalog(_ apps: [CatalogApp]) {
+    func updateCatalog(_ apps: [LaunchItem]) {
         guard apps != model.apps else {
             return
         }

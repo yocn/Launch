@@ -7,16 +7,16 @@ final class LayoutEditorTests: XCTestCase {
     private let c = layoutApp("C")
     private let d = layoutApp("D")
     private let e = layoutApp("E")
-    private let gone = AppIdentity(bundleIdentifier: "com.example.gone", path: "")
+    private let gone = ItemIdentity(bundleIdentifier: "com.example.gone", path: "")
 
-    private var catalog: [CatalogApp] { [a, b, c, d, e] }
+    private var catalog: [LaunchItem] { [a, b, c, d, e] }
 
-    private func slot(_ app: CatalogApp) -> LayoutSlot { .app(app.identity) }
-    private func key(_ app: CatalogApp) -> String { app.identity.stableKey }
-    private func id(_ app: CatalogApp) -> LayoutItemID { .app(key(app)) }
+    private func slot(_ app: LaunchItem) -> LayoutSlot { .item(app.identity) }
+    private func key(_ app: LaunchItem) -> String { app.identity.stableKey }
+    private func id(_ app: LaunchItem) -> LayoutItemID { .item(key(app)) }
 
-    private func folder(_ id: String, _ apps: [CatalogApp], name: String = "效率") -> LayoutSlot {
-        .folder(LayoutFolder(id: id, name: name, apps: apps.map(\.identity)))
+    private func folder(_ id: String, _ apps: [LaunchItem], name: String = "效率") -> LayoutSlot {
+        .folder(LayoutFolder(id: id, name: name, items: apps.map(\.identity)))
     }
 
     private func document(_ pages: [[LayoutSlot]]) -> LayoutDocument {
@@ -80,11 +80,11 @@ final class LayoutEditorTests: XCTestCase {
     func testMissingAppsStayAndDoNotCountTowardCapacity() {
         let result = apply(
             .move(id(c), to: .insert(page: 0, before: id(b))),
-            [[slot(a), .app(gone), slot(b)], [slot(c)]],
+            [[slot(a), .item(gone), slot(b)], [slot(c)]],
             capacity: 2
         )
 
-        XCTAssertEqual(result, [[slot(a), .app(gone), slot(c)], [slot(b)]])
+        XCTAssertEqual(result, [[slot(a), .item(gone), slot(c)], [slot(b)]])
     }
 
     func testOversizedLegacyPageIsSplitBeforeEditing() {
@@ -107,7 +107,7 @@ final class LayoutEditorTests: XCTestCase {
             pageCapacity: 35
         )
         let unknown = LayoutEditor.apply(
-            .move(.app("bundle:missing"), to: .newPage),
+            .move(.item("bundle:missing"), to: .newPage),
             to: original,
             catalog: catalog,
             pageCapacity: 35
@@ -118,8 +118,8 @@ final class LayoutEditorTests: XCTestCase {
     }
 
     func testResolvedItemLayoutID() {
-        XCTAssertEqual(ResolvedItem.app(a).layoutID, id(a))
-        XCTAssertEqual(ResolvedItem.folder(ResolvedFolder(id: "f", name: "x", apps: [a])).layoutID, .folder("f"))
+        XCTAssertEqual(ResolvedItem.item(a).layoutID, id(a))
+        XCTAssertEqual(ResolvedItem.folder(ResolvedFolder(id: "f", name: "x", items: [a])).layoutID, .folder("f"))
         XCTAssertNil(ResolvedItem.empty.layoutID)
     }
 
@@ -187,10 +187,10 @@ final class LayoutEditorTests: XCTestCase {
     func testMissingMemberCountsWhenDissolving() {
         let result = apply(
             .moveOutOfFolder(app: key(a), folder: "f", to: .insert(page: 0, before: nil)),
-            [[.folder(LayoutFolder(id: "f", name: "效率", apps: [a.identity, gone])), slot(b)]]
+            [[.folder(LayoutFolder(id: "f", name: "效率", items: [a.identity, gone])), slot(b)]]
         )
 
-        XCTAssertEqual(result, [[.app(gone), slot(b), slot(a)]])
+        XCTAssertEqual(result, [[.item(gone), slot(b), slot(a)]])
     }
 
     func testRenameFolderTrimsAndDefaults() {
@@ -263,11 +263,11 @@ final class LayoutEditorTests: XCTestCase {
     }
 
     func testGroupMergeKeepsMissingMembersOfFlattenedFolder() {
-        let g = LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", apps: [c.identity, gone]))
+        let g = LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", items: [c.identity, gone]))
 
         let result = apply(.moveGroup([.folder("g")], to: .merge(id(a))), [[slot(a), g]])
 
-        XCTAssertEqual(result, [[.folder(LayoutFolder(id: "new", name: "未命名", apps: [a.identity, c.identity, gone]))]])
+        XCTAssertEqual(result, [[.folder(LayoutFolder(id: "new", name: "未命名", items: [a.identity, c.identity, gone]))]])
     }
 
     func testMergeIntoNewFolderTakesFirstItemPosition() {
@@ -286,7 +286,7 @@ final class LayoutEditorTests: XCTestCase {
     }
 
     func testEditKeepsHiddenApps() {
-        let document = LayoutDocument(pages: [LayoutPage(slots: [slot(a), slot(b)])], hiddenApps: [gone])
+        let document = LayoutDocument(pages: [LayoutPage(slots: [slot(a), slot(b)])], hiddenItems: [gone])
 
         let result = LayoutEditor.apply(
             .move(id(b), to: .insert(page: 0, before: id(a))),
@@ -295,18 +295,18 @@ final class LayoutEditorTests: XCTestCase {
             pageCapacity: 35
         )
 
-        XCTAssertEqual(result.hiddenApps, [gone])
+        XCTAssertEqual(result.hiddenItems, [gone])
     }
 
     private func applyDocument(
         _ edit: LayoutEdit,
         _ pages: [[LayoutSlot]],
-        hidden: [AppIdentity] = [],
+        hidden: [ItemIdentity] = [],
         capacity: Int = 35
     ) -> LayoutDocument {
         LayoutEditor.apply(
             edit,
-            to: LayoutDocument(pages: pages.map { LayoutPage(slots: $0) }, hiddenApps: hidden),
+            to: LayoutDocument(pages: pages.map { LayoutPage(slots: $0) }, hiddenItems: hidden),
             catalog: catalog,
             pageCapacity: capacity,
             makeFolderID: { "new" }
@@ -319,17 +319,17 @@ final class LayoutEditorTests: XCTestCase {
         let result = applyDocument(.hide([id(a), .folder("f")]), pages)
 
         XCTAssertEqual(result.pages.map(\.slots), pages)
-        XCTAssertEqual(result.hiddenApps, [a.identity, b.identity, c.identity])
+        XCTAssertEqual(result.hiddenItems, [a.identity, b.identity, c.identity])
     }
 
     func testHideFolderMemberByKey() {
         let result = applyDocument(.hide([id(b)]), [[folder("f", [b, c])]])
 
-        XCTAssertEqual(result.hiddenApps, [b.identity])
+        XCTAssertEqual(result.hiddenItems, [b.identity])
     }
 
     func testHidingHiddenAppChangesNothing() {
-        let document = LayoutDocument(pages: [LayoutPage(slots: [slot(a), slot(b)])], hiddenApps: [a.identity])
+        let document = LayoutDocument(pages: [LayoutPage(slots: [slot(a), slot(b)])], hiddenItems: [a.identity])
 
         XCTAssertEqual(
             LayoutEditor.apply(.hide([id(a)]), to: document, catalog: catalog, pageCapacity: 35),
@@ -354,35 +354,35 @@ final class LayoutEditorTests: XCTestCase {
         let result = applyDocument(.unhide([b.identity]), pages, hidden: [b.identity, c.identity])
 
         XCTAssertEqual(result.pages.map(\.slots), pages)
-        XCTAssertEqual(result.hiddenApps, [c.identity])
+        XCTAssertEqual(result.hiddenItems, [c.identity])
     }
 
     func testUnhideMatchesMovedInstall() {
-        let moved = AppIdentity(bundleIdentifier: b.identity.bundleIdentifier, path: "/Old/B.app")
+        let moved = ItemIdentity(bundleIdentifier: b.identity.applicationIdentity?.bundleIdentifier, path: "/Old/B.app")
 
         let result = applyDocument(.unhide([b.identity]), [[slot(a), slot(b)]], hidden: [moved])
 
-        XCTAssertEqual(result.hiddenApps, [])
+        XCTAssertEqual(result.hiddenItems, [])
     }
 
     func testUngroupAppendsMembersToPageEndAndCascades() {
         let result = applyDocument(
             .ungroupFolder("f"),
-            [[folder("f", [b, c]), slot(a), .app(gone)], [slot(d)]],
+            [[folder("f", [b, c]), slot(a), .item(gone)], [slot(d)]],
             capacity: 2
         )
 
-        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), .app(gone), slot(b)], [slot(c), slot(d)]])
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), .item(gone), slot(b)], [slot(c), slot(d)]])
     }
 
     func testArrangeFillsAllPagesKeepingHiddenNeighbors() {
         let result = applyDocument(
             .arrange(LayoutArrangement(pages: [0, 1, 2], fillsGaps: true, ungroupsFolders: false)),
-            [[slot(a), .app(gone)], [slot(b)], [slot(c), slot(d)]],
+            [[slot(a), .item(gone)], [slot(b)], [slot(c), slot(d)]],
             capacity: 2
         )
 
-        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), .app(gone), slot(b)], [slot(c), slot(d)]])
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), .item(gone), slot(b)], [slot(c), slot(d)]])
     }
 
     func testArrangeChosenPagesLeavesOtherPagesInPlace() {
@@ -408,11 +408,11 @@ final class LayoutEditorTests: XCTestCase {
     func testArrangeUngroupsBeforeFilling() {
         let result = applyDocument(
             .arrange(LayoutArrangement(pages: [0, 1], fillsGaps: true, ungroupsFolders: true)),
-            [[folder("f", [b, c]), slot(a)], [slot(d)], [LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", apps: [e.identity, gone]))]],
+            [[folder("f", [b, c]), slot(a)], [slot(d)], [LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", items: [e.identity, gone]))]],
             capacity: 3
         )
 
-        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), slot(b), slot(c)], [slot(d)], [LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", apps: [e.identity, gone]))]])
+        XCTAssertEqual(result.pages.map(\.slots), [[slot(a), slot(b), slot(c)], [slot(d)], [LayoutSlot.folder(LayoutFolder(id: "g", name: "效率", items: [e.identity, gone]))]])
     }
 
     func testArrangeWithoutChangeKeepsDocument() {
@@ -423,21 +423,21 @@ final class LayoutEditorTests: XCTestCase {
         XCTAssertEqual(applyDocument(.arrange(LayoutArrangement(pages: [5], fillsGaps: true, ungroupsFolders: true)), pages, capacity: 2), original)
     }
 
-    private func categorized(_ name: String, _ category: String?) -> CatalogApp {
-        CatalogApp(identity: AppIdentity(bundleIdentifier: "com.example.\(name)", path: "/Applications/\(name).app"), displayName: name, category: category)
+    private func categorized(_ name: String, _ category: String?) -> LaunchItem {
+        LaunchItem(identity: AppIdentity(bundleIdentifier: "com.example.\(name)", path: "/Applications/\(name).app"), displayName: name, category: category)
     }
 
     private func arrangeByCategory(
         _ pages: [[LayoutSlot]],
-        catalog: [CatalogApp],
+        catalog: [LaunchItem],
         pagesInScope: [Int],
         fill: Bool = false,
-        hidden: [AppIdentity] = [],
+        hidden: [ItemIdentity] = [],
         capacity: Int = 35
     ) -> LayoutDocument {
         LayoutEditor.apply(
             .arrange(LayoutArrangement(pages: pagesInScope, fillsGaps: fill, ungroupsFolders: false, groupsByCategory: true)),
-            to: LayoutDocument(pages: pages.map { LayoutPage(slots: $0) }, hiddenApps: hidden),
+            to: LayoutDocument(pages: pages.map { LayoutPage(slots: $0) }, hiddenItems: hidden),
             catalog: catalog,
             pageCapacity: capacity,
             makeFolderID: { "new" }
@@ -447,13 +447,13 @@ final class LayoutEditorTests: XCTestCase {
     func testGroupByCategoryMakesFoldersOfTwoOrMoreAtScopeEnd() {
         let u1 = categorized("U1", "public.app-category.utilities"), u2 = categorized("U2", "public.app-category.utilities")
         let p1 = categorized("P1", "public.app-category.productivity"), x = categorized("X", nil)
-        let pages: [[LayoutSlot]] = [[.app(u1.identity), .app(p1.identity), .app(u2.identity), .app(x.identity)]]
+        let pages: [[LayoutSlot]] = [[.item(u1.identity), .item(p1.identity), .item(u2.identity), .item(x.identity)]]
 
         let result = arrangeByCategory(pages, catalog: [u1, u2, p1, x], pagesInScope: [0])
 
         XCTAssertEqual(result.pages.map(\.slots), [[
-            .app(p1.identity), .app(x.identity),
-            .folder(LayoutFolder(id: "new-0", name: "实用工具", apps: [u1.identity, u2.identity])),
+            .item(p1.identity), .item(x.identity),
+            .folder(LayoutFolder(id: "new-0", name: "实用工具", items: [u1.identity, u2.identity])),
         ]])
     }
 
@@ -461,16 +461,16 @@ final class LayoutEditorTests: XCTestCase {
         let d1 = categorized("D1", "public.app-category.developer-tools"), d2 = categorized("D2", "public.app-category.developer-tools")
         let u1 = categorized("U1", "public.app-category.utilities"), u2 = categorized("U2", "public.app-category.utilities")
         let p1 = categorized("P1", "public.app-category.productivity"), a = categorized("A", nil)
-        let existing = LayoutFolder(id: "f", name: "效率", apps: [a.identity])
-        let pages: [[LayoutSlot]] = [[.folder(existing)], [.app(u1.identity), .app(d1.identity), .app(p1.identity), .app(u2.identity), .app(d2.identity)]]
+        let existing = LayoutFolder(id: "f", name: "效率", items: [a.identity])
+        let pages: [[LayoutSlot]] = [[.folder(existing)], [.item(u1.identity), .item(d1.identity), .item(p1.identity), .item(u2.identity), .item(d2.identity)]]
 
         let result = arrangeByCategory(pages, catalog: [d1, d2, u1, u2, p1, a], pagesInScope: [1])
 
         XCTAssertEqual(result.pages.map(\.slots), [
-            [.folder(LayoutFolder(id: "f", name: "效率", apps: [a.identity, p1.identity]))],
+            [.folder(LayoutFolder(id: "f", name: "效率", items: [a.identity, p1.identity]))],
             [
-                .folder(LayoutFolder(id: "new-0", name: "开发者工具", apps: [d1.identity, d2.identity])),
-                .folder(LayoutFolder(id: "new-1", name: "实用工具", apps: [u1.identity, u2.identity])),
+                .folder(LayoutFolder(id: "new-0", name: "开发者工具", items: [d1.identity, d2.identity])),
+                .folder(LayoutFolder(id: "new-1", name: "实用工具", items: [u1.identity, u2.identity])),
             ],
         ])
     }
@@ -478,19 +478,19 @@ final class LayoutEditorTests: XCTestCase {
     func testGroupByCategoryLeavesHiddenAppsAndCombinesWithFill() {
         let u1 = categorized("U1", "public.app-category.utilities"), u2 = categorized("U2", "public.app-category.utilities")
         let u3 = categorized("U3", "public.app-category.utilities"), x = categorized("X", nil)
-        let pages: [[LayoutSlot]] = [[.app(u1.identity), .app(u3.identity)], [.app(u2.identity), .app(x.identity)]]
+        let pages: [[LayoutSlot]] = [[.item(u1.identity), .item(u3.identity)], [.item(u2.identity), .item(x.identity)]]
 
         let result = arrangeByCategory(pages, catalog: [u1, u2, u3, x], pagesInScope: [0, 1], fill: true, hidden: [u3.identity])
 
         XCTAssertEqual(result.pages.map(\.slots), [[
-            .app(u3.identity), .app(x.identity),
-            .folder(LayoutFolder(id: "new-0", name: "实用工具", apps: [u1.identity, u2.identity])),
+            .item(u3.identity), .item(x.identity),
+            .folder(LayoutFolder(id: "new-0", name: "实用工具", items: [u1.identity, u2.identity])),
         ]])
     }
 
     func testGroupByCategoryWithoutMatchesKeepsDocument() {
         let x = categorized("X", nil), y = categorized("Y", "public.app-category.music")
-        let pages: [[LayoutSlot]] = [[.app(x.identity), .app(y.identity)]]
+        let pages: [[LayoutSlot]] = [[.item(x.identity), .item(y.identity)]]
         let original = LayoutDocument(pages: pages.map { LayoutPage(slots: $0) })
 
         XCTAssertEqual(arrangeByCategory(pages, catalog: [x, y], pagesInScope: [0]), original)

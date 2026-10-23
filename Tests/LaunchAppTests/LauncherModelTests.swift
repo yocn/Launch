@@ -5,7 +5,7 @@ import XCTest
 final class LauncherModelTests: XCTestCase {
     @MainActor
     func testSetQueryResetsPage() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.selectPage(1)
 
         model.setQuery("App 1")
@@ -15,7 +15,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testSelectPageClampsToAvailablePages() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
 
         model.selectPage(5)
 
@@ -25,7 +25,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testPrepareForPresentationClearsQueryAndCountsPresentation() {
-        let model = LauncherModel(apps: makeApps(count: 3))
+        let model = LauncherModel(apps: makeLaunchItems(count: 3))
         model.setQuery("App")
 
         model.prepareForPresentation()
@@ -36,7 +36,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testPrepareForPresentationKeepsBrowsingPage() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.selectPage(1)
 
         model.prepareForPresentation()
@@ -46,7 +46,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testEscapeClearsQueryBeforeClosing() {
-        let model = LauncherModel(apps: makeApps(count: 3))
+        let model = LauncherModel(apps: makeLaunchItems(count: 3))
         model.setQuery("App")
 
         XCTAssertEqual(model.handleEscape(), .clearedQuery)
@@ -56,10 +56,10 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testUpdateAppsClampsPage() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.selectPage(1)
 
-        model.updateApps(makeApps(count: 10))
+        model.updateApps(makeLaunchItems(count: 10))
 
         XCTAssertEqual(model.currentPage, 0)
         XCTAssertEqual(model.visibleItems.count, 10)
@@ -67,29 +67,29 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testLayoutPagesDriveBrowsing() {
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let model = LauncherModel(apps: apps)
 
-        model.updateLayout([[.app(apps[1])], [.app(apps[0])]])
+        model.updateLayout([[.item(apps[1])], [.item(apps[0])]])
 
         XCTAssertEqual(model.pages.count, 2)
-        XCTAssertEqual(model.visibleItems, [.app(apps[1])])
+        XCTAssertEqual(model.visibleItems, [.item(apps[1])])
     }
 
     @MainActor
     func testSearchFindsAppsInsideFolders() {
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let model = LauncherModel(apps: apps)
         model.updateLayout([[makeFolder(id: "f", name: "效率", apps: [apps[1]])]])
 
         model.setQuery("App 1")
 
-        XCTAssertEqual(model.visibleItems, [.app(apps[1])])
+        XCTAssertEqual(model.visibleItems, [.item(apps[1])])
     }
 
     @MainActor
     func testOpenFolderResolvesFromLayout() {
-        let apps = makeApps(count: 1)
+        let apps = makeLaunchItems(count: 1)
         let model = LauncherModel(apps: apps)
         model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
 
@@ -100,7 +100,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testEscapeClosesFolderThenQueryThenLauncher() {
-        let apps = makeApps(count: 1)
+        let apps = makeLaunchItems(count: 1)
         let model = LauncherModel(apps: apps)
         model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
         model.showFolder(id: "f")
@@ -114,7 +114,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testTypingPresentingAndPagingCloseFolder() {
-        let apps = makeApps(count: 1)
+        let apps = makeLaunchItems(count: 1)
         let model = LauncherModel(apps: apps)
         model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
 
@@ -134,19 +134,19 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testUpdateLayoutDropsVanishedFolder() {
-        let apps = makeApps(count: 1)
+        let apps = makeLaunchItems(count: 1)
         let model = LauncherModel(apps: apps)
         model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
         model.showFolder(id: "f")
 
-        model.updateLayout([[.app(apps[0])]])
+        model.updateLayout([[.item(apps[0])]])
 
         XCTAssertNil(model.openFolderID)
     }
 
     @MainActor
     func testTypingSelectsFirstResultAndClearingDeselects() {
-        let model = LauncherModel(apps: makeApps(count: 3))
+        let model = LauncherModel(apps: makeLaunchItems(count: 3))
 
         model.setQuery("App")
         XCTAssertEqual(model.selectedIndex, 0)
@@ -158,7 +158,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testArrowsCrossToNextPage() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
 
         model.moveSelection(.right)
         XCTAssertEqual(model.selectedIndex, 0)
@@ -172,7 +172,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testActivateReturnsSelectedSearchResult() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         let model = LauncherModel(apps: apps)
 
         model.setQuery("App 1")
@@ -182,7 +182,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testActivatingFolderOpensItAndSelectsFirstMember() {
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let model = LauncherModel(apps: apps)
         model.updateLayout([[makeFolder(id: "f", name: "效率", apps: apps)]])
         model.moveSelection(.right)
@@ -195,9 +195,9 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testEscapeFromFolderSelectsFolderTile() {
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let model = LauncherModel(apps: apps)
-        model.updateLayout([[.app(apps[0]), makeFolder(id: "f", name: "效率", apps: [apps[1]])]])
+        model.updateLayout([[.item(apps[0]), makeFolder(id: "f", name: "效率", apps: [apps[1]])]])
         model.showFolder(id: "f")
 
         XCTAssertEqual(model.handleEscape(), .closedFolder)
@@ -206,7 +206,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testLargeFolderPagesAndArrowsStayInsideFolder() {
-        let apps = makeApps(count: 40)
+        let apps = makeLaunchItems(count: 40)
         let model = LauncherModel(apps: apps)
         model.updateLayout([[makeFolder(id: "f", name: "其他", apps: apps)]])
         model.showFolder(id: "f")
@@ -222,7 +222,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testPageTurnClearsSelection() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.moveSelection(.right)
 
         model.turnPage(.next)
@@ -233,7 +233,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testDragFollowsAndReleaseTurnsPage() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.updatePageWidth(1000)
 
         model.dragPage(by: -200)
@@ -248,7 +248,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testShortDragSnapsBackAndFirstPageResists() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.updatePageWidth(1000)
 
         model.dragPage(by: 200)
@@ -263,7 +263,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testDragInsideFolderTurnsFolderPage() {
-        let apps = makeApps(count: 40)
+        let apps = makeLaunchItems(count: 40)
         let model = LauncherModel(apps: apps)
         model.updateLayout([[makeFolder(id: "f", name: "其他", apps: apps)]])
         model.showFolder(id: "f")
@@ -278,7 +278,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testPageTurnCommitsPageAndAnimatesPositionOnFrames() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.updatePageWidth(1000)
         var frameRequests = 0
         model.onNeedsFrames = { frameRequests += 1 }
@@ -298,7 +298,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testDragPositionUpdatesOnlyWhenFramesAdvance() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.updatePageWidth(1000)
 
         model.dragPage(by: -250)
@@ -312,7 +312,7 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testQueryChangeJumpsWithoutAnimation() {
-        let model = LauncherModel(apps: makeApps(count: 40))
+        let model = LauncherModel(apps: makeLaunchItems(count: 40))
         model.updatePageWidth(1000)
         model.turnPage(.next)
         for _ in 0 ..< 120 {
@@ -328,12 +328,12 @@ final class LauncherModelTests: XCTestCase {
 
     @MainActor
     func testShrinkingResultsClampsSelection() {
-        let model = LauncherModel(apps: makeApps(count: 3))
+        let model = LauncherModel(apps: makeLaunchItems(count: 3))
         model.moveSelection(.right)
         model.moveSelection(.right)
         model.moveSelection(.right)
 
-        model.updateApps(makeApps(count: 1))
+        model.updateApps(makeLaunchItems(count: 1))
 
         XCTAssertEqual(model.selectedIndex, 0)
     }

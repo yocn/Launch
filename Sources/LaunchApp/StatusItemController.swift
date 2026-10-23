@@ -6,8 +6,8 @@ struct LayoutMenuActions {
     let importLayout: () -> Void
     let canRestore: () -> Bool
     let restoreLayout: () -> Void
-    let hiddenApps: () -> [CatalogApp]
-    let unhide: (CatalogApp) -> Void
+    let hiddenApps: () -> [LaunchItem]
+    let unhide: (LaunchItem) -> Void
     let unhideAll: () -> Void
 }
 
@@ -38,7 +38,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let hasHotKeyConflict: () -> Bool
     private let onOpen: () -> Void
     private let onOpenSettings: () -> Void
-    private var hiddenApps: [CatalogApp] = []
+    private var hiddenApps: [LaunchItem] = []
 
     init(
         loginItemService: LoginItemService,

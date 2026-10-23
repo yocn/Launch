@@ -33,7 +33,7 @@ final class LauncherModelDragTests: XCTestCase {
     }
 
     @MainActor
-    private func makeModel(pages: [[ResolvedItem]], apps: [CatalogApp] = []) -> (LauncherModel, EditLog) {
+    private func makeModel(pages: [[ResolvedItem]], apps: [LaunchItem] = []) -> (LauncherModel, EditLog) {
         let model = LauncherModel(apps: apps)
         let log = EditLog()
         model.updateLayout(pages)
@@ -55,20 +55,20 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testPressOnTileReportsItemAndOrigin() {
-        let apps = makeApps(count: 5)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 5)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
 
         XCTAssertEqual(
             model.itemPress(at: center(2)),
-            LauncherModel.ItemPress(item: .app(apps[2]), origin: .grid(page: 0, index: 2))
+            LauncherModel.ItemPress(item: .item(apps[2]), origin: .grid(page: 0, index: 2))
         )
         XCTAssertNil(model.itemPress(at: CGPoint(x: tile(0).maxX + 20, y: tile(0).midY)))
     }
 
     @MainActor
     func testDwellingBesideItemInsertsBeforeIt() {
-        let apps = makeApps(count: 5)
-        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 5)
+        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.item)])
 
         begin(model, at: center(4))
         model.updateItemDrag(at: leading(1), now: 0)
@@ -77,16 +77,16 @@ final class LauncherModelDragTests: XCTestCase {
         model.endItemDrag(at: leading(1), now: 0.3)
 
         XCTAssertEqual(log.edits, [.move(
-            .app(apps[4].identity.stableKey),
-            to: .insert(page: 0, before: .app(apps[1].identity.stableKey))
+            .item(apps[4].identity.stableKey),
+            to: .insert(page: 0, before: .item(apps[1].identity.stableKey))
         )])
         XCTAssertNil(model.dragPreview)
     }
 
     @MainActor
     func testHoveringIconCenterMergesIntoFolder() {
-        let apps = makeApps(count: 5)
-        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 5)
+        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.item)])
 
         begin(model, at: center(0))
         model.updateItemDrag(at: center(3), now: 0)
@@ -97,27 +97,27 @@ final class LauncherModelDragTests: XCTestCase {
         XCTAssertEqual(entries.map(\.isMergeTarget), [false, false, false, true, false])
         model.endItemDrag(at: center(3), now: 0.2)
 
-        XCTAssertEqual(log.edits, [.move(.app(apps[0].identity.stableKey), to: .merge(.app(apps[3].identity.stableKey)))])
+        XCTAssertEqual(log.edits, [.move(.item(apps[0].identity.stableKey), to: .merge(.item(apps[3].identity.stableKey)))])
     }
 
     @MainActor
     func testQuickDropOnIconCenterInsertsBeforeIt() {
-        let apps = makeApps(count: 5)
-        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 5)
+        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.item)])
 
         begin(model, at: center(0))
         model.endItemDrag(at: center(3), now: 0)
 
         XCTAssertEqual(log.edits, [.move(
-            .app(apps[0].identity.stableKey),
-            to: .insert(page: 0, before: .app(apps[3].identity.stableKey))
+            .item(apps[0].identity.stableKey),
+            to: .insert(page: 0, before: .item(apps[3].identity.stableKey))
         )])
     }
 
     @MainActor
     func testCancelProducesNoEdit() {
-        let apps = makeApps(count: 5)
-        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 5)
+        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.item)])
 
         begin(model, at: center(4))
         model.updateItemDrag(at: leading(1), now: 0)
@@ -130,8 +130,8 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testEdgeDwellTurnsToTemporaryNewPage() {
-        let apps = makeApps(count: 5)
-        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 5)
+        let (model, log) = makeModel(pages: [apps.map(ResolvedItem.item)])
         let edge = CGPoint(x: gridFrame.maxX - 10, y: tile(0).midY)
 
         begin(model, at: center(0))
@@ -141,17 +141,17 @@ final class LauncherModelDragTests: XCTestCase {
         XCTAssertEqual(model.currentPage, 1)
         model.endItemDrag(at: center(0), now: 0.6)
 
-        XCTAssertEqual(log.edits, [.move(.app(apps[0].identity.stableKey), to: .newPage)])
+        XCTAssertEqual(log.edits, [.move(.item(apps[0].identity.stableKey), to: .newPage)])
         XCTAssertEqual(model.pages.count, 1)
         XCTAssertEqual(model.currentPage, 0)
     }
 
     @MainActor
     func testDraggingFolderMemberOutAndIntoGrid() {
-        let apps = makeApps(count: 4)
+        let apps = makeLaunchItems(count: 4)
         let (model, log) = makeModel(pages: [[
             makeFolder(id: "f", name: "效率", apps: Array(apps[0 ..< 3])),
-            .app(apps[3]),
+            .item(apps[3]),
         ]])
         model.showFolder(id: "f")
         let folderFrame = CGRect(x: 0, y: 300, width: layout.contentSize.width, height: layout.folderGridHeight(memberCount: 3))
@@ -170,13 +170,13 @@ final class LauncherModelDragTests: XCTestCase {
         XCTAssertEqual(log.edits, [.moveOutOfFolder(
             app: apps[1].identity.stableKey,
             folder: "f",
-            to: .insert(page: 0, before: .app(apps[3].identity.stableKey))
+            to: .insert(page: 0, before: .item(apps[3].identity.stableKey))
         )])
     }
 
     @MainActor
     func testReorderingInsideFolder() {
-        let apps = makeApps(count: 3)
+        let apps = makeLaunchItems(count: 3)
         let (model, log) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
         model.showFolder(id: "f")
         let folderFrame = CGRect(x: 0, y: 300, width: layout.contentSize.width, height: layout.folderGridHeight(memberCount: 3))
@@ -196,13 +196,13 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testLayoutUpdatesWaitUntilDragEnds() {
-        let apps = makeApps(count: 3)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
-        let reversed: [[ResolvedItem]] = [apps.reversed().map(ResolvedItem.app)]
+        let apps = makeLaunchItems(count: 3)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
+        let reversed: [[ResolvedItem]] = [apps.reversed().map(ResolvedItem.item)]
 
         begin(model, at: center(0))
         model.updateLayout(reversed)
-        XCTAssertEqual(model.layoutPages, [apps.map(ResolvedItem.app)])
+        XCTAssertEqual(model.layoutPages, [apps.map(ResolvedItem.item)])
         model.cancelItemDrag()
 
         XCTAssertEqual(model.layoutPages, reversed)
@@ -210,8 +210,8 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testDraggingRequiresEditableLayoutWithoutSearch() {
-        let apps = makeApps(count: 3)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)], apps: apps)
+        let apps = makeLaunchItems(count: 3)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)], apps: apps)
 
         model.canEditLayout = false
         begin(model, at: center(0))
@@ -225,7 +225,7 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testRenamingCommitsDraftOnSubmitAndWhenFolderCloses() {
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let (model, log) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
         model.showFolder(id: "f")
 
@@ -247,7 +247,7 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testEscapeCancelsRenameBeforeClosingFolder() {
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let (model, log) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
         model.showFolder(id: "f")
         model.beginRenamingFolder()
@@ -261,7 +261,7 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testRenameAndDragAreDisabledWhileLayoutIsNotEditable() {
-        let apps = makeApps(count: 2)
+        let apps = makeLaunchItems(count: 2)
         let (model, _) = makeModel(pages: [[makeFolder(id: "f", name: "效率", apps: apps)]])
         model.showFolder(id: "f")
         model.canEditLayout = false
@@ -273,8 +273,8 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testPageDragIsIgnoredWhileDraggingItem() {
-        let apps = makeApps(count: 40)
-        let (model, _) = makeModel(pages: [Array(apps[0 ..< 35]).map(ResolvedItem.app), Array(apps[35...]).map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 40)
+        let (model, _) = makeModel(pages: [Array(apps[0 ..< 35]).map(ResolvedItem.item), Array(apps[35...]).map(ResolvedItem.item)])
 
         begin(model, at: center(0))
         model.dragPage(by: -25)
@@ -288,8 +288,8 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testInsertDropRecordsLandingFromPointerOffset() {
-        let apps = makeApps(count: 5)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 5)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
         let start = center(4)
 
         begin(model, at: start)
@@ -306,8 +306,8 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     func testMergeDropHasNoLanding() {
-        let apps = makeApps(count: 5)
-        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.app)])
+        let apps = makeLaunchItems(count: 5)
+        let (model, _) = makeModel(pages: [apps.map(ResolvedItem.item)])
 
         begin(model, at: center(0))
         model.updateItemDrag(at: center(3), now: 0)

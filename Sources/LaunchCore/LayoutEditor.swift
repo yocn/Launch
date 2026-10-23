@@ -1,7 +1,7 @@
 import Foundation
 
 public enum LayoutItemID: Hashable, Sendable {
-    case app(String)
+    case item(String)
     case folder(String)
 }
 
@@ -33,7 +33,7 @@ public enum LayoutEdit: Equatable, Sendable {
     case reorderInFolder(folder: String, app: String, before: String?)
     case renameFolder(folder: String, name: String)
     case hide([LayoutItemID])
-    case unhide([AppIdentity])
+    case unhide([ItemIdentity])
     case ungroupFolder(String)
     case arrange(LayoutArrangement)
 }
@@ -41,8 +41,8 @@ public enum LayoutEdit: Equatable, Sendable {
 extension ResolvedItem {
     public var layoutID: LayoutItemID? {
         switch self {
-        case .app(let app):
-            .app(app.identity.stableKey)
+        case .item(let app):
+            .item(app.identity.stableKey)
         case .folder(let folder):
             .folder(folder.id)
         case .empty:
@@ -57,7 +57,7 @@ public enum LayoutEditor {
     public static func apply(
         _ edit: LayoutEdit,
         to document: LayoutDocument,
-        catalog: [CatalogApp],
+        catalog: [LaunchItem],
         pageCapacity: Int,
         makeFolderID: () -> String = { "folder-\(UUID().uuidString)" }
     ) -> LayoutDocument {
@@ -70,14 +70,15 @@ public enum LayoutEditor {
         return LayoutDocument(
             schemaVersion: document.schemaVersion,
             pages: editor.pages.map { LayoutPage(slots: $0) },
-            hiddenApps: editor.hidden
+            hiddenItems: editor.hidden,
+            extraItems: document.extraItems
         )
     }
 }
 
 private struct Editor {
     var pages: [[LayoutSlot]]
-    var hidden: [AppIdentity] {
+    var hidden: [ItemIdentity] {
         didSet {
             hiddenKeys = resolver.keys(of: hidden)
         }
@@ -86,15 +87,15 @@ private struct Editor {
     let capacity: Int
     let newFolderID: String
     var hiddenKeys: Set<String>
-    let appsByKey: [String: CatalogApp]
+    let appsByKey: [String: LaunchItem]
 
-    init(document: LayoutDocument, catalog: [CatalogApp], capacity: Int, newFolderID: String) {
+    init(document: LayoutDocument, catalog: [LaunchItem], capacity: Int, newFolderID: String) {
         let resolver = CatalogResolver(catalog: catalog)
-        let hiddenKeys = resolver.keys(of: document.hiddenApps)
+        let hiddenKeys = resolver.keys(of: document.hiddenItems)
         self.resolver = resolver
         self.capacity = capacity
         self.newFolderID = newFolderID
-        hidden = document.hiddenApps
+        hidden = document.hiddenItems
         self.hiddenKeys = hiddenKeys
         appsByKey = Dictionary(catalog.map { ($0.identity.stableKey, $0) }, uniquingKeysWith: { first, _ in first })
         pages = document.pages
@@ -129,14 +130,14 @@ private struct Editor {
     // 隐藏应用与未安装应用一样不可见
     static func itemID(of slot: LayoutSlot, resolver: CatalogResolver, hidden: Set<String>) -> LayoutItemID? {
         switch slot {
-        case .app(let identity):
-            guard let key = resolver.app(for: identity)?.identity.stableKey, !hidden.contains(key) else {
+        case .item(let identity):
+            guard let key = resolver.item(for: identity)?.identity.stableKey, !hidden.contains(key) else {
                 return nil
             }
-            return .app(key)
+            return .item(key)
         case .folder(let folder):
-            let isVisible = folder.apps.contains { identity in
-                resolver.app(for: identity).map { !hidden.contains($0.identity.stableKey) } ?? false
+            let isVisible = folder.items.contains { identity in
+                resolver.item(for: identity).map { !hidden.contains($0.identity.stableKey) } ?? false
             }
             return isVisible ? .folder(folder.id) : nil
         case .empty:
@@ -148,8 +149,8 @@ private struct Editor {
         Self.itemID(of: slot, resolver: resolver, hidden: hiddenKeys)
     }
 
-    func key(of identity: AppIdentity) -> String? {
-        resolver.app(for: identity)?.identity.stableKey
+    func key(of identity: ItemIdentity) -> String? {
+        resolver.item(for: identity)?.identity.stableKey
     }
 
     func visibleCount(_ page: Int) -> Int {
@@ -203,7 +204,7 @@ private struct Editor {
             return false
         }
         if case .merge(let into) = target {
-            guard case .app = item, into != item, locate(into) != nil else {
+            guard case .item = item, into != item, locate(into) != nil else {
                 return false
             }
         }
@@ -228,21 +229,21 @@ private struct Editor {
             }
             cascade(from: page)
         case .merge(let into):
-            guard let anchor = locate(into), case .app(let identity) = slot else {
+            guard let anchor = locate(into), case .item(let identity) = slot else {
                 return false
             }
             switch pages[anchor.page][anchor.slot] {
-            case .app(let targetIdentity):
+            case .item(let targetIdentity):
                 pages[anchor.page][anchor.slot] = .folder(LayoutFolder(
                     id: newFolderID,
                     name: LayoutEditor.untitledFolderName,
-                    apps: [targetIdentity, identity]
+                    items: [targetIdentity, identity]
                 ))
             case .folder(let folder):
                 pages[anchor.page][anchor.slot] = .folder(LayoutFolder(
                     id: folder.id,
                     name: folder.name,
-                    apps: folder.apps + [identity]
+                    items: folder.items + [identity]
                 ))
             case .empty:
                 return false
@@ -270,42 +271,42 @@ private struct Editor {
     mutating func moveOut(app: String, folder folderID: String, to target: LayoutDropTarget) -> Bool {
         guard let location = locate(.folder(folderID)),
               case .folder(let folder) = pages[location.page][location.slot],
-              let member = folder.apps.firstIndex(where: { key(of: $0) == app }) else {
+              let member = folder.items.firstIndex(where: { key(of: $0) == app }) else {
             return false
         }
         if target == .merge(.folder(folderID)) {
             return reorder(folder: folderID, app: app, before: nil)
         }
         let page = documentPage(for: target)
-        var apps = folder.apps
+        var apps = folder.items
         let identity = apps.remove(at: member)
         var target = target
         switch apps.count {
         case 0:
             pages[location.page].remove(at: location.slot)
         case 1:
-            pages[location.page][location.slot] = .app(apps[0])
+            pages[location.page][location.slot] = .item(apps[0])
             // 文件夹解散后，以它为插入锚点的目标改由剩下的应用接替
             if case .insert(let visiblePage, .folder(folderID)?) = target {
-                target = .insert(page: visiblePage, before: key(of: apps[0]).map(LayoutItemID.app))
+                target = .insert(page: visiblePage, before: key(of: apps[0]).map(LayoutItemID.item))
             }
         default:
-            pages[location.page][location.slot] = .folder(LayoutFolder(id: folder.id, name: folder.name, apps: apps))
+            pages[location.page][location.slot] = .folder(LayoutFolder(id: folder.id, name: folder.name, items: apps))
         }
-        return place(.app(identity), at: target, page: page)
+        return place(.item(identity), at: target, page: page)
     }
 
     mutating func reorder(folder folderID: String, app: String, before: String?) -> Bool {
         guard let location = locate(.folder(folderID)),
               case .folder(let folder) = pages[location.page][location.slot],
-              let member = folder.apps.firstIndex(where: { key(of: $0) == app }) else {
+              let member = folder.items.firstIndex(where: { key(of: $0) == app }) else {
             return false
         }
-        var apps = folder.apps
+        var apps = folder.items
         let identity = apps.remove(at: member)
         let index = before.flatMap { anchor in apps.firstIndex { key(of: $0) == anchor } } ?? apps.endIndex
         apps.insert(identity, at: index)
-        pages[location.page][location.slot] = .folder(LayoutFolder(id: folder.id, name: folder.name, apps: apps))
+        pages[location.page][location.slot] = .folder(LayoutFolder(id: folder.id, name: folder.name, items: apps))
         return true
     }
 
@@ -318,7 +319,7 @@ private struct Editor {
         pages[location.page][location.slot] = .folder(LayoutFolder(
             id: folder.id,
             name: trimmed.isEmpty ? LayoutEditor.untitledFolderName : trimmed,
-            apps: folder.apps
+            items: folder.items
         ))
         return true
     }
@@ -359,15 +360,15 @@ private struct Editor {
         guard present.count >= 2, let first = locate(present[0]) else {
             return false
         }
-        let head = Self.apps(in: pages[first.page][first.slot])
-        let members = head + remove(Array(present.dropFirst())).flatMap(Self.apps(in:))
+        let head = Self.items(in: pages[first.page][first.slot])
+        let members = head + remove(Array(present.dropFirst())).flatMap(Self.items(in:))
         guard let anchor = locate(present[0]) else {
             return false
         }
         pages[anchor.page][anchor.slot] = .folder(LayoutFolder(
             id: newFolderID,
             name: LayoutEditor.untitledFolderName,
-            apps: members
+            items: members
         ))
         pages = pages.filter { !$0.isEmpty }
         return true
@@ -378,22 +379,22 @@ private struct Editor {
         guard locate(target) != nil else {
             return false
         }
-        let members = remove(items).flatMap(Self.apps(in:))
+        let members = remove(items).flatMap(Self.items(in:))
         guard !members.isEmpty, let anchor = locate(target) else {
             return false
         }
         switch pages[anchor.page][anchor.slot] {
-        case .app(let identity):
+        case .item(let identity):
             pages[anchor.page][anchor.slot] = .folder(LayoutFolder(
                 id: newFolderID,
                 name: LayoutEditor.untitledFolderName,
-                apps: [identity] + members
+                items: [identity] + members
             ))
         case .folder(let folder):
             pages[anchor.page][anchor.slot] = .folder(LayoutFolder(
                 id: folder.id,
                 name: folder.name,
-                apps: folder.apps + members
+                items: folder.items + members
             ))
         case .empty:
             return false
@@ -412,12 +413,12 @@ private struct Editor {
         return removed
     }
 
-    static func apps(in slot: LayoutSlot) -> [AppIdentity] {
+    static func items(in slot: LayoutSlot) -> [ItemIdentity] {
         switch slot {
-        case .app(let identity):
+        case .item(let identity):
             [identity]
         case .folder(let folder):
-            folder.apps
+            folder.items
         case .empty:
             []
         }
@@ -425,16 +426,16 @@ private struct Editor {
 
     // 文件夹按全部成员（含未安装）隐藏；应用按身份查找，文件夹内的也能找到
     mutating func hide(_ items: [LayoutItemID]) -> Bool {
-        var identities: [AppIdentity] = []
+        var identities: [ItemIdentity] = []
         for item in items {
             switch item {
-            case .app(let key):
+            case .item(let key):
                 if let app = appsByKey[key] {
                     identities.append(app.identity)
                 }
             case .folder:
                 if let location = locate(item), case .folder(let folder) = pages[location.page][location.slot] {
-                    identities += folder.apps
+                    identities += folder.items
                 }
             }
         }
@@ -452,7 +453,7 @@ private struct Editor {
         return true
     }
 
-    mutating func unhide(_ identities: [AppIdentity]) -> Bool {
+    mutating func unhide(_ identities: [ItemIdentity]) -> Bool {
         let keys = resolver.keys(of: identities)
         hidden = hidden.filter { identity in
             !identities.contains(identity) && key(of: identity).map(keys.contains) != true
@@ -466,7 +467,7 @@ private struct Editor {
             return false
         }
         pages[location.page].remove(at: location.slot)
-        pages[location.page].append(contentsOf: folder.apps.map(LayoutSlot.app))
+        pages[location.page].append(contentsOf: folder.items.map(LayoutSlot.item))
         cascade(from: location.page)
         pages = pages.filter { !$0.isEmpty }
         return true
@@ -486,7 +487,7 @@ private struct Editor {
                 var members: [LayoutSlot] = []
                 for slot in slots {
                     if case .folder(let folder) = slot {
-                        members += folder.apps.map(LayoutSlot.app)
+                        members += folder.items.map(LayoutSlot.item)
                     } else {
                         kept.append(slot)
                     }
@@ -523,16 +524,16 @@ private struct Editor {
 
     // 只分范围内散落的可见应用：已有同名文件夹（不限范围）收下该类，否则至少 2 个才新建；新文件夹按名称排在范围末尾
     mutating func groupByCategory(_ groups: inout [[LayoutSlot]], chosen: [Int]) {
-        var buckets: [(name: String, apps: [AppIdentity])] = []
+        var buckets: [(name: String, items: [ItemIdentity])] = []
         for slot in groups.joined() {
-            guard case .app(let identity) = slot,
-                  case .app(let key)? = itemID(of: slot),
+            guard case .item(let identity) = slot,
+                  case .item(let key)? = itemID(of: slot),
                   let app = appsByKey[key],
-                  let name = AppCategory.name(for: app.category, bundleIdentifier: app.identity.bundleIdentifier) else {
+                  let name = AppCategory.name(for: app.category, bundleIdentifier: app.application?.identity.bundleIdentifier) else {
                 continue
             }
             if let index = buckets.firstIndex(where: { $0.name == name }) {
-                buckets[index].apps.append(identity)
+                buckets[index].items.append(identity)
             } else {
                 buckets.append((name, [identity]))
             }
@@ -540,11 +541,11 @@ private struct Editor {
         var moved = Set<String>()
         var created: [LayoutFolder] = []
         for bucket in buckets {
-            let keys = bucket.apps.map { resolver.app(for: $0)?.identity.stableKey ?? $0.stableKey }
-            if appendToFolder(named: bucket.name, bucket.apps, groups: &groups, chosen: chosen) {
+            let keys = bucket.items.map { resolver.item(for: $0)?.identity.stableKey ?? $0.stableKey }
+            if appendToFolder(named: bucket.name, bucket.items, groups: &groups, chosen: chosen) {
                 moved.formUnion(keys)
-            } else if bucket.apps.count >= 2 {
-                created.append(LayoutFolder(id: "", name: bucket.name, apps: bucket.apps))
+            } else if bucket.items.count >= 2 {
+                created.append(LayoutFolder(id: "", name: bucket.name, items: bucket.items))
                 moved.formUnion(keys)
             }
         }
@@ -553,7 +554,7 @@ private struct Editor {
         }
         groups = groups.map { slots in
             slots.filter { slot in
-                guard case .app(let key)? = itemID(of: slot) else {
+                guard case .item(let key)? = itemID(of: slot) else {
                     return true
                 }
                 return !moved.contains(key)
@@ -562,17 +563,17 @@ private struct Editor {
         let folders = created
             .sorted { SearchName.syllables(of: $0.name).joined() < SearchName.syllables(of: $1.name).joined() }
             .enumerated()
-            .map { LayoutSlot.folder(LayoutFolder(id: "\(newFolderID)-\($0.offset)", name: $0.element.name, apps: $0.element.apps)) }
+            .map { LayoutSlot.folder(LayoutFolder(id: "\(newFolderID)-\($0.offset)", name: $0.element.name, items: $0.element.items)) }
         groups[groups.count - 1] += folders
     }
 
-    private mutating func appendToFolder(named name: String, _ apps: [AppIdentity], groups: inout [[LayoutSlot]], chosen: [Int]) -> Bool {
+    private mutating func appendToFolder(named name: String, _ items: [ItemIdentity], groups: inout [[LayoutSlot]], chosen: [Int]) -> Bool {
         func append(to slots: inout [LayoutSlot]) -> Bool {
             guard let index = slots.firstIndex(where: { if case .folder(let folder) = $0 { folder.name == name } else { false } }),
                   case .folder(let folder) = slots[index] else {
                 return false
             }
-            slots[index] = .folder(LayoutFolder(id: folder.id, name: folder.name, apps: folder.apps + apps))
+            slots[index] = .folder(LayoutFolder(id: folder.id, name: folder.name, items: folder.items + items))
             return true
         }
         for index in groups.indices where append(to: &groups[index]) {
