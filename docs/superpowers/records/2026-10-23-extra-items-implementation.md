@@ -34,4 +34,3 @@ Final: fixed 搜索观察来源 — 新增 Observation 失败用例后显式跟�
 Final: 全套 swift test 120 Core + 380 App = 500 项，499 通过、1 交互默认跳过、0 失败；交互另显式运行通过。全部 Important 已修复；无 deferred minor，名称同步项已按用户效果升级并修复。预览初始化 geometry warning 记录到 manual-verification，不冒充无警告。
 Task 6: ./scripts/build-app.sh 与使用既有 Apple Development 签名的 --install 成功，安装版严格签名校验通过。26 个真实指令只读发现，搜索/菜单实查未运行；布局 SHA-256 安装与检查前后相同。独立临时 UI 新增、域名搜索、固定、编辑即时刷新、删除与浅深色通过；真实网络/真实工作流未验证。
 Task 6: complete (commits 43b4c6e..0d0c1f6, tests: swift test → ✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.)
-
