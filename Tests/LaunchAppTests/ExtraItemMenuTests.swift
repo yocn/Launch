@@ -1,0 +1,48 @@
+import AppKit
+import LaunchCore
+import XCTest
+@testable import LaunchApp
+
+@MainActor
+final class ExtraItemMenuTests: XCTestCase {
+    func testWebsiteNeverGetsApplicationCommandsEvenIfCallerOffersUninstall() {
+        let entry = ExtraItemDefinition(name: "文档", target: .website(URL(string: "https://example.com")!))
+        var content = AppMenuContent(app: LaunchItem(definition: entry), canOpen: true, canEdit: true, canUninstall: true)
+        content.canManageExtraItems = true
+        content.pinPage = 2
+        var chosen: [ItemMenuCommand] = []
+        let builder = ItemMenu { chosen.append($0) }
+        let menu = builder.makeMenu(.item(content))
+        let names = menu.items.map(\.title)
+        XCTAssertFalse(names.contains("移到废纸篓…"))
+        XCTAssertFalse(names.contains("显示简介"))
+        XCTAssertFalse(names.contains("在访达中显示"))
+        XCTAssertTrue(names.contains("编辑网址…"))
+        menu.performActionForItem(at: names.firstIndex(of: "添加到网格")!)
+        XCTAssertEqual(chosen, [.pinEntry(entry.identity, page: 2)])
+    }
+
+    func testUnavailableShortcutCanBeRemovedButCannotRunAndIsNotDeleted() {
+        let id = UUID()
+        let entry = ExtraItemDefinition(id: id, name: "指令", target: .shortcut(id))
+        var content = AppMenuContent(app: LaunchItem(definition: entry, unavailableReason: "已删除"), canOpen: true, canEdit: true, canUninstall: true)
+        content.canManageExtraItems = true
+        content.isPinned = true
+        let menu = ItemMenu { _ in }.makeMenu(.item(content))
+        XCTAssertFalse(menu.items[0].isEnabled)
+        XCTAssertTrue(menu.items.map(\.title).contains("从网格移除"))
+        XCTAssertFalse(menu.items.map(\.title).contains("删除网址入口…"))
+        XCTAssertFalse(menu.items.map(\.title).contains("移到废纸篓…"))
+    }
+
+    func testMainMenuRecordsTheClickedPage() {
+        var content = MainMenuContent(canSelectAll: true, canArrange: true)
+        content.canAddWebsite = true
+        content.pageIndex = 3
+        var chosen: [ItemMenuCommand] = []
+        let builder = ItemMenu { chosen.append($0) }
+        let menu = builder.makeMenu(.main(content))
+        menu.performActionForItem(at: menu.items.firstIndex { $0.title == "添加网址…" }!)
+        XCTAssertEqual(chosen, [.addWebsite(page: 3)])
+    }
+}

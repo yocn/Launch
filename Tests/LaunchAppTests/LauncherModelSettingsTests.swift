@@ -162,7 +162,7 @@ final class LauncherModelSettingsTests: XCTestCase {
     func testBlankPointGivesMainMenu() {
         let model = makeModel(apps: makeLaunchItems(count: 3))
 
-        XCTAssertEqual(model.contextMenu(at: CGPoint(x: 5, y: 5)), .main(MainMenuContent(canSelectAll: true, canArrange: true)))
+        XCTAssertEqual(model.contextMenu(at: CGPoint(x: 5, y: 5)), .main(MainMenuContent(canSelectAll: true, canArrange: true, canAddWebsite: true)))
     }
 
     @MainActor

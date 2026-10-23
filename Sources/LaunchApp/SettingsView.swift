@@ -11,6 +11,8 @@ struct SettingsView: View {
     let onUnhide: (LaunchItem) -> Void
     let onUnhideAll: () -> Void
     let data: DataSettingsActions
+    var extraItems: ExtraItemsController? = nil
+    var currentPage: () -> Int = { 0 }
 
     var body: some View {
         TabView {
@@ -24,6 +26,10 @@ struct SettingsView: View {
                 .tabItem { Label("外观", systemImage: "paintpalette") }
             HiddenAppsSettingsView(settings: settings, model: model, onUnhide: onUnhide, onUnhideAll: onUnhideAll)
                 .tabItem { Label("应用", systemImage: "eye.slash") }
+            if let extraItems {
+                ExtraItemsSettingsView(controller: extraItems, currentPage: currentPage)
+                    .tabItem { Label("条目", systemImage: "link") }
+            }
             DataSettingsView(actions: data)
                 .tabItem { Label("数据", systemImage: "externaldrive") }
         }

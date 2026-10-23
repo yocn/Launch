@@ -27,8 +27,8 @@ enum WebsiteError: LocalizedError {
 }
 
 enum ItemImageData {
-    static func normalized(_ data: Data, minimumSide: Int = 1) -> Data? {
-        guard data.count <= 1_048_576,
+    static func normalized(_ data: Data, minimumSide: Int = 1, inputLimit: Int = 1_048_576) -> Data? {
+        guard data.count <= inputLimit,
               let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
         let count = min(CGImageSourceGetCount(source), 32)
         var selected: (index: Int, side: Int)?

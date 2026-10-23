@@ -22,6 +22,9 @@ struct AppMenuContent: Equatable {
     let canEdit: Bool
     let canUninstall: Bool
     var isHidden = false
+    var canManageExtraItems = false
+    var isPinned = false
+    var pinPage = 0
 }
 
 struct FolderMenuContent: Equatable {
@@ -35,6 +38,8 @@ struct MainMenuContent: Equatable {
     var sort = DisplaySort()
     var browsingStyle = BrowsingStyle.paged
     var displayMode = DisplayMode.fullScreen
+    var canAddWebsite = false
+    var pageIndex = 0
 }
 
 enum ItemMenuContent: Equatable {
@@ -45,6 +50,14 @@ enum ItemMenuContent: Equatable {
 }
 
 enum ItemMenuCommand: Equatable {
+    case addWebsite(page: Int)
+    case editWebsite(ItemIdentity)
+    case editEntryAppearance(ItemIdentity)
+    case resetEntryIcon(ItemIdentity)
+    case refreshWebsiteIcon(ItemIdentity)
+    case pinEntry(ItemIdentity, page: Int)
+    case unpinEntry(ItemIdentity)
+    case deleteWebsite(ItemIdentity)
     case mergeIntoNewFolder
     case mergeInto(folder: String)
     case moveToPage(Int)
@@ -90,6 +103,10 @@ final class ItemMenu: NSObject {
         case .folder(let folder):
             addFolderItems(folder, to: menu)
         case .main(let main):
+            if main.canAddWebsite {
+                menu.addItem(item("添加网址…", .addWebsite(page: main.pageIndex)))
+                menu.addItem(.separator())
+            }
             let selectAll = item("全选", .selectAll, isEnabled: main.canSelectAll)
             selectAll.keyEquivalent = "a"
             menu.addItem(selectAll)
@@ -130,8 +147,33 @@ final class ItemMenu: NSObject {
 
     private func addAppItems(_ content: AppMenuContent, to menu: NSMenu) {
         let app = content.app
-        menu.addItem(item("打开", .open(.item(app)), isEnabled: content.canOpen))
-        guard app.application != nil else { return }
+        let title: String = if case .shortcut = app.target { "运行快捷指令" } else { "打开" }
+        menu.addItem(item(title, .open(.item(app)), isEnabled: content.canOpen && app.isAvailable))
+        guard app.application != nil else {
+            menu.addItem(.separator())
+            let id = app.identity
+            if content.isPinned {
+                menu.addItem(item("从网格移除", .unpinEntry(id), isEnabled: content.canManageExtraItems))
+            } else {
+                menu.addItem(item("添加到网格", .pinEntry(id, page: content.pinPage), isEnabled: content.canManageExtraItems))
+            }
+            if case .website = app.target {
+                menu.addItem(item("编辑网址…", .editWebsite(id), isEnabled: content.canManageExtraItems))
+                menu.addItem(item("刷新网站图标", .refreshWebsiteIcon(id), isEnabled: content.canManageExtraItems))
+            }
+            menu.addItem(item("更换图标…", .editEntryAppearance(id), isEnabled: content.canManageExtraItems))
+            menu.addItem(item("恢复默认图标", .resetEntryIcon(id), isEnabled: content.canManageExtraItems))
+            if content.isPinned {
+                menu.addItem(item(content.isHidden ? "取消隐藏" : "隐藏",
+                                  content.isHidden ? .unhide(app) : .hide(.item(id.stableKey)),
+                                  isEnabled: content.canManageExtraItems))
+            }
+            if case .website = app.target {
+                menu.addItem(.separator())
+                menu.addItem(item("删除网址入口…", .deleteWebsite(id), isEnabled: content.canManageExtraItems))
+            }
+            return
+        }
         menu.addItem(.separator())
         menu.addItem(item("在访达中显示", .revealInFinder(app)))
         menu.addItem(item("显示简介", .showInfo(app)))

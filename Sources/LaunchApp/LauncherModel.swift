@@ -68,6 +68,7 @@ final class LauncherModel {
     @ObservationIgnored private var appDates: [String: AppDates] = [:]
     @ObservationIgnored private var hintGeneration = 0
     private(set) var currentPage = 0
+    private var pageBeforeSearch = 0
     private(set) var selectedIndex: Int?
     private(set) var presentationCount = 0
     private(set) var openFolderID: String?
@@ -293,7 +294,9 @@ final class LauncherModel {
             return .selection(selection)
         }
         guard let press = itemPress(at: point) else {
-            return .main(mainMenu)
+            var menu = mainMenu
+            menu.pageIndex = homePage(at: point)?.page ?? currentPage
+            return .main(menu)
         }
         clearMultiSelection()
         switch press.item {
@@ -303,7 +306,10 @@ final class LauncherModel {
                 canOpen: !isJiggling,
                 canEdit: canEditMenuItems,
                 canUninstall: canUninstall(app),
-                isHidden: isHiddenApp(app)
+                isHidden: isHiddenApp(app),
+                canManageExtraItems: app.application == nil && canEditLayout,
+                isPinned: app.application == nil && isPinned(app.identity),
+                pinPage: app.application == nil ? (query.isEmpty ? currentPage : pageBeforeSearch) : 0
             ))
         case .folder(let folder):
             return .folder(FolderMenuContent(folder: folder, canEdit: canEditMenuItems))
@@ -318,8 +324,20 @@ final class LauncherModel {
             canArrange: canMultiSelect,
             sort: displaySort,
             browsingStyle: browsingStyle,
-            displayMode: displayMode
+            displayMode: displayMode,
+            canAddWebsite: canEditLayout && query.isEmpty && displaySort.field == .custom,
+            pageIndex: currentPage
         )
+    }
+
+    private func isPinned(_ identity: ItemIdentity) -> Bool {
+        (layoutPages ?? []).joined().contains { item in
+            switch item {
+            case .item(let entry): return entry.identity == identity
+            case .folder(let folder): return folder.items.contains { $0.identity == identity }
+            case .empty: return false
+            }
+        }
     }
 
     func updateDisplaySort(_ sort: DisplaySort) {
@@ -398,7 +416,9 @@ final class LauncherModel {
         case .selectAll:
             selectAllOnPage()
         case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide, .arrangeLayout,
-             .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle, .displayMode:
+             .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle, .displayMode,
+             .addWebsite, .editWebsite, .editEntryAppearance, .resetEntryIcon, .refreshWebsiteIcon,
+             .pinEntry, .unpinEntry, .deleteWebsite:
             break
         }
     }
@@ -427,7 +447,8 @@ final class LauncherModel {
             edit = .hide(items)
         case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide,
              .selectAll, .arrangeLayout, .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle,
-             .displayMode:
+             .displayMode, .addWebsite, .editWebsite, .editEntryAppearance, .resetEntryIcon,
+             .refreshWebsiteIcon, .pinEntry, .unpinEntry, .deleteWebsite:
             return
         }
         clearMultiSelection()
@@ -954,6 +975,7 @@ final class LauncherModel {
         guard newQuery != query else {
             return
         }
+        if query.isEmpty && !newQuery.isEmpty { pageBeforeSearch = currentPage }
         query = newQuery
         setGridPage(0, animated: false)
         if newQuery.isEmpty {
