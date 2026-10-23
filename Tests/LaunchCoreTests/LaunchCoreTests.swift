@@ -3,6 +3,6 @@ import XCTest
 
 final class LaunchCoreTests: XCTestCase {
     func testPackageExposesVersionedLayoutSchema() {
-        XCTAssertEqual(LayoutDocument.currentVersion, 1)
+        XCTAssertEqual(LayoutDocument.currentVersion, 2)
     }
 }
