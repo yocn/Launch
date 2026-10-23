@@ -180,4 +180,3 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 - `ShortcutService` 后台执行 `/usr/bin/shortcuts list --show-identifiers`；运行用 `run <UUID>`，不经 shell，最长等待 300 秒，输出限额 1 MiB，同 UUID 运行中拒绝重复发起，错误不重试。超时停止的是 CLI 等待，不保证系统中已经开始的工作流已终止；不要立即重试有副作用的指令。
 - `LaunchItemIcon` 为网格/搜索/文件夹预览/拖动共用绘制入口。非应用左下角圆形角标约图标 1/3；`ExtraItemEditor` 提供网址与图片编辑，`ExtraItemsSettingsView` 是设置「条目」页。内部部分 `apps` / `hiddenApps` 旧属性名保留，但元素类型已经是 `LaunchItem`，不要误当真实应用。
 - 回归用临时布局与注入执行器；交互夹具：`LAUNCH_EXTRA_ITEMS_PREVIEW=1 swift test --filter ExtraItemsUIPreviewTests`，只用临时数据和假指令，不执行真实系统工作流。真实执行需要用户自行选择无副作用指令验证；实际验收证据见 manual-verification。
-
