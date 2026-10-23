@@ -31,6 +31,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let restoreItem = NSMenuItem(title: "恢复导入前的布局", action: nil, keyEquivalent: "")
     private let hiddenItem = NSMenuItem(title: "隐藏的应用", action: nil, keyEquivalent: "")
     private let settingsItem = NSMenuItem(title: "设置…", action: nil, keyEquivalent: ",")
+    private let guideItem = NSMenuItem(title: "使用说明", action: nil, keyEquivalent: "")
     private let quitItem = NSMenuItem(title: "退出 Launch", action: nil, keyEquivalent: "q")
     private let menu = NSMenu()
     private let loginItemService: LoginItemService
@@ -76,12 +77,20 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         quitItem.target = self
         settingsItem.action = #selector(openSettings)
         settingsItem.target = self
+        guideItem.action = #selector(openGuide)
+        guideItem.target = self
+        guideItem.isEnabled = UserGuide.url != nil
+        guideItem.image = NSImage(systemSymbolName: "questionmark.circle", accessibilityDescription: nil)
 
         menu.autoenablesItems = false
         menu.delegate = self
         menu.items = [
-            openItem, settingsItem, conflictItem, .separator(), loginItem, importItem, restoreItem, hiddenItem, .separator(), quitItem,
+            openItem, settingsItem, guideItem, conflictItem, .separator(), loginItem, importItem, restoreItem, hiddenItem, .separator(), quitItem,
         ]
+    }
+
+    @objc private func openGuide() {
+        UserGuide.open()
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
