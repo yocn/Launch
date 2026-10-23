@@ -13,7 +13,7 @@ final class ExtraItemsBackupTests: XCTestCase {
     func testImportAndRestoreIncludeDefinitionsIconsAndPinnedReferences() async throws {
         let root = try makeTemporaryDirectory()
         let store = LayoutStore(fileURL: root.appendingPathComponent("layout.json"))
-        let entry = ExtraItemDefinition(name: "文档", target: .website(URL(string: "https://example.com")!), customIconData: Data([1, 2, 3]))
+        let entry = ExtraItemDefinition(name: "文档", target: .website(URL(string: "https://example.com")!), customIconData: entryTestPNG())
         let original = LayoutDocument(pages: [LayoutPage(slots: [.item(entry.identity)])], extraItems: [entry])
         try store.save(LayoutDocument())
         let layout = LayoutCoordinator(store: store, launchpad: NoEntryLaunchpad(), prompter: EntryPrompter())

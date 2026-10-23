@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 
 // 布局文件与导出的备份同一格式
 public enum LayoutBackup {
@@ -19,8 +20,8 @@ public enum LayoutBackup {
         for entry in document.extraItems {
             guard ids.insert(entry.id).inserted, identities.insert(entry.identity).inserted,
                   !entry.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  (entry.customIconData?.count ?? 0) <= 1_048_576,
-                  (entry.cachedIconData?.count ?? 0) <= 1_048_576 else {
+                  entry.customIconData.map(validArtwork) ?? true,
+                  entry.cachedIconData.map(validArtwork) ?? true else {
                 throw LayoutStoreError.invalidItems
             }
             if case .website(let url) = entry.target {
@@ -30,7 +31,43 @@ public enum LayoutBackup {
                 }
             }
         }
+        var placed = Set<String>()
+        var folders = Set<String>()
+        func validateReference(_ identity: ItemIdentity) throws {
+            guard placed.insert(identity.stableKey).inserted,
+                  identity.applicationIdentity != nil || identities.contains(identity) else {
+                throw LayoutStoreError.invalidItems
+            }
+        }
+        for slot in document.pages.flatMap(\.slots) {
+            switch slot {
+            case .empty: break
+            case .item(let identity): try validateReference(identity)
+            case .folder(let folder):
+                guard !folder.id.isEmpty, folders.insert(folder.id).inserted else { throw LayoutStoreError.invalidItems }
+                for identity in folder.items { try validateReference(identity) }
+            }
+        }
+        for identity in document.hiddenItems where identity.applicationIdentity == nil && !identities.contains(identity) {
+            throw LayoutStoreError.invalidItems
+        }
         return document
+    }
+
+    // Check headers before bounded thumbnail decoding; never hand imported bytes straight to NSImage.
+    private static func validArtwork(_ data: Data) -> Bool {
+        guard !data.isEmpty, data.count <= 1_048_576,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              (1 ... 32).contains(CGImageSourceGetCount(source)) else { return false }
+        for index in 0 ..< CGImageSourceGetCount(source) {
+            guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any],
+                  let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                  let height = properties[kCGImagePropertyPixelHeight] as? Int,
+                  (1 ... 8192).contains(width), (1 ... 8192).contains(height),
+                  CGImageSourceCreateThumbnailAtIndex(source, index, [kCGImageSourceCreateThumbnailFromImageAlways: true,
+                      kCGImageSourceThumbnailMaxPixelSize: 256, kCGImageSourceShouldCacheImmediately: true] as CFDictionary) != nil else { return false }
+        }
+        return true
     }
 
     // 未安装的应用保留位置；本机有而备份里没有的排在最后

@@ -11,7 +11,7 @@ extension LayoutStoreError: LocalizedError {
         case .unsupportedSchema(let version):
             "布局文件版本 \(version) 不受支持"
         case .invalidItems:
-            "布局中的条目定义无效、重复或图标过大"
+            "布局中的条目或引用无效、标识重复，或图标损坏／超限"
         }
     }
 }

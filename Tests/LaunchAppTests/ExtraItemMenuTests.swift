@@ -1,10 +1,24 @@
 import AppKit
 import LaunchCore
 import XCTest
+import Observation
+import os
 @testable import LaunchApp
 
 @MainActor
 final class ExtraItemMenuTests: XCTestCase {
+    func testSearchObservesCatalogChangesEvenWhenQueryAndIdentityStayTheSame() {
+        let definition = ExtraItemDefinition(name: "旧名字", target: .website(URL(string: "https://example.com")!))
+        let model = LauncherModel(apps: [LaunchItem(definition: definition)])
+        model.setQuery("example.com")
+        let changed = OSAllocatedUnfairLock(initialState: false)
+        withObservationTracking { _ = model.results } onChange: { changed.withLock { $0 = true } }
+        var edited = definition
+        edited.name = "新名字"
+        model.updateApps([LaunchItem(definition: edited)])
+        XCTAssertTrue(changed.withLock { $0 }, "修改条目后，当前搜索界面必须重绘")
+        XCTAssertEqual(model.results.first?.displayName, "新名字")
+    }
     func testWebsiteNeverGetsApplicationCommandsEvenIfCallerOffersUninstall() {
         let entry = ExtraItemDefinition(name: "文档", target: .website(URL(string: "https://example.com")!))
         var content = AppMenuContent(app: LaunchItem(definition: entry), canOpen: true, canEdit: true, canUninstall: true)
@@ -18,7 +32,7 @@ final class ExtraItemMenuTests: XCTestCase {
         XCTAssertFalse(names.contains("显示简介"))
         XCTAssertFalse(names.contains("在访达中显示"))
         XCTAssertTrue(names.contains("编辑网址…"))
-        menu.performActionForItem(at: names.firstIndex(of: "添加到网格")!)
+        trigger(menu.items[names.firstIndex(of: "添加到网格")!])
         XCTAssertEqual(chosen, [.pinEntry(entry.identity, page: 2)])
     }
 
@@ -42,7 +56,12 @@ final class ExtraItemMenuTests: XCTestCase {
         var chosen: [ItemMenuCommand] = []
         let builder = ItemMenu { chosen.append($0) }
         let menu = builder.makeMenu(.main(content))
-        menu.performActionForItem(at: menu.items.firstIndex { $0.title == "添加网址…" }!)
+        trigger(menu.items[menu.items.firstIndex { $0.title == "添加网址…" }!])
         XCTAssertEqual(chosen, [.addWebsite(page: 3)])
+    }
+
+    private func trigger(_ item: NSMenuItem) {
+        guard let action = item.action else { return XCTFail("菜单项没有动作") }
+        _ = (item.target as? NSObject)?.perform(action, with: item)
     }
 }

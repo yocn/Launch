@@ -1,7 +1,15 @@
 import Foundation
+import AppKit
 import LaunchCore
 import XCTest
 @testable import LaunchApp
+
+@MainActor func entryTestPNG() -> Data {
+    let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 2, pixelsHigh: 2, bitsPerSample: 8, samplesPerPixel: 4,
+                                  hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    bitmap.setColor(.systemBlue, atX: 0, y: 0)
+    return bitmap.representation(using: .png, properties: [:])!
+}
 
 func makeApps(count: Int) -> [CatalogApp] {
     (0 ..< count).map { index in

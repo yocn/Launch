@@ -118,6 +118,8 @@ final class LauncherModel {
     }
 
     var results: [LaunchItem] {
+        // searchIndex is intentionally ignored by Observation; track its catalog source explicitly.
+        _ = apps
         let hidden = showsHiddenAppsInSearch ? [] : Set(hiddenApps.map(\.identity))
         return searchIndex.results(for: query, hidden: hidden)
     }

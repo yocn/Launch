@@ -47,6 +47,7 @@ final class LayoutCoordinator {
     private var isReadOnly = false
     private var hasReportedSaveError = false
     private var undoStack: [LayoutDocument] = []
+    private(set) var replacementGeneration = UUID()
     private(set) var hiddenApps: [LaunchItem] = []
 
     init(
@@ -139,7 +140,7 @@ final class LayoutCoordinator {
         guard isEditable, let previous = undoStack.last else {
             return
         }
-        if commit(previous, recordsUndo: false) { undoStack.removeLast() }
+        if commit(previous, recordsUndo: false, invalidatesIcons: true) { undoStack.removeLast() }
     }
 
     func unhide(_ app: LaunchItem) {
@@ -198,6 +199,7 @@ final class LayoutCoordinator {
             document = LayoutEngine.appending(retained, to: document, pageCapacity: pageCapacity)
             try store.replace(with: document)
             self.document = document
+            replacementGeneration = UUID()
             isReadOnly = false
             needsSetup = false
             undoStack.removeAll()
@@ -223,6 +225,7 @@ final class LayoutCoordinator {
             }
             try store.replace(with: result.document)
             document = result.document
+            replacementGeneration = UUID()
             isReadOnly = false
             needsSetup = false
             undoStack.removeAll()
@@ -241,6 +244,7 @@ final class LayoutCoordinator {
         do {
             try store.swapWithBackup()
             document = try store.load()
+            replacementGeneration = UUID()
             isReadOnly = false
             needsSetup = false
             undoStack.removeAll()
@@ -291,7 +295,7 @@ final class LayoutCoordinator {
     }
 
     @discardableResult
-    private func commit(_ next: LayoutDocument, recordsUndo: Bool = true) -> Bool {
+    private func commit(_ next: LayoutDocument, recordsUndo: Bool = true, invalidatesIcons: Bool = false) -> Bool {
         guard isEditable, let previous = document else { return false }
         guard next != previous else { return true }
         do { try store.save(next) }
@@ -301,6 +305,7 @@ final class LayoutCoordinator {
             if undoStack.count > Self.undoLimit { undoStack.removeFirst() }
         }
         document = next
+        if invalidatesIcons { replacementGeneration = UUID() }
         publish()
         return true
     }

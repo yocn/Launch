@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
         fallback = NSImage(systemSymbolName: fallbackSymbol, accessibilityDescription: nil)
         preview = NSImageView(frame: NSRect(x: 62, y: 44, width: 48, height: 48))
         preview.imageScaling = .scaleProportionallyUpOrDown
-        preview.image = displayData.flatMap(NSImage.init(data:)) ?? fallback
+        preview.image = displayData.flatMap { ItemImageData.normalized($0) }.flatMap(NSImage.init(data:)) ?? fallback
         super.init()
     }
     @objc func choose() {

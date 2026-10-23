@@ -44,6 +44,47 @@ private actor DelayedEntryIcons {
 
 @MainActor
 final class ExtraItemsControllerTests: XCTestCase {
+    func testChangingOnlyShortcutArtworkDoesNotFreezeTheSystemName() async throws {
+        let (layout, _) = try await makeLayout()
+        let listing = EntryListing()
+        let controller = ExtraItemsController(layout: layout, shortcuts: ShortcutService(execute: { _, _ in await listing.output() }), fetchIcon: { _ in nil })
+        await controller.refreshShortcuts()
+        let item = try XCTUnwrap(controller.items.first)
+        try controller.updateAppearance(of: item.identity, name: item.displayName, customIconData: nil)
+        await listing.rename("系统新名称")
+        await controller.refreshShortcuts()
+        XCTAssertEqual(controller.items.first?.displayName, "系统新名称")
+        XCTAssertNil(layout.extraItems.first?.nameOverride)
+    }
+
+    func testImportRestoreAndUndoInvalidateSameURLIconResponses() async throws {
+        let (layout, store) = try await makeLayout()
+        let pending = DelayedEntryIcons()
+        let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in await pending.load() })
+        layout.onDocumentChange = { controller.layoutDidChange() }
+        let entry = try controller.saveWebsite(name: "文档", address: "example.com", existing: nil, toPage: 0, customIconData: nil)
+        await pending.waitFor(1)
+        var imported = entry
+        imported.cachedIconData = entryTestPNG()
+        let document = LayoutDocument(pages: [LayoutPage(slots: [.item(entry.identity)])], extraItems: [imported])
+        XCTAssertNotNil(layout.importBackup(try LayoutBackup.encode(document)))
+        await pending.finish(0, data: nil)
+        for _ in 0 ..< 10 { await Task.yield() }
+        XCTAssertEqual(try store.load()?.extraItems.first?.cachedIconData, imported.cachedIconData)
+        controller.refreshWebsiteIcon(entry.identity)
+        await pending.waitFor(2)
+        layout.restoreBackup()
+        await pending.finish(1, data: imported.cachedIconData)
+        for _ in 0 ..< 10 { await Task.yield() }
+        XCTAssertNil(try store.load()?.extraItems.first?.cachedIconData)
+        controller.refreshWebsiteIcon(entry.identity)
+        await pending.waitFor(3)
+        _ = try controller.saveWebsite(name: "新名称", address: "example.com", existing: entry, toPage: nil, customIconData: nil)
+        layout.undo()
+        await pending.finish(2, data: imported.cachedIconData)
+        for _ in 0 ..< 10 { await Task.yield() }
+        XCTAssertNil(try store.load()?.extraItems.first?.cachedIconData)
+    }
     func testAddingWebsiteToAFullPageKeepsItOnTheRequestedPage() async throws {
         let (layout, store) = try await makeLayout()
         layout.updatePageCapacity(2)
@@ -63,11 +104,11 @@ final class ExtraItemsControllerTests: XCTestCase {
         await listing.rename("新名称")
         await controller.refreshShortcuts()
         XCTAssertEqual(controller.items.first?.displayName, "新名称")
-        try controller.updateAppearance(of: id, name: "我的别名", customIconData: Data([1, 2, 3]))
+        try controller.updateAppearance(of: id, name: "我的别名", customIconData: entryTestPNG())
         await listing.rename("再次改名")
         await controller.refreshShortcuts()
         XCTAssertEqual(controller.items.first?.displayName, "我的别名")
-        XCTAssertEqual(controller.items.first?.iconData, Data([1, 2, 3]))
+        XCTAssertEqual(controller.items.first?.iconData, entryTestPNG())
     }
 
     func testOldIconResponsesCannotOverwriteEditedURLOrResurrectDeletedWebsite() async throws {
@@ -124,12 +165,12 @@ final class ExtraItemsControllerTests: XCTestCase {
     func testRemovedPinnedShortcutRetainsAliasAndIconAsUnavailable() async throws {
         let (layout, store) = try await makeLayout()
         let id = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
-        let entry = ExtraItemDefinition(id: id, name: "别名", target: .shortcut(id), customIconData: Data([1, 2, 3]))
+        let entry = ExtraItemDefinition(id: id, name: "别名", target: .shortcut(id), customIconData: entryTestPNG())
         XCTAssertTrue(layout.saveExtraItem(entry, toPage: 0))
         let controller = ExtraItemsController(layout: layout, shortcuts: ShortcutService(execute: { _, _ in "" }), fetchIcon: { _ in nil })
         await controller.refreshShortcuts()
         XCTAssertEqual(controller.items.first?.displayName, "别名")
-        XCTAssertEqual(controller.items.first?.iconData, Data([1, 2, 3]))
+        XCTAssertEqual(controller.items.first?.iconData, entryTestPNG())
         XCTAssertFalse(try XCTUnwrap(controller.items.first).isAvailable)
         XCTAssertEqual(try store.load()?.pages.first?.slots, [.item(.shortcut(id))])
     }

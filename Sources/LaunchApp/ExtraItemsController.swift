@@ -31,12 +31,14 @@ final class ExtraItemsController {
     @ObservationIgnored private var applications: [LaunchItem] = []
     @ObservationIgnored private var iconTasks: [ItemIdentity: Task<Void, Never>] = [:]
     @ObservationIgnored private var iconVersions: [ItemIdentity: UUID] = [:]
+    @ObservationIgnored private var documentGeneration: UUID
 
     init(layout: LayoutCoordinator, shortcuts: ShortcutService = ShortcutService(),
          fetchIcon: @escaping @Sendable (URL) async -> Data? = { await WebsiteIconFetcher().fetch(for: $0) }) {
         self.layout = layout
         self.shortcuts = shortcuts
         self.fetchIcon = fetchIcon
+        documentGeneration = layout.replacementGeneration
         rebuild()
     }
 
@@ -48,6 +50,13 @@ final class ExtraItemsController {
     }
 
     func layoutDidChange() {
+        if documentGeneration != layout.replacementGeneration {
+            iconTasks.values.forEach { $0.cancel() }
+            iconTasks.removeAll()
+            iconVersions.removeAll()
+            fetchingIcons.removeAll()
+            documentGeneration = layout.replacementGeneration
+        }
         let valid = Set(layout.extraItems.map(\.identity))
         for identity in Array(iconTasks.keys) where !valid.contains(identity) {
             iconTasks.removeValue(forKey: identity)?.cancel()
@@ -89,9 +98,11 @@ final class ExtraItemsController {
         iconVersions[identity] = version
         fetchingIcons.insert(identity)
         let fetchIcon = self.fetchIcon
+        let generation = layout.replacementGeneration
         iconTasks[identity] = Task { [weak self] in
             let data = await fetchIcon(url)
-            guard let self, !Task.isCancelled, iconVersions[identity] == version else { return }
+            guard let self, !Task.isCancelled, iconVersions[identity] == version,
+                  layout.replacementGeneration == generation else { return }
             layout.updateCachedIcon(data, for: identity, expectedURL: url)
             iconTasks.removeValue(forKey: identity)
             iconVersions.removeValue(forKey: identity)
@@ -133,7 +144,9 @@ final class ExtraItemsController {
         if let name {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { throw ExtraItemError.emptyName }
-            if case .shortcut = entry.target { entry.nameOverride = trimmed }
+            if case .shortcut = entry.target {
+                if trimmed != item.displayName { entry.nameOverride = trimmed }
+            }
             else { entry.name = trimmed }
         }
         entry.customIconData = customIconData

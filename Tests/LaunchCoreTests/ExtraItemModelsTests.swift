@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import XCTest
 @testable import LaunchCore
 
@@ -27,7 +28,10 @@ final class ExtraItemModelsTests: XCTestCase {
 
     func testMixedFolderAndIconDataSurviveBackup() throws {
         let id = UUID(uuidString: "33333333-3333-3333-3333-333333333333")!
-        let website = ExtraItemDefinition(id: id, name: "文档", target: .website(URL(string: "https://example.com")!), customIconData: Data([1, 2, 3]))
+        let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1, bitsPerSample: 8, samplesPerPixel: 4,
+                                     hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        let website = ExtraItemDefinition(id: id, name: "文档", target: .website(URL(string: "https://example.com")!), customIconData: png)
         let app = AppIdentity(bundleIdentifier: "app.test", path: "/Applications/Test.app")
         let document = LayoutDocument(pages: [LayoutPage(slots: [.folder(LayoutFolder(id: "f", name: "混合", items: [.application(app), website.identity])), .empty])], hiddenItems: [website.identity], extraItems: [website])
         XCTAssertEqual(try LayoutBackup.decode(LayoutBackup.encode(document)), document)
