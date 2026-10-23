@@ -24,7 +24,6 @@ enum StatusItemClick: Equatable {
 @MainActor
 final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    private let openItem = NSMenuItem(title: "打开启动器", action: nil, keyEquivalent: " ")
     private let conflictItem = NSMenuItem(title: "⚠︎ 快捷键与 LaunchOS 冲突", action: nil, keyEquivalent: "")
     private let loginItem = NSMenuItem(title: "开机启动", action: nil, keyEquivalent: "")
     private let importItem = NSMenuItem(title: "从 Launchpad 导入布局…", action: nil, keyEquivalent: "")
@@ -62,10 +61,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         statusItem.button?.target = self
         statusItem.button?.action = #selector(statusItemClicked(_:))
         statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        // Shortcut.description 格式化 Space 时会读取库的资源 bundle，这里直接用 keyEquivalent 显示
-        openItem.keyEquivalentModifierMask = [.option]
-        openItem.action = #selector(openLauncher)
-        openItem.target = self
         conflictItem.isEnabled = false
         loginItem.action = #selector(toggleLoginItem)
         loginItem.target = self
@@ -85,7 +80,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.autoenablesItems = false
         menu.delegate = self
         menu.items = [
-            openItem, settingsItem, guideItem, conflictItem, .separator(), loginItem, importItem, restoreItem, hiddenItem, .separator(), quitItem,
+            settingsItem, guideItem, conflictItem, .separator(), loginItem, importItem, restoreItem, hiddenItem, .separator(), quitItem,
         ]
     }
 
@@ -145,10 +140,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     func setIconVisible(_ visible: Bool) {
         statusItem.isVisible = visible
-    }
-
-    @objc private func openLauncher() {
-        onOpen()
     }
 
     @objc private func openSettings() {
