@@ -1,7 +1,7 @@
 import AppKit
 import ApplicationServices
 
-// 接管 F4 键与触控板捏合需要辅助功能权限；未授权时每 2 秒检查一次，授权后自动开始
+// 接管 F4 键与触控板捏合需要辅助功能权限；开启后每 2 秒检查一次，授权后自动开始、权限被关掉后立即停止
 @MainActor
 final class SystemInputTap {
     var f4Enabled = false {
@@ -27,12 +27,17 @@ final class SystemInputTap {
     private static let functionKeyCodes: Set<Int64> = [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
     private static let systemDefinedType: UInt32 = 14
     private static let gestureType: UInt32 = 29
+    private static let accessibilityChanged = Notification.Name("com.apple.accessibility.api")
 
     private let onTrigger: () -> Void
     private var recognizer = PinchRecognizer()
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var permissionTimer: Timer?
+    private var accessibilityObserver: NSObjectProtocol?
+    private var reenableLimiter = TapReenableLimiter()
+    // 拦截反复被系统停用或创建失败后不再自动挂上，等权限变化或改设置
+    private var isSuspended = false
     private var swallowsGesture = false
 
     init(onTrigger: @escaping () -> Void) {
@@ -51,36 +56,71 @@ final class SystemInputTap {
 
     private func refresh() {
         stopTap()
+        isSuspended = false
+        reenableLimiter.reset()
         guard f4Enabled || pinch != .off else {
-            stopPolling()
+            stopMonitoring()
             return
         }
-        guard Self.isTrusted else {
-            startPolling()
-            return
+        startMonitoring()
+        if Self.isTrusted {
+            startTap()
         }
-        stopPolling()
-        startTap()
     }
 
-    private func startPolling() {
+    // 拦截挂着时也要盯权限：权限被关掉而拦截还在，系统会扣住所有点击和按键，只能强制重启
+    private func startMonitoring() {
         guard permissionTimer == nil else {
             return
         }
         permissionTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, Self.isTrusted else {
-                    return
-                }
-                AppLog.shared.info("已获得辅助功能权限，开始接管 F4 键与触控板手势")
-                self.refresh()
+                self?.checkPermission()
+            }
+        }
+        accessibilityObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Self.accessibilityChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.accessibilityDidChange()
             }
         }
     }
 
-    private func stopPolling() {
+    private func stopMonitoring() {
         permissionTimer?.invalidate()
         permissionTimer = nil
+        if let accessibilityObserver {
+            DistributedNotificationCenter.default().removeObserver(accessibilityObserver)
+        }
+        accessibilityObserver = nil
+    }
+
+    private func checkPermission() {
+        let trusted = Self.isTrusted
+        if tap != nil, !trusted {
+            AppLog.shared.info("辅助功能权限已关闭，停止接管 F4 键与触控板手势")
+            stopTap()
+        } else if tap == nil, trusted, !isSuspended {
+            AppLog.shared.info("已获得辅助功能权限，开始接管 F4 键与触控板手势")
+            startTap()
+        }
+    }
+
+    // 通知到达时进程内的权限结果可能还没更新，先拆掉拦截，稍后再按权限决定是否挂回
+    private func accessibilityDidChange() {
+        if tap != nil {
+            AppLog.shared.info("辅助功能设置有变化，暂停接管并重新检查权限")
+        }
+        stopTap()
+        isSuspended = false
+        reenableLimiter.reset()
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            self?.checkPermission()
+        }
     }
 
     private func startTap() {
@@ -112,6 +152,7 @@ final class SystemInputTap {
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
             AppLog.shared.error("创建事件拦截失败")
+            isSuspended = true
             return
         }
         let source = CFMachPortCreateRunLoopSource(nil, port, 0)
@@ -138,9 +179,9 @@ final class SystemInputTap {
     private func swallows(_ type: CGEventType, _ event: CGEvent) -> Bool {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
-            // 回调太慢或系统暂停时拦截会被停用，需要重新打开
-            if let tap {
-                CGEvent.tapEnable(tap: tap, enable: true)
+            // 权限被关掉时系统也只报超时；在回调里直接重开会让输入反复卡死，必须先查权限并限次
+            Task { @MainActor [weak self] in
+                self?.tapWasDisabled(type)
             }
             return false
         case .keyDown:
@@ -153,6 +194,25 @@ final class SystemInputTap {
             }
             return false
         }
+    }
+
+    private func tapWasDisabled(_ type: CGEventType) {
+        guard let tap else {
+            return
+        }
+        AppLog.shared.info(type == .tapDisabledByTimeout ? "事件拦截超时，被系统停用" : "事件拦截被系统停用")
+        guard Self.isTrusted else {
+            AppLog.shared.info("辅助功能权限已关闭，停止接管 F4 键与触控板手势")
+            stopTap()
+            return
+        }
+        guard reenableLimiter.allows(at: Date()) else {
+            AppLog.shared.error("事件拦截反复被系统停用，暂停接管 F4 键与触控板手势")
+            isSuspended = true
+            stopTap()
+            return
+        }
+        CGEvent.tapEnable(tap: tap, enable: true)
     }
 
     private func handleKey(_ event: CGEvent) -> Bool {
