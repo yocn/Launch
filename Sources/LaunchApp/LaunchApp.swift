@@ -166,6 +166,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             self?.settingsWindow.launcherDidHide()
         }
         controller.isSettingsOpen = { [weak self] in self?.settingsWindow.isOpen ?? false }
+        controller.closeSettings = { [weak self] in _ = self?.settingsWindow.closeIfAboveLauncher() }
         presenter.onPresent = { [weak self] screen in
             guard let self else {
                 return

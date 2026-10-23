@@ -37,6 +37,8 @@ final class LauncherController {
     var onHide: (() -> Void)?
     // 设置窗口开着时关启动器不切回之前的应用，免得设置窗口被那个应用盖住
     var isSettingsOpen: () -> Bool = { false }
+    // 快捷键等切换关闭启动器时，浮在它上面的设置窗口一起关
+    var closeSettings: () -> Void = {}
 
     init(
         model: LauncherModel,
@@ -66,6 +68,7 @@ final class LauncherController {
 
     func toggle() {
         if presenter.isVisible {
+            closeSettings()
             hide(.toggle)
         } else {
             show()

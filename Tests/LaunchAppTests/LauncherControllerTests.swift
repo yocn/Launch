@@ -72,6 +72,20 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testToggleOffClosesSettingsTooAndRestoresPreviousApp() {
+        let (controller, presenter) = makeController()
+        var settingsOpen = true
+        controller.isSettingsOpen = { settingsOpen }
+        controller.closeSettings = { settingsOpen = false }
+        controller.show()
+
+        controller.toggle()
+
+        XCTAssertFalse(settingsOpen)
+        XCTAssertEqual(presenter.dismissals, [true])
+    }
+
+    @MainActor
     func testHideKeepsAppActiveWhileSettingsOpen() {
         let (controller, presenter) = makeController()
         controller.isSettingsOpen = { true }
