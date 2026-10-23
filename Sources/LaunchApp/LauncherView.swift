@@ -323,6 +323,7 @@ struct LauncherView: View {
                 .accessibilityLabel("更多选项")
             }
         }
+        .modifier(ReadableShadow())
         .padding(.leading, layout.searchBarLeadingPadding)
         .padding(.trailing, layout.searchBarPadding)
         .frame(width: layout.searchBarWidth, height: layout.searchBarHeight)
@@ -364,7 +365,7 @@ private struct LauncherAppTile: View {
             Text(app.displayName)
                 .font(.system(size: layout.labelFontSize, weight: .medium))
                 .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+                .modifier(ReadableShadow())
                 .lineLimit(1)
                 .frame(maxWidth: layout.tileWidth)
                 .frame(height: layout.labelHeight)
@@ -400,7 +401,7 @@ private struct LauncherFolderTile: View {
             Text(folder.name)
                 .font(.system(size: layout.labelFontSize, weight: .medium))
                 .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+                .modifier(ReadableShadow())
                 .lineLimit(1)
                 .frame(maxWidth: layout.tileWidth)
                 .frame(height: layout.labelHeight)
@@ -550,6 +551,15 @@ private struct UninstallBadge: View {
             // 点击交给下面的图标吞掉，× 本身由 ItemDragController 按位置识别
             .allowsHitTesting(false)
             .accessibilityLabel("移到废纸篓")
+    }
+}
+
+// 暗度调低、背后是白色窗口时白字会看不清：一圈紧贴的深色描边加一层柔光
+private struct ReadableShadow: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .shadow(color: .black.opacity(0.65), radius: 1, y: 0.5)
+            .shadow(color: .black.opacity(0.45), radius: 3)
     }
 }
 
@@ -888,7 +898,7 @@ private struct DragCard: View {
         Text(text)
             .font(.system(size: layout.labelFontSize, weight: .medium))
             .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+            .modifier(ReadableShadow())
             .lineLimit(1)
             .frame(maxWidth: layout.tileWidth)
             .frame(height: layout.labelHeight)
