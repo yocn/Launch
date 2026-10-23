@@ -166,3 +166,18 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 移动只走系统废纸篓接口；本体失败就停止，残留变化或失败逐项保留。签名无法核对、其他安装副本（含大小写相同及子标识的独立应用）、共享组、名称匹配、链接/硬链接、读取不完整或超限项均禁选。不提权，不处理系统 Library、钥匙串、服务或扩展，不宣称全盘或彻底清理。记录在 `~/Library/Application Support/Launch/UninstallRecords`，完成后可在访达显示。记录提供原路径与实际废纸篓路径，手动移回；不保证访达有「放回原处」菜单或恢复应用运行状态。
 
 卸载目标的实际文件移动前仍保留原权限限制；不卸载系统应用及 Launch 自身。扫描与 trashItem 之间存在非原子窗口，不能抵御同一用户恶意进程制造的精确竞态。测试覆盖失败/替换/共享保护；真机仅使用自制空应用和假残留。`scripts/make-cleanup-fixture.sh` 可重建测试材料，需明确运行授权及 Apple Development 签名，拒绝覆盖现有目标。
+
+## 12. 网址与快捷指令（2026-10-23）
+
+首批按 [设计](superpowers/specs/2026-10-23-extra-items-design.md) 与 [执行计划](superpowers/plans/2026-10-23-extra-items-phase-one.md) 实现；访达文件夹和系统设置面板尚未实现。
+
+- `CatalogApp` / `AppIdentity` 仍仅代表磁盘上的真实应用。`ItemIdentity`、`LaunchTarget`、`LaunchItem` 承载 application / website / shortcut，禁止伪造应用路径；卸载、简介、退出进程和日期元数据仅接受真实应用。
+- `ExtraItemsController` 合并真实应用、网站定义、只读发现的快捷指令目录；目录可搜索，只有用户固定的非应用引用进入网格。快捷指令 UUID 为稳定身份；系统改名默认跟随，用户别名和图标仅保存在 Launch，已固定的失效项置灰保留。
+- `LayoutDocument` v2 保存 typed slots、folder.items、hiddenItems、extraItems 及有上限的图标数据。v1 解码保留页序/空位/文件夹；首次写入前保留独立 `layout.json.v1-backup`，绝不覆盖原快照，导入备份仍使用 `.backup`。旧版本需用 v1 快照回退。
+- `LayoutBackup` 在写入前拒绝未知版本、重复定义/布局身份/文件夹 ID、缺失定义及损坏/超限图像。图像先检查头部尺寸，再有界解码缩略图；错误不能覆盖现有布局或导入备份。
+- `LayoutCoordinator` 原子保存完整文档并维护 20 步撤销；导入、恢复、撤销有 `replacementGeneration`，异步图标回写须复核请求版本、文档代次与 URL，不能覆盖恢复结果。满页固定将旧末项顺延，保留新入口在指定页。重新导入 Launchpad 时，已固定非应用按原序附在末尾，原分组/位置可能改变。
+- `WebsiteAddress` 仅允许无凭证 HTTP(S)。`WebsiteIconFetcher` 用临时无 Cookie/凭证会话、只请求同源资源，每请求 5 秒、页面 512 KiB、图片 1 MiB，最多 3 张，解码前像素上限 8192²，转最长边 256px PNG。只在新增、改网址或手动刷新时访问网站；失败用首字图标，不使用第三方 favicon 服务。
+- `ShortcutService` 后台执行 `/usr/bin/shortcuts list --show-identifiers`；运行用 `run <UUID>`，不经 shell，最长等待 300 秒，输出限额 1 MiB，同 UUID 运行中拒绝重复发起，错误不重试。超时停止的是 CLI 等待，不保证系统中已经开始的工作流已终止；不要立即重试有副作用的指令。
+- `LaunchItemIcon` 为网格/搜索/文件夹预览/拖动共用绘制入口。非应用左下角圆形角标约图标 1/3；`ExtraItemEditor` 提供网址与图片编辑，`ExtraItemsSettingsView` 是设置「条目」页。内部部分 `apps` / `hiddenApps` 旧属性名保留，但元素类型已经是 `LaunchItem`，不要误当真实应用。
+- 回归用临时布局与注入执行器；交互夹具：`LAUNCH_EXTRA_ITEMS_PREVIEW=1 swift test --filter ExtraItemsUIPreviewTests`，只用临时数据和假指令，不执行真实系统工作流。真实执行需要用户自行选择无副作用指令验证；实际验收证据见 manual-verification。
+
