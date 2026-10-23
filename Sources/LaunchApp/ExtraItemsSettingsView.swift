@@ -42,6 +42,9 @@ struct ExtraItemsSettingsView: View {
                 if let reason = item.unavailableReason { Text(reason).font(.caption).foregroundStyle(.orange).lineLimit(1) }
             }
             Spacer(minLength: 4)
+            if case .shortcut(let id) = item.target, controller.runningShortcuts.contains(id) {
+                ProgressView().controlSize(.mini).help("正在运行")
+            }
             if controller.fetchingIcons.contains(item.identity) { ProgressView().controlSize(.mini) }
             Menu {
                 if controller.isPinned(item.identity) {

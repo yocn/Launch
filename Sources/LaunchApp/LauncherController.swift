@@ -35,6 +35,8 @@ final class LauncherController {
     var onUndoLayoutEdit: (() -> Void)?
     var onOpenSettings: (() -> Void)?
     var onHide: (() -> Void)?
+    var onOpenWebsite: ((URL) -> Void)?
+    var onRunShortcut: ((UUID) -> Void)?
     // 设置窗口开着时关启动器不切回之前的应用，免得设置窗口被那个应用盖住
     var isSettingsOpen: () -> Bool = { false }
     // 快捷键等切换关闭启动器时，浮在它上面的设置窗口一起关
@@ -134,10 +136,19 @@ final class LauncherController {
     }
 
     func launch(_ app: LaunchItem) {
-        guard !model.isJiggling, app.isAvailable, let application = app.application else {
+        guard !model.isJiggling, app.isAvailable else {
             return
         }
-        openApplication(URL(fileURLWithPath: application.identity.path))
+        switch app.target {
+        case .application(let application):
+            openApplication(URL(fileURLWithPath: application.identity.path))
+        case .website(let url):
+            guard let onOpenWebsite else { return }
+            onOpenWebsite(url)
+        case .shortcut(let id):
+            guard let onRunShortcut else { return }
+            onRunShortcut(id)
+        }
         hide(.launchedApp)
     }
 

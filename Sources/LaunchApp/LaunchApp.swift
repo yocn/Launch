@@ -36,6 +36,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         prompter: AlertLayoutPrompter(),
         pageCapacity: settings.grid.capacity
     )
+    private lazy var extraItemsController = ExtraItemsController(layout: layoutCoordinator)
     private var statusItemController: StatusItemController?
     private var catalogWatcher: CatalogWatcher?
     private let inputMonitor = LauncherInputMonitor()
@@ -80,7 +81,9 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                     },
                     canRestore: { [weak self] in self?.layoutCoordinator.canRestore ?? false },
                     restoreLayout: { [weak self] in self?.layoutCoordinator.restoreBackup() }
-                )
+                ),
+                extraItems: extraItemsController,
+                currentPage: { [weak self] in self?.controller.model.currentPage ?? 0 }
             ))
         }
     )
@@ -154,6 +157,17 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         controller.model.onEdit = { [weak self] edit in
             self?.layoutCoordinator.apply(edit)
         }
+        layoutCoordinator.onDocumentChange = { [weak self] in self?.extraItemsController.layoutDidChange() }
+        extraItemsController.onCatalogChange = { [weak self] items in
+            guard let self else { return }
+            controller.updateCatalog(items)
+            refreshAppDates()
+            Task { await self.layoutCoordinator.catalogDidChange(items) }
+        }
+        controller.onOpenWebsite = { [weak self] url in
+            if !NSWorkspace.shared.open(url) { self?.showEntryError("无法打开网址", message: url.absoluteString) }
+        }
+        controller.onRunShortcut = { [weak self] id in self?.runShortcut(id) }
         controller.onUndoLayoutEdit = { [weak self] in
             self?.layoutCoordinator.undo()
         }
@@ -183,6 +197,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             return self?.uninstallCoordinator.canUninstall(application) ?? false
         }
         layoutCoordinator.start()
+        extraItemsController.layoutDidChange()
+        Task { await extraItemsController.refreshShortcuts() }
         inputMonitor.start(
             isLauncherWindow: { [weak self] window in self?.presenter.isLauncherWindow(window) ?? false },
             isComposingText: { [weak self] in self?.presenter.isComposingText ?? false },
@@ -275,6 +291,29 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
 
     private func performMenuCommand(_ command: ItemMenuCommand) {
         switch command {
+        case .addWebsite(let page):
+            ExtraItemEditor.showWebsite(controller: extraItemsController, toPage: page)
+        case .editWebsite(let id):
+            if let entry = extraItemsController.definitions.first(where: { $0.identity == id }) {
+                ExtraItemEditor.showWebsite(controller: extraItemsController, existing: entry)
+            }
+        case .editEntryAppearance(let id):
+            if let item = extraItemsController.items.first(where: { $0.identity == id }) {
+                ExtraItemEditor.showAppearance(item: item, controller: extraItemsController)
+            }
+        case .resetEntryIcon(let id):
+            do { try extraItemsController.updateAppearance(of: id, name: nil, customIconData: nil) }
+            catch { showEntryError("图标未保存", message: error.localizedDescription) }
+        case .refreshWebsiteIcon(let id):
+            extraItemsController.refreshWebsiteIcon(id)
+        case .pinEntry(let id, let page):
+            extraItemsController.pin(id, toPage: page)
+        case .unpinEntry(let id):
+            extraItemsController.unpin(id)
+        case .deleteWebsite(let id):
+            if let item = extraItemsController.items.first(where: { $0.identity == id }) {
+                ExtraItemEditor.confirmDelete(item, controller: extraItemsController)
+            }
         case .open(let item):
             activate(item)
         case .revealInFinder(let app):
@@ -343,13 +382,27 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             guard let self, generation == catalogGeneration else {
                 return
             }
-            let items = apps.map(LaunchItem.init(application:))
-            controller.updateCatalog(items)
-            refreshAppDates()
-            Task { await self.layoutCoordinator.catalogDidChange(items) }
+            extraItemsController.setApplications(apps)
         }
         watcher.start()
         catalogWatcher = watcher
+    }
+
+    private func runShortcut(_ id: UUID) {
+        Task {
+            let name = extraItemsController.items.first { $0.identity == .shortcut(id) }?.displayName ?? "快捷指令"
+            controller.model.showHint("正在运行“\(name)”…")
+            do { _ = try await extraItemsController.runShortcut(id: id) }
+            catch { showEntryError("无法运行“\(name)”", message: error.localizedDescription) }
+        }
+    }
+
+    private func showEntryError(_ title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        NSApp.activate(ignoringOtherApps: true)
+        _ = alert.runAboveLauncher()
     }
 
     private func refreshAppDates() {
