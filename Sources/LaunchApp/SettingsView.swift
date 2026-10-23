@@ -251,7 +251,7 @@ private struct AppearanceSettingsView: View {
             .pickerStyle(.radioGroup)
             LabeledContent("暗度") {
                 HStack {
-                    Slider(value: $settings.dimming, in: 0 ... 0.8)
+                    Slider(value: $settings.dimming, in: LauncherSettings.minimumDimming ... 0.8)
                     Text("\(Int((settings.dimming * 100).rounded()))%")
                         .monospacedDigit()
                         .frame(width: 44, alignment: .trailing)

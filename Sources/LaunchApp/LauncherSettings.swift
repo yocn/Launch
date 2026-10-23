@@ -64,6 +64,8 @@ enum LauncherBackgroundStyle: String, CaseIterable {
 @Observable
 final class LauncherSettings {
     static let defaultDimming = 0.47
+    // 背后是白色窗口时白色名称要看得清
+    static let minimumDimming = 0.2
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -108,7 +110,12 @@ final class LauncherSettings {
     }
 
     var dimming: Double {
-        didSet { defaults.set(dimming, forKey: Key.dimming) }
+        didSet {
+            if dimming < Self.minimumDimming {
+                dimming = Self.minimumDimming
+            }
+            defaults.set(dimming, forKey: Key.dimming)
+        }
     }
 
     var settingsWindowStyle: SettingsWindowStyle {
@@ -203,7 +210,7 @@ final class LauncherSettings {
         f4Launches = defaults.bool(forKey: Key.f4Launches)
         pinchGesture = defaults.string(forKey: Key.pinchGesture).flatMap(PinchGesture.init) ?? .off
         background = defaults.string(forKey: Key.background).flatMap(LauncherBackgroundStyle.init) ?? .glass
-        dimming = defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming
+        dimming = max(defaults.object(forKey: Key.dimming) as? Double ?? Self.defaultDimming, Self.minimumDimming)
         settingsWindowStyle = defaults.string(forKey: Key.settingsWindowStyle).flatMap(SettingsWindowStyle.init) ?? .glass
         appIconStyle = defaults.string(forKey: Key.appIconStyle).flatMap(AppIconStyle.init) ?? .grid
         appIconTheme = defaults.string(forKey: Key.appIconTheme).flatMap(AppIconTheme.init) ?? .system

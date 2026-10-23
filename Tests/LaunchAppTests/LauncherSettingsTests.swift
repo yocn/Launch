@@ -63,6 +63,17 @@ final class LauncherSettingsTests: XCTestCase {
         XCTAssertFalse(hidden.showsMenuBarIcon)
     }
 
+    func testDimmingNeverGoesBelowMinimum() {
+        let defaults = makeDefaults()
+        defaults.set(0.0, forKey: "dimming")
+        let settings = LauncherSettings(defaults: defaults)
+        XCTAssertEqual(settings.dimming, 0.2)
+
+        settings.dimming = 0.05
+        XCTAssertEqual(settings.dimming, 0.2)
+        XCTAssertEqual(LauncherSettings(defaults: defaults).dimming, 0.2)
+    }
+
     func testReturnToFirstPageMigratesOldChoice() {
         let defaults = makeDefaults()
         defaults.set("firstPage", forKey: "reopenBehavior")
