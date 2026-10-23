@@ -36,14 +36,16 @@ public struct ExtraItemDefinition: Codable, Equatable, Hashable, Sendable, Ident
     public var target: ExtraItemTarget
     public var customIconData: Data?
     public var cachedIconData: Data?
+    public var nameOverride: String?
 
     public init(id: UUID = UUID(), name: String, target: ExtraItemTarget,
-                customIconData: Data? = nil, cachedIconData: Data? = nil) {
+                customIconData: Data? = nil, cachedIconData: Data? = nil, nameOverride: String? = nil) {
         self.id = id
         self.name = name
         self.target = target
         self.customIconData = customIconData
         self.cachedIconData = cachedIconData
+        self.nameOverride = nameOverride
     }
 
     public var identity: ItemIdentity {
@@ -84,7 +86,7 @@ public struct LaunchItem: Equatable, Hashable, Sendable, Identifiable {
 
     public init(definition: ExtraItemDefinition, unavailableReason: String? = nil) {
         identity = definition.identity
-        displayName = definition.name
+        displayName = definition.nameOverride ?? definition.name
         switch definition.target {
         case .website(let url): target = .website(url)
         case .shortcut(let id): target = .shortcut(id)

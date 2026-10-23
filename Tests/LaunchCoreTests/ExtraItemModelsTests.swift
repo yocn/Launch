@@ -50,4 +50,10 @@ final class ExtraItemModelsTests: XCTestCase {
         XCTAssertEqual(moved.pages.last?.slots, [.item(website.identity)])
         XCTAssertEqual(moved.extraItems, [definition])
     }
+
+    func testRemovingAnUnrelatedEntryDoesNotUngroupSingleMemberFolders() {
+        let app = layoutApp("Reader")
+        let document = LayoutDocument(pages: [LayoutPage(slots: [.folder(LayoutFolder(id: "f", name: "保留", items: [app.identity]))])])
+        XCTAssertEqual(document.removingEntry(.website(UUID()), removeDefinition: false), document)
+    }
 }

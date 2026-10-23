@@ -33,6 +33,7 @@ final class LayoutCoordinator {
     static let undoLimit = 20
 
     var onLayoutChange: (([[ResolvedItem]]) -> Void)?
+    var onDocumentChange: (() -> Void)?
 
     private let store: LayoutStore
     private let launchpad: LaunchpadSource
@@ -79,6 +80,50 @@ final class LayoutCoordinator {
         document != nil && !isReadOnly
     }
 
+    var extraItems: [ExtraItemDefinition] { document?.extraItems ?? [] }
+    var pinnedIdentities: Set<ItemIdentity> { document?.pinnedIdentities ?? [] }
+
+    @discardableResult
+    func saveExtraItem(_ entry: ExtraItemDefinition, toPage page: Int? = nil, recordsUndo: Bool = true) -> Bool {
+        guard isEditable, let document else { return false }
+        var definitions = document.extraItems
+        if let index = definitions.firstIndex(where: { $0.id == entry.id }) {
+            guard definitions[index].identity == entry.identity else { return false }
+            definitions[index] = entry
+        } else { definitions.append(entry) }
+        var next = LayoutDocument(pages: document.pages, hiddenItems: document.hiddenItems, extraItems: definitions)
+        if let page {
+            let context = catalog.filter { $0.identity != entry.identity } + [LaunchItem(definition: entry)]
+            next = LayoutEditor.apply(.pin(entry.identity, page: page), to: next, catalog: context, pageCapacity: pageCapacity)
+        }
+        return commit(next, recordsUndo: recordsUndo)
+    }
+
+    @discardableResult
+    func pin(_ identity: ItemIdentity, toPage page: Int) -> Bool {
+        guard isEditable, let document else { return false }
+        return commit(LayoutEditor.apply(.pin(identity, page: page), to: document, catalog: catalog, pageCapacity: pageCapacity))
+    }
+
+    @discardableResult
+    func unpin(_ identity: ItemIdentity) -> Bool {
+        guard isEditable, let document, identity.applicationIdentity == nil else { return false }
+        return commit(document.removingEntry(identity, removeDefinition: false))
+    }
+
+    @discardableResult
+    func deleteExtraItem(_ identity: ItemIdentity) -> Bool {
+        guard isEditable, let document, case .website = identity else { return false }
+        return commit(document.removingEntry(identity, removeDefinition: true))
+    }
+
+    func updateCachedIcon(_ data: Data?, for identity: ItemIdentity, expectedURL: URL) {
+        guard var entry = extraItems.first(where: { $0.identity == identity }),
+              case .website(let current) = entry.target, current == expectedURL else { return }
+        entry.cachedIconData = data
+        saveExtraItem(entry, recordsUndo: false)
+    }
+
     func apply(_ edit: LayoutEdit) {
         guard isEditable, let document else {
             return
@@ -87,22 +132,14 @@ final class LayoutCoordinator {
         guard edited != document else {
             return
         }
-        undoStack.append(document)
-        if undoStack.count > Self.undoLimit {
-            undoStack.removeFirst()
-        }
-        self.document = edited
-        save(edited)
-        publish()
+        commit(edited)
     }
 
     func undo() {
-        guard isEditable, let previous = undoStack.popLast() else {
+        guard isEditable, let previous = undoStack.last else {
             return
         }
-        document = previous
-        save(previous)
-        publish()
+        if commit(previous, recordsUndo: false) { undoStack.removeLast() }
     }
 
     func unhide(_ app: LaunchItem) {
@@ -145,12 +182,20 @@ final class LayoutCoordinator {
             guard prompter.confirmReimport(result.summary) else {
                 return
             }
-            let document = LayoutDocument(
+            var document = LayoutDocument(
                 schemaVersion: result.document.schemaVersion,
                 pages: result.document.pages,
                 hiddenItems: self.document?.hiddenItems ?? [],
                 extraItems: self.document?.extraItems ?? []
             )
+            let retained = self.document?.pages.flatMap(\.slots).flatMap { slot -> [ItemIdentity] in
+                switch slot {
+                case .item(let id): return id.applicationIdentity == nil ? [id] : []
+                case .folder(let folder): return folder.items.filter { $0.applicationIdentity == nil }
+                case .empty: return []
+                }
+            } ?? []
+            document = LayoutEngine.appending(retained, to: document, pageCapacity: pageCapacity)
             try store.replace(with: document)
             self.document = document
             isReadOnly = false
@@ -224,6 +269,7 @@ final class LayoutCoordinator {
     }
 
     private func publish() {
+        defer { onDocumentChange?() }
         guard let document else {
             let fallback = LayoutEngine.defaultDocument(catalog: catalog, pageCapacity: pageCapacity)
             hiddenApps = []
@@ -242,6 +288,21 @@ final class LayoutCoordinator {
     private func fail(_ message: String) {
         log.error(message)
         prompter.showError(message)
+    }
+
+    @discardableResult
+    private func commit(_ next: LayoutDocument, recordsUndo: Bool = true) -> Bool {
+        guard isEditable, let previous = document else { return false }
+        guard next != previous else { return true }
+        do { try store.save(next) }
+        catch { fail("保存布局失败：\(error.localizedDescription)"); return false }
+        if recordsUndo {
+            undoStack.append(previous)
+            if undoStack.count > Self.undoLimit { undoStack.removeFirst() }
+        }
+        document = next
+        publish()
+        return true
     }
 
     private func save(_ document: LayoutDocument) {

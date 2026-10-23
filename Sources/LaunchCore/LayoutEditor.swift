@@ -26,6 +26,7 @@ public struct LayoutArrangement: Equatable, Sendable {
 }
 
 public enum LayoutEdit: Equatable, Sendable {
+    case pin(ItemIdentity, page: Int)
     case move(LayoutItemID, to: LayoutDropTarget)
     case moveGroup([LayoutItemID], to: LayoutDropTarget)
     case mergeIntoNewFolder([LayoutItemID])
@@ -176,6 +177,8 @@ private struct Editor {
 
     mutating func perform(_ edit: LayoutEdit) -> Bool {
         switch edit {
+        case .pin(let identity, let page):
+            pin(identity, page: page)
         case .move(let item, let target):
             move(item, to: target)
         case .moveGroup(let items, let target):
@@ -197,6 +200,17 @@ private struct Editor {
         case .arrange(let arrangement):
             arrange(arrangement)
         }
+    }
+
+    mutating func pin(_ identity: ItemIdentity, page: Int) -> Bool {
+        guard resolver.item(for: identity) != nil,
+              !pages.flatMap({ $0 }).flatMap(Self.items(in:)).contains(where: { $0.stableKey == identity.stableKey }) else { return false }
+        let location = LayoutDropTarget.insert(page: max(0, page), before: nil)
+        let actualPage = documentPage(for: location)
+        let before: LayoutItemID? = actualPage.flatMap { index in
+            visibleCount(index) >= capacity ? pages[index].reversed().compactMap { itemID(of: $0) }.first : nil
+        }
+        return place(.item(identity), at: .insert(page: max(0, page), before: before), page: actualPage)
     }
 
     mutating func move(_ item: LayoutItemID, to target: LayoutDropTarget) -> Bool {
