@@ -24,6 +24,8 @@ cp "${project_dir}/Resources/Info.plist" "${contents_dir}/Info.plist"
 # KeyboardShortcuts 的 Bundle.module 从 Contents/Resources 加载，缺失时直接 fatalError
 cp -R "${bin_dir}/KeyboardShortcuts_KeyboardShortcuts.bundle" "${contents_dir}/Resources/"
 cp -R "${bin_dir}/Launch_LaunchApp.bundle" "${contents_dir}/Resources/"
+# 设置页「使用说明」打开的网页，源文件在 docs 里
+cp "${project_dir}/docs/guide.html" "${contents_dir}/Resources/guide.html"
 
 # 生成标准 macOS 多尺寸图标；透明边缘保留，默认安装图标为浅色九宫格。
 iconset_dir="${project_dir}/.build/LaunchAppIcon.iconset"

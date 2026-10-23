@@ -182,6 +182,10 @@ private struct GeneralSettingsView: View {
                     }
                 }
             }
+            LabeledContent("使用说明") {
+                Button("在浏览器中打开", action: openGuide)
+                    .disabled(Self.guideURL == nil)
+            }
         }
         .formStyle(.grouped)
         .onAppear {
@@ -195,6 +199,17 @@ private struct GeneralSettingsView: View {
                 try? await Task.sleep(for: .seconds(2))
             }
         }
+    }
+
+    // 打包时从 docs/guide.html 拷进应用的 Resources
+    private static let guideURL = Bundle.main.url(forResource: "guide", withExtension: "html")
+
+    private func openGuide() {
+        guard let url = Self.guideURL else {
+            return
+        }
+        // 同步的 open 会等浏览器启动完成，把设置窗口卡住
+        NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration())
     }
 
     // 系统「拇指加三指捏合」：2 为开启
