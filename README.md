@@ -2,6 +2,8 @@
 
 目标是制作可日常使用的 LaunchOS 替代品。项目工作目录：`/Users/yocn/launch`。
 
+面向使用者的说明见 [使用指南](docs/guide.html)（网页，可直接用浏览器打开）。
+
 ## 接手入口
 
 1. 阅读 [技术架构与产品约定](docs/architecture.md)，了解已确认需求、职责边界与待验证事项。

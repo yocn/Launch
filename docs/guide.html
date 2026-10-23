@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Launch 使用指南</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #d2d2d7;
+    --accent: #0071e3;
+    --kbd-bg: #f0f0f3;
+    --kbd-line: #c7c7cc;
+    --note-bg: #fff8e6;
+    --note-line: #f5c25b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161617;
+      --card: #232325;
+      --text: #f5f5f7;
+      --muted: #a1a1a6;
+      --line: #3a3a3c;
+      --accent: #2997ff;
+      --kbd-bg: #2c2c2e;
+      --kbd-line: #48484a;
+      --note-bg: #2e2717;
+      --note-line: #8a6d2a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  }
+  .layout { display: flex; max-width: 1180px; margin: 0 auto; gap: 40px; padding: 48px 32px 80px; }
+  nav { position: sticky; top: 32px; align-self: flex-start; width: 200px; flex: none; }
+  nav h2 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 8px; }
+  nav a { display: block; color: var(--text); text-decoration: none; padding: 4px 10px; border-radius: 8px; font-size: 14px; }
+  nav a:hover { background: var(--card); color: var(--accent); }
+  main { flex: 1; min-width: 0; }
+  header h1 { font-size: 40px; margin: 0 0 8px; letter-spacing: -0.5px; }
+  header p { color: var(--muted); font-size: 17px; margin: 0 0 32px; }
+  section { background: var(--card); border-radius: 18px; padding: 28px 32px; margin-bottom: 24px; scroll-margin-top: 24px; }
+  section h2 { font-size: 24px; margin: 0 0 16px; }
+  section h3 { font-size: 17px; margin: 22px 0 8px; }
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { margin: 4px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  kbd {
+    display: inline-block; min-width: 22px; padding: 1px 7px; margin: 0 1px;
+    font: 13px/1.5 -apple-system, "SF Pro Text", sans-serif; text-align: center;
+    background: var(--kbd-bg); border: 1px solid var(--kbd-line); border-bottom-width: 2px; border-radius: 6px;
+  }
+  code { font: 13px "SF Mono", Menlo, monospace; background: var(--kbd-bg); padding: 1px 6px; border-radius: 5px; }
+  .note { background: var(--note-bg); border-left: 3px solid var(--note-line); padding: 10px 14px; border-radius: 8px; margin: 12px 0; font-size: 14px; }
+  .muted { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 8px; }
+  .tile { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .tile strong { display: block; margin-bottom: 4px; }
+  @media (max-width: 860px) {
+    nav { display: none; }
+    .layout { padding: 28px 18px 60px; }
+    section { padding: 22px 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <h2>目录</h2>
+    <a href="#start">快速上手</a>
+    <a href="#open">打开与关闭</a>
+    <a href="#search">搜索</a>
+    <a href="#browse">翻页与浏览</a>
+    <a href="#keys">键盘操作</a>
+    <a href="#arrange">整理图标</a>
+    <a href="#select">多选</a>
+    <a href="#menus">右键与主菜单</a>
+    <a href="#hide">隐藏应用</a>
+    <a href="#uninstall">卸载应用</a>
+    <a href="#settings">设置</a>
+    <a href="#data">数据与备份</a>
+    <a href="#permissions">权限说明</a>
+  </nav>
+
+  <main>
+    <header>
+      <h1>Launch 使用指南</h1>
+      <p>Launch 是一个原生的 macOS 启动台：按一下快捷键，所有应用铺满屏幕，搜索、翻页、拖动整理都在这里完成。</p>
+    </header>
+
+    <section id="start">
+      <h2>快速上手</h2>
+      <div class="grid">
+        <div class="tile"><strong>1. 打开</strong>按 <kbd>⌥</kbd> <kbd>空格</kbd>，或点菜单栏里的 Launch 图标。</div>
+        <div class="tile"><strong>2. 找应用</strong>直接打字搜索，支持拼音和首字母，<kbd>↩</kbd> 打开第一个结果。</div>
+        <div class="tile"><strong>3. 整理</strong>按住图标拖动排序，拖到另一个应用上合成文件夹，<kbd>⌘</kbd> <kbd>Z</kbd> 撤销。</div>
+        <div class="tile"><strong>4. 个性化</strong>点搜索框右侧的「…」→「设置…」，或按 <kbd>⌘</kbd> <kbd>,</kbd>。</div>
+      </div>
+      <p class="muted">第一次启动时，Launch 会询问是否导入系统启动台（Launchpad）原有的页面和文件夹；导入只读取，不会改动系统数据。</p>
+    </section>
+
+    <section id="open">
+      <h2>打开与关闭</h2>
+      <h3>打开启动器</h3>
+      <table>
+        <tr><th>方式</th><th>说明</th></tr>
+        <tr><td>快捷键</td><td>默认 <kbd>⌥</kbd> <kbd>空格</kbd>，可在「设置 → 通用 → 唤起快捷键」里修改。再按一次关闭。</td></tr>
+        <tr><td>菜单栏图标</td><td>左键直接打开；右键或按住 <kbd>⌃</kbd> 单击弹出菜单（导入布局、隐藏的应用、设置、退出等）。</td></tr>
+        <tr><td>触发角</td><td>指针移到屏幕的某个角时打开或关闭。默认关闭，在「设置 → 通用 → 触发角」里选择角落；与系统或 LaunchOS 的触发角冲突时会提示。</td></tr>
+        <tr><td>F4 键</td><td>开启「设置 → 通用 → 系统 F4 键」后，按 F4（或启动台键）打开。需要辅助功能权限。</td></tr>
+        <tr><td>触控板捏合</td><td>在「设置 → 通用 → 触控板」里选三指、四指或五指、五指捏合。需要辅助功能权限。</td></tr>
+        <tr><td>程序坞 / ⌘Tab</td><td>开启「设置 → 外观 → 显示在 ⌘Tab／程序坞」后，可以像普通应用一样点程序坞图标或用 <kbd>⌘</kbd> <kbd>Tab</kbd> 切回来。</td></tr>
+      </table>
+      <h3>关闭启动器</h3>
+      <ul>
+        <li>再按一次唤起快捷键；设置窗口浮在启动器上时会一起关掉。</li>
+        <li>按 <kbd>esc</kbd>：先关掉打开的文件夹、清空搜索词，再按一次关闭启动器。</li>
+        <li>点空白处；打开应用后、切到其他应用时也会自动关闭。</li>
+      </ul>
+      <p class="muted">启动器出现在哪块屏幕可以在「设置 → 通用 → 显示在」里选择：鼠标所在屏幕、当前激活屏幕、程序坞所在屏幕或主屏幕。</p>
+    </section>
+
+    <section id="search">
+      <h2>搜索</h2>
+      <ul>
+        <li>打开启动器后直接打字即可，不需要先点搜索框。</li>
+        <li>支持中文名、拼音全拼、首字母和混拼，例如 <code>bwl</code>、<code>beiwanglu</code> 都能找到「备忘录」；多音字按词读音，如「音乐」用 <code>yinyue</code> / <code>yy</code>。</li>
+        <li>也能用英文名搜，例如 <code>settings</code> 找到「系统设置」。</li>
+        <li>结果按「名称开头 → 拼音从头匹配 → 其他位置匹配」排序，并自动选中第一个，按 <kbd>↩</kbd> 打开。</li>
+        <li>用中文输入法组字时，方向键和回车交给输入法，不会误触发启动器操作。</li>
+        <li>按 <kbd>esc</kbd> 或点搜索框里的 <kbd>×</kbd> 清空，回到网格。</li>
+      </ul>
+    </section>
+
+    <section id="browse">
+      <h2>翻页与浏览</h2>
+      <h3>分页（默认）</h3>
+      <ul>
+        <li>滚动鼠标滚轮、在触控板上左右轻扫，或在空白处按住拖动翻页。</li>
+        <li><kbd>⌘</kbd> <kbd>←</kbd> / <kbd>⌘</kbd> <kbd>→</kbd> 切到上一页 / 下一页，也可以直接点底部的页码点。</li>
+      </ul>
+      <h3>滚动与窗口</h3>
+      <ul>
+        <li>主菜单「浏览方式 → 滚动」：各页上下排开，用滚轮或触控板连续浏览。</li>
+        <li>主菜单「显示方式 → 窗口」：在屏幕中央显示一个圆角窗口，窗口外不压暗，点窗口外关闭。</li>
+      </ul>
+      <p class="muted">「设置 → 通用 → 回到第一页」可以让启动器关闭一段时间后，下次打开自动回到第一页。</p>
+    </section>
+
+    <section id="keys">
+      <h2>键盘操作</h2>
+      <table>
+        <tr><th>按键</th><th>作用</th></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></td><td>移动选中的图标；<kbd>→</kbd> 在一页最后一个、<kbd>←</kbd> 在第一个时跨到相邻页，滚动浏览时 <kbd>↑</kbd> <kbd>↓</kbd> 也能跨页。</td></tr>
+        <tr><td><kbd>↩</kbd></td><td>打开选中的应用或文件夹；搜索时打开第一个结果。</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>←</kbd> / <kbd>⌘</kbd> <kbd>→</kbd></td><td>上一页 / 下一页。</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>A</kbd></td><td>全选当前页的图标。</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>Z</kbd></td><td>撤销最近一次布局编辑，最多 20 步。</td></tr>
+        <tr><td><kbd>⌘</kbd> <kbd>,</kbd></td><td>打开设置。</td></tr>
+        <tr><td><kbd>esc</kbd></td><td>逐层退出：关闭文件夹 / 取消多选 / 退出抖动 → 清空搜索 → 关闭启动器。</td></tr>
+      </table>
+    </section>
+
+    <section id="arrange">
+      <h2>整理图标</h2>
+      <h3>拖动</h3>
+      <ul>
+        <li>在图标上按住拖动即可调整位置，可以跨页：拖到屏幕左右边缘停一下会自动翻页，拖到最后一页之后会新建一页。</li>
+        <li>拖到另一个应用上，合并成一个「未命名」文件夹；拖到文件夹上则放进文件夹。</li>
+        <li>拖动排序只在「排序方式 → 自定义」下可用；按名称、日期等排序时只改变显示，不能拖动。</li>
+      </ul>
+      <h3>文件夹</h3>
+      <ul>
+        <li>点文件夹打开，点面板外或按 <kbd>esc</kbd> 关闭；点标题即可改名。</li>
+        <li>在文件夹里可以拖动排序，也可以把图标拖出文件夹。</li>
+        <li>右键文件夹可以重命名、取消分组或隐藏。</li>
+      </ul>
+      <h3>整理布局</h3>
+      <p>主菜单「整理布局…」可以一次处理多页：</p>
+      <ul>
+        <li><strong>填满空位</strong>：把后面的图标往前补，消除页面里的空格。</li>
+        <li><strong>取消所有分组</strong>：把文件夹里的应用都放回页面。</li>
+        <li><strong>按类型分组</strong>：按 App Store 类别把散落的应用归进文件夹。</li>
+        <li>范围可选当前页、选择的页面或全部页面，整理完可以用 <kbd>⌘</kbd> <kbd>Z</kbd> 一步撤销。</li>
+      </ul>
+    </section>
+
+    <section id="select">
+      <h2>多选</h2>
+      <ul>
+        <li>按住 <kbd>⌘</kbd> 单击图标逐个选中，或按住 <kbd>⌘</kbd> 在空白处拖出选框；<kbd>⌘</kbd> <kbd>A</kbd> 选中当前页全部。</li>
+        <li>选中的图标右上角显示蓝色对勾；拖动其中一个，所有选中的会一起移动。</li>
+        <li>在选中的图标上右键：合并到新文件夹、合并到选中的文件夹、移动到第几页或新页面、隐藏。</li>
+        <li>按 <kbd>esc</kbd> 或点空白处取消选择。</li>
+      </ul>
+    </section>
+
+    <section id="menus">
+      <h2>右键与主菜单</h2>
+      <h3>右键应用</h3>
+      <p>打开、在访达中显示、显示简介、隐藏、移到废纸篓…</p>
+      <h3>右键文件夹</h3>
+      <p>打开、重命名、取消分组、隐藏。</p>
+      <h3>主菜单</h3>
+      <p>点搜索框右侧的「…」，或在空白处右键：</p>
+      <table>
+        <tr><th>菜单项</th><th>说明</th></tr>
+        <tr><td>全选</td><td>选中当前页全部图标（<kbd>⌘</kbd> <kbd>A</kbd>）。</td></tr>
+        <tr><td>整理布局…</td><td>见「整理图标 → 整理布局」。</td></tr>
+        <tr><td>排序方式</td><td>自定义、名称（拼音与字母混排）、添加日期、上次使用；升序或降序；可同时排序文件夹内的应用，文件夹放在应用前、应用后或混排。切回「自定义」恢复原来的排列。</td></tr>
+        <tr><td>浏览方式</td><td>分页 / 滚动。</td></tr>
+        <tr><td>显示方式</td><td>全屏 / 窗口。</td></tr>
+        <tr><td>设置…</td><td>打开设置窗口（<kbd>⌘</kbd> <kbd>,</kbd>）。</td></tr>
+      </table>
+    </section>
+
+    <section id="hide">
+      <h2>隐藏应用</h2>
+      <ul>
+        <li>右键应用或文件夹选「隐藏」，它会从网格里消失，但保留原来的位置。</li>
+        <li>在「设置 → 应用 → 隐藏的应用」或菜单栏菜单「隐藏的应用」里取消隐藏，会回到原位置。</li>
+        <li>「设置 → 应用 → 在搜索结果中显示隐藏应用」决定搜索时能否搜到它们。</li>
+      </ul>
+    </section>
+
+    <section id="uninstall">
+      <h2>卸载应用</h2>
+      <ul>
+        <li>长按任意图标进入抖动模式（开启「按住 Option 进入卸载模式」后也可以按住 <kbd>⌥</kbd>），可卸载的应用左上角出现 <kbd>×</kbd>；也可以右键选「移到废纸篓…」。</li>
+        <li>系统应用和需要管理员权限才能删除的应用不显示 <kbd>×</kbd>。</li>
+        <li>确认窗口会列出应用本体和找到的关联文件（缓存、日志、偏好设置等）。关联文件默认都不勾选，需要你逐项确认；沙盒容器、共享容器等无法确认归属的只展示、不移动。</li>
+        <li>所有文件只会移到废纸篓，不会直接删除。完成后可以「在访达中显示记录」，按记录里的原路径找回文件。</li>
+        <li>应用正在运行时，会先请求它正常退出，退出失败则不移动任何文件。</li>
+      </ul>
+    </section>
+
+    <section id="settings">
+      <h2>设置</h2>
+      <p class="muted">设置窗口有四页。在启动器上打开设置时，设置窗口浮在启动器上方，改动会立即生效；点启动器任意处只关闭设置。</p>
+      <h3>通用</h3>
+      <table>
+        <tr><td>开机启动</td><td>登录后自动在后台运行（需安装在 <code>~/Applications</code>）。</td></tr>
+        <tr><td>唤起快捷键</td><td>点一下录制框，再按新的组合键。录制时其他应用占用的组合键会录不上，换一个即可。</td></tr>
+        <tr><td>显示在</td><td>鼠标所在屏幕 / 当前激活屏幕 / 程序坞所在屏幕 / 主屏幕。</td></tr>
+        <tr><td>回到第一页</td><td>从不、5 秒、15 秒、30 秒、1 分钟、5 分钟后，或始终。</td></tr>
+        <tr><td>按住 Option 进入卸载模式</td><td>默认开启。</td></tr>
+        <tr><td>触发角 / 系统 F4 键 / 触控板</td><td>其他打开方式，见「打开与关闭」。</td></tr>
+      </table>
+      <h3>外观</h3>
+      <table>
+        <tr><td>应用图标</td><td>三套图标，跟随系统 / 浅色 / 深色；可选择是否显示在 ⌘Tab／程序坞、状态栏。</td></tr>
+        <tr><td>背景</td><td>玻璃材质 / 模糊壁纸 / 系统壁纸。</td></tr>
+        <tr><td>暗度</td><td>20%～80%，背后是浅色窗口时适当调高，名称更清楚。</td></tr>
+        <tr><td>隐藏图标名称</td><td>隐藏后名称的空间让给图标，图标会变大。</td></tr>
+        <tr><td>显示程序坞</td><td>打开后底部的程序坞保持可见、可点击，启动器内容避开程序坞。</td></tr>
+        <tr><td>网格</td><td>列数 4～10、行数 3～8，默认 7 列 × 5 行；放不下时整体缩小。</td></tr>
+        <tr><td>图标排列</td><td>行列较少时，铺满屏幕或集中在中央。</td></tr>
+        <tr><td>设置窗口</td><td>玻璃或普通样式；玻璃样式可调不透明度。</td></tr>
+      </table>
+      <h3>应用</h3>
+      <table>
+        <tr><td>应用来源</td><td>默认扫描「应用程序」等系统目录，可添加自定义目录（含子文件夹），变化后自动刷新。</td></tr>
+        <tr><td>隐藏的应用</td><td>查看并取消隐藏；可选是否在搜索结果中显示。</td></tr>
+      </table>
+      <h3>数据</h3>
+      <table>
+        <tr><td>布局备份</td><td>导出布局到 JSON 文件，或从备份导入。导入前会自动备份当前布局。</td></tr>
+        <tr><td>诊断</td><td>导出诊断信息（日志、崩溃报告、设置、布局与系统信息）为 zip，只保存到你选的位置。</td></tr>
+        <tr><td>Launchpad</td><td>从系统启动台导入布局，或恢复导入前的布局。</td></tr>
+      </table>
+    </section>
+
+    <section id="data">
+      <h2>数据与备份</h2>
+      <table>
+        <tr><th>内容</th><th>位置</th></tr>
+        <tr><td>布局（页面、文件夹、隐藏状态）</td><td><code>~/Library/Application Support/Launch/layout.json</code></td></tr>
+        <tr><td>卸载操作记录</td><td><code>~/Library/Application Support/Launch/UninstallRecords</code></td></tr>
+        <tr><td>运行日志</td><td><code>~/Library/Logs/Launch/launch.log</code></td></tr>
+      </table>
+      <ul>
+        <li>新安装的应用会追加到最后一页；卸载后暂时找不到的应用会保留位置，不会打乱布局。</li>
+        <li>系统启动台和 LaunchOS 的数据只读取，不会被修改。</li>
+      </ul>
+    </section>
+
+    <section id="permissions">
+      <h2>权限说明</h2>
+      <table>
+        <tr><th>权限</th><th>用途</th><th>何时需要</th></tr>
+        <tr><td>辅助功能</td><td>接管 F4 键和触控板捏合手势</td><td>开启「系统 F4 键」或「触控板」时；在设置里点「授予权限…」后到系统设置中允许，Launch 会自动生效。</td></tr>
+        <tr><td>自动化（访达）</td><td>右键「显示简介」打开访达的简介窗口</td><td>第一次使用「显示简介」时系统会询问。</td></tr>
+      </table>
+      <div class="note">如果唤起快捷键与 LaunchOS 等其他启动器相同，Launch 会在菜单栏和设置里提示冲突；在其中一个应用里换一个快捷键即可。</div>
+    </section>
+  </main>
+</div>
+</body>
+</html>
