@@ -9,6 +9,7 @@ final class SettingsWindowController {
     private let makeContent: () -> AnyView
     private var window: NSWindow?
     private let glass = NSGlassEffectView()
+    private var appearanceObservation: NSKeyValueObservation?
 
     init(settings: LauncherSettings, launcherWindow: @escaping () -> NSWindow?, makeContent: @escaping () -> AnyView) {
         self.settings = settings
@@ -92,6 +93,13 @@ final class SettingsWindowController {
         }
         window.contentView = container
         applyStyle(to: window)
+        // 系统在浅色与深色之间切换时重新取色
+        appearanceObservation = window.observe(\.effectiveAppearance) { [weak self, weak window] _, _ in
+            Task { @MainActor in
+                guard let self, let window else { return }
+                self.updateTint(of: window)
+            }
+        }
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.detachFromLauncher()
@@ -105,7 +113,7 @@ final class SettingsWindowController {
         withObservationTracking {
             let isGlass = settings.settingsWindowStyle == .glass
             glass.isHidden = !isGlass
-            glass.tintColor = NSColor.windowBackgroundColor.withAlphaComponent(settings.settingsGlassOpacity)
+            updateTint(of: window)
             window.isOpaque = !isGlass
             window.backgroundColor = isGlass ? .clear : .windowBackgroundColor
         } onChange: { [weak self, weak window] in
@@ -116,6 +124,15 @@ final class SettingsWindowController {
                 self.applyStyle(to: window)
             }
         }
+    }
+
+    // 动态颜色要按窗口当前外观取成固定值，否则深色模式下仍按浅色解析，玻璃会灰蒙蒙
+    private func updateTint(of window: NSWindow) {
+        var tint = NSColor.windowBackgroundColor
+        window.effectiveAppearance.performAsCurrentDrawingAppearance {
+            tint = NSColor(cgColor: NSColor.windowBackgroundColor.cgColor) ?? tint
+        }
+        glass.tintColor = tint.withAlphaComponent(settings.settingsGlassOpacity)
     }
 
     private func center(_ window: NSWindow) {
