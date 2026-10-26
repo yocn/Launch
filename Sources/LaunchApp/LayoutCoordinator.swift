@@ -100,6 +100,29 @@ final class LayoutCoordinator {
         return commit(next, recordsUndo: recordsUndo)
     }
 
+    // 一次保存多个新条目，整批只记一次撤销；按顺序放到同一页，满页顺延
+    @discardableResult
+    func saveExtraItems(_ entries: [ExtraItemDefinition], toPage page: Int?) -> Bool {
+        guard isEditable, let document, !entries.isEmpty else { return false }
+        var next = LayoutDocument(pages: document.pages, hiddenItems: document.hiddenItems,
+                                  extraItems: document.extraItems + entries)
+        if let page {
+            let context = catalog + entries.map { LaunchItem(definition: $0) }
+            var rest = entries[...]
+            // 所点页放得下就逐个放；放不下的按顺序接到末尾，避免满页顺延把顺序倒过来
+            while let entry = rest.first {
+                let used = page < next.pages.count ? next.pages[page].slots.count : 0
+                guard used < pageCapacity else { break }
+                next = LayoutEditor.apply(.pin(entry.identity, page: page), to: next, catalog: context, pageCapacity: pageCapacity)
+                rest.removeFirst()
+            }
+            if !rest.isEmpty {
+                next = LayoutEngine.appending(rest.map(\.identity), to: next, pageCapacity: pageCapacity)
+            }
+        }
+        return commit(next)
+    }
+
     @discardableResult
     func pin(_ identity: ItemIdentity, toPage page: Int) -> Bool {
         guard isEditable, let document else { return false }

@@ -13,6 +13,22 @@ enum ExtraItemError: LocalizedError {
     }
 }
 
+// 批量添加时同时最多取 3 个网站图标
+actor IconFetchGate {
+    static let shared = IconFetchGate(limit: 3)
+    private let limit: Int
+    private var running = 0
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    init(limit: Int) { self.limit = limit }
+
+    func run(_ work: @Sendable () async -> Data?) async -> Data? {
+        if running >= limit { await withCheckedContinuation { waiting.append($0) } } else { running += 1 }
+        let result = await work()
+        if waiting.isEmpty { running -= 1 } else { waiting.removeFirst().resume() }
+        return result
+    }
+}
+
 @MainActor @Observable
 final class ExtraItemsController {
     private(set) var items: [LaunchItem] = []
@@ -38,7 +54,7 @@ final class ExtraItemsController {
     @ObservationIgnored private var documentGeneration: UUID
 
     init(layout: LayoutCoordinator, shortcuts: ShortcutService = ShortcutService(),
-         fetchIcon: @escaping @Sendable (URL) async -> Data? = { await WebsiteIconFetcher().fetch(for: $0) }) {
+         fetchIcon: @escaping @Sendable (URL) async -> Data? = { url in await IconFetchGate.shared.run { await WebsiteIconFetcher().fetch(for: url) } }) {
         self.layout = layout
         self.shortcuts = shortcuts
         self.fetchIcon = fetchIcon
@@ -98,6 +114,22 @@ final class ExtraItemsController {
         rebuild()
         if existing?.target != entry.target, customIconData == nil { refreshWebsiteIcon(entry.identity) }
         return entry
+    }
+
+    // 书签批量添加：跳过已有的网址，整批一次撤销，图标随后逐个取
+    @discardableResult
+    func addWebsites(_ links: [(name: String, url: URL)], toPage page: Int?) -> Int {
+        var known = Set(layout.extraItems.compactMap { entry -> URL? in
+            if case .website(let url) = entry.target { url } else { nil }
+        })
+        let entries = links.compactMap { link -> ExtraItemDefinition? in
+            guard known.insert(link.url).inserted else { return nil }
+            return ExtraItemDefinition(name: link.name, target: .website(link.url))
+        }
+        guard layout.saveExtraItems(entries, toPage: page) else { return 0 }
+        rebuild()
+        entries.forEach { refreshWebsiteIcon($0.identity) }
+        return entries.count
     }
 
     func refreshWebsiteIcon(_ identity: ItemIdentity) {

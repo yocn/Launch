@@ -223,6 +223,34 @@ final class ExtraItemsControllerTests: XCTestCase {
         XCTAssertNotNil(controller.lastError)
     }
 
+    func testBatchAddKeepsOrderSkipsDuplicatesAndUndoesInOneStep() async throws {
+        let (layout, store) = try await makeLayout()
+        let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })
+        let a = URL(string: "https://a.example.com")!, b = URL(string: "https://b.example.com")!
+        _ = try controller.saveWebsite(name: "已有", address: "a.example.com", existing: nil, toPage: nil, customIconData: nil)
+
+        let added = controller.addWebsites([("A", a), ("B", b), ("B2", b)], toPage: 0)
+        XCTAssertEqual(added, 1)
+        XCTAssertEqual(try store.load()?.extraItems.map(\.name), ["已有", "B"])
+        XCTAssertEqual(try store.load()?.pages.first?.slots.count, 1)
+
+        layout.undo()
+        XCTAssertEqual(try store.load()?.extraItems.map(\.name), ["已有"])
+    }
+
+    func testBatchAddPlacesManyItemsInOrderAcrossPages() async throws {
+        let (layout, store) = try await makeLayout()
+        let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })
+        let links = (0 ..< 40).map { (name: "站\($0)", url: URL(string: "https://s\($0).example.com")!) }
+        XCTAssertEqual(controller.addWebsites(links, toPage: 0), 40)
+        let document = try XCTUnwrap(store.load())
+        let names = document.pages.flatMap(\.slots).compactMap { slot -> String? in
+            guard case .item(let id) = slot else { return nil }
+            return document.extraItems.first { $0.identity == id }?.name
+        }
+        XCTAssertEqual(names, links.map(\.name))
+    }
+
     private func makeLayout() async throws -> (LayoutCoordinator, LayoutStore) {
         let root = try makeTemporaryDirectory()
         let store = LayoutStore(fileURL: root.appendingPathComponent("layout.json"))
