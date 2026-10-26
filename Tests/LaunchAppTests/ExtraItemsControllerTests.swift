@@ -192,6 +192,19 @@ final class ExtraItemsControllerTests: XCTestCase {
         XCTAssertEqual(try store.load()?.pages.first?.slots, [.item(.shortcut(id))])
     }
 
+    func testPinnedShortcutStaysAvailableUntilAListSucceeds() async throws {
+        enum ListFailure: Error { case timedOut }
+        let (layout, _) = try await makeLayout()
+        let id = UUID(uuidString: "66666666-6666-6666-6666-666666666666")!
+        XCTAssertTrue(layout.saveExtraItem(ExtraItemDefinition(id: id, name: "专注", target: .shortcut(id)), toPage: 0))
+        let controller = ExtraItemsController(layout: layout, shortcuts: ShortcutService(execute: { _, _ in throw ListFailure.timedOut }), fetchIcon: { _ in nil })
+        XCTAssertTrue(try XCTUnwrap(controller.items.first).isAvailable)
+
+        await controller.refreshShortcuts()
+        XCTAssertTrue(try XCTUnwrap(controller.items.first).isAvailable)
+        XCTAssertNotNil(controller.lastError)
+    }
+
     private func makeLayout() async throws -> (LayoutCoordinator, LayoutStore) {
         let root = try makeTemporaryDirectory()
         let store = LayoutStore(fileURL: root.appendingPathComponent("layout.json"))

@@ -34,14 +34,17 @@ struct ShortcutService: Sendable {
         let regex = try NSRegularExpression(pattern: pattern)
         var result: [ShortcutRecord] = []
         var seen = Set<UUID>()
-        for row in output.split(whereSeparator: \.isNewline) {
+        let rows = output.split(whereSeparator: \.isNewline)
+        // 输出里混着错误输出，单行对不上就跳过；一行都解析不出才算清单无法识别
+        for row in rows {
             let line = String(row)
             let text = line as NSString
             guard let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: text.length)),
-                  let id = UUID(uuidString: text.substring(with: match.range(at: 2))) else { throw ShortcutError.invalidList }
+                  let id = UUID(uuidString: text.substring(with: match.range(at: 2))) else { continue }
             let name = text.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespaces)
             if seen.insert(id).inserted { result.append(ShortcutRecord(id: id, name: name)) }
         }
+        if result.isEmpty, !rows.isEmpty { throw ShortcutError.invalidList }
         return result
     }
 }

@@ -31,6 +31,8 @@ final class ExtraItemsController {
     @ObservationIgnored private var applications: [LaunchItem] = []
     // 应用扫描完成前不推送目录：布局会在只有条目、没有应用时跑首次设置
     @ObservationIgnored private var hasScannedApplications = false
+    // 清单成功读到过才能判断指令被删；启动时还没读到或读取失败都不置灰
+    @ObservationIgnored private var hasListedShortcuts = false
     @ObservationIgnored private var iconTasks: [ItemIdentity: Task<Void, Never>] = [:]
     @ObservationIgnored private var iconVersions: [ItemIdentity: UUID] = [:]
     @ObservationIgnored private var documentGeneration: UUID
@@ -73,7 +75,11 @@ final class ExtraItemsController {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
-        do { shortcutRecords = try await shortcuts.list(); lastError = nil }
+        do {
+            shortcutRecords = try await shortcuts.list()
+            hasListedShortcuts = true
+            lastError = nil
+        }
         catch { lastError = error.localizedDescription }
         rebuild()
     }
@@ -194,7 +200,7 @@ final class ExtraItemsController {
         }
         for entry in definitions {
             guard case .shortcut(let id) = entry.target, !seen.contains(id), layout.pinnedIdentities.contains(entry.identity) else { continue }
-            next.append(LaunchItem(definition: entry, unavailableReason: "快捷指令已删除或未同步到这台 Mac"))
+            next.append(LaunchItem(definition: entry, unavailableReason: hasListedShortcuts ? "快捷指令已删除或未同步到这台 Mac" : nil))
         }
         next.sort { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
         guard items != next else { return }

@@ -16,6 +16,12 @@ final class ShortcutServiceTests: XCTestCase {
         XCTAssertThrowsError(try ShortcutService.parseList("无法解析的输出"))
     }
 
+    func testSkipsUnrecognizedLinesWhenOthersParse() throws {
+        let id = UUID(uuidString: "12345678-1234-1234-1234-123456789ABC")!
+        let output = "Warning: something\n专注 (12345678-1234-1234-1234-123456789ABC)\n"
+        XCTAssertEqual(try ShortcutService.parseList(output), [ShortcutRecord(id: id, name: "专注")])
+    }
+
     func testRunPassesUUIDAsSingleArgumentWithoutShell() async throws {
         let log = CommandLog()
         let service = ShortcutService(execute: { args, _ in
