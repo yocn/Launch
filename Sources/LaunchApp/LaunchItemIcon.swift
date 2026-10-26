@@ -12,9 +12,19 @@ enum ItemIconPresentation {
         }
     }
 
+    // 与系统应用图标一致：主体占画布 824/1024 并居中，四周留白
+    static func bodyFrame(side: CGFloat) -> CGRect {
+        let body = side * 824 / 1024
+        let inset = (side - body) / 2
+        return CGRect(x: inset, y: inset, width: body, height: body)
+    }
+
+    // 角标贴主体左下角，略伸出主体但不出画布
     static func badgeFrame(side: CGFloat) -> CGRect {
-        let diameter = side / 3
-        return CGRect(x: -side * 0.03, y: side - diameter + side * 0.03, width: diameter, height: diameter)
+        let body = bodyFrame(side: side)
+        let diameter = body.width / 3
+        let overhang = body.width * 0.03
+        return CGRect(x: body.minX - overhang, y: body.maxY - diameter + overhang, width: diameter, height: diameter)
     }
 }
 
@@ -56,19 +66,25 @@ struct LaunchItemIcon: View {
     @ViewBuilder private var base: some View {
         if let application = item.application {
             AppIconImage(path: application.identity.path, side: side)
-        } else if let image = EntryIconCache.image(item.iconData) {
-            Image(nsImage: image)
-                .resizable().interpolation(.high)
-                .clipShape(RoundedRectangle(cornerRadius: side * 0.225))
         } else {
-            RoundedRectangle(cornerRadius: side * 0.225)
-                .fill(LinearGradient(colors: fallbackColors, startPoint: .topLeading, endPoint: .bottomTrailing))
-                .overlay {
-                    Text(String(item.displayName.prefix(1)))
-                        .font(.system(size: side * 0.5, weight: .medium))
-                        .foregroundStyle(.white)
+            let body = ItemIconPresentation.bodyFrame(side: side).width
+            let shape = RoundedRectangle(cornerRadius: body * 0.225, style: .continuous)
+            Group {
+                if let image = EntryIconCache.image(item.iconData) {
+                    Image(nsImage: image)
+                        .resizable().interpolation(.high)
+                } else {
+                    LinearGradient(colors: fallbackColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                        .overlay {
+                            Text(String(item.displayName.prefix(1)))
+                                .font(.system(size: body * 0.5, weight: .medium))
+                                .foregroundStyle(.white)
+                        }
                 }
-                .frame(width: side, height: side)
+            }
+            .frame(width: body, height: body)
+            .clipShape(shape)
+            .shadow(color: .black.opacity(0.18), radius: side * 0.012, y: side * 0.006)
         }
     }
 
