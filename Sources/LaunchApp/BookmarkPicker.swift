@@ -132,7 +132,15 @@ private struct BookmarkPickerView: View {
 }
 
 @MainActor enum BookmarkPicker {
+    private static var panel: NSPanel?
+    private static var closing: NSObjectProtocol?
+
+    // 非模态：模态循环里后台任务的结果回不到界面，加载会一直转圈
     static func show(controller: ExtraItemsController, toPage page: Int?) {
+        if let panel {
+            panel.makeKeyAndOrderFront(nil)
+            return
+        }
         let existing = Set(controller.definitions.compactMap { entry -> URL? in
             if case .website(let url) = entry.target { url } else { nil }
         })
@@ -141,23 +149,25 @@ private struct BookmarkPickerView: View {
                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.isReleasedWhenClosed = false
         panel.title = "书签"
-        var confirmed = false
+        panel.level = .aboveLauncher
         panel.contentView = NSHostingView(rootView: BookmarkPickerView(model: model) { ok in
-            confirmed = ok
-            NSApp.stopModal()
+            if ok, !model.selected.isEmpty {
+                controller.addWebsites(model.links(for: model.selected), toPage: page)
+            }
+            panel.close()
         })
+        closing = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: panel, queue: .main) { _ in
+            MainActor.assumeIsolated { finish() }
+        }
+        self.panel = panel
         panel.center()
-        // 与警告框相同：模态循环里再把层级抬到启动器之上
-        RunLoop.main.perform(inModes: [.modalPanel]) {
-            MainActor.assumeIsolated { panel.level = .aboveLauncher }
-        }
-        let closing = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: panel, queue: .main) { _ in
-            NSApp.stopModal()
-        }
-        NSApp.runModal(for: panel)
-        NotificationCenter.default.removeObserver(closing)
-        panel.orderOut(nil)
-        guard confirmed, !model.selected.isEmpty else { return }
-        controller.addWebsites(model.links(for: model.selected), toPage: page)
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    private static func finish() {
+        if let closing { NotificationCenter.default.removeObserver(closing) }
+        closing = nil
+        panel = nil
     }
 }
