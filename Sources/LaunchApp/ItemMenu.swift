@@ -51,6 +51,7 @@ enum ItemMenuContent: Equatable {
 
 enum ItemMenuCommand: Equatable {
     case addWebsite(page: Int)
+    case addBookmarks(page: Int)
     case editWebsite(ItemIdentity)
     case editEntryAppearance(ItemIdentity)
     case resetEntryIcon(ItemIdentity)
@@ -105,6 +106,7 @@ final class ItemMenu: NSObject {
         case .main(let main):
             if main.canAddWebsite {
                 menu.addItem(item("添加网址…", .addWebsite(page: main.pageIndex)))
+                menu.addItem(item("从浏览器书签添加…", .addBookmarks(page: main.pageIndex)))
                 menu.addItem(.separator())
             }
             let selectAll = item("全选", .selectAll, isEnabled: main.canSelectAll)

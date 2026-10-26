@@ -9,8 +9,11 @@ struct ExtraItemsSettingsView: View {
     var body: some View {
         Form {
             Section("网址") {
-                Button("添加网址…") { ExtraItemEditor.showWebsite(controller: controller) }
-                    .disabled(!controller.canEdit)
+                HStack {
+                    Button("添加网址…") { ExtraItemEditor.showWebsite(controller: controller) }
+                    Button("从浏览器书签添加…") { BookmarkPicker.show(controller: controller, toPage: nil) }
+                }
+                .disabled(!controller.canEdit)
                 if websites.isEmpty { Text("还没有网址").foregroundStyle(.secondary) }
                 ForEach(websites) { item in row(item) }
             }

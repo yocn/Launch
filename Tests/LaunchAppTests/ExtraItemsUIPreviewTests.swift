@@ -64,6 +64,7 @@ import XCTest
         let perform: (ItemMenuCommand) -> Void = { command in
             switch command {
             case .addWebsite(let page): ExtraItemEditor.showWebsite(controller: extras, toPage: page)
+            case .addBookmarks: break
             case .editWebsite(let identity): ExtraItemEditor.showWebsite(controller: extras, existing: extras.definitions.first { $0.identity == identity })
             case .pinEntry(let identity, let page): extras.pin(identity, toPage: page)
             case .unpinEntry(let identity): extras.unpin(identity)

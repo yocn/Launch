@@ -419,7 +419,7 @@ final class LauncherModel {
             selectAllOnPage()
         case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide, .arrangeLayout,
              .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle, .displayMode,
-             .addWebsite, .editWebsite, .editEntryAppearance, .resetEntryIcon, .refreshWebsiteIcon,
+             .addWebsite, .addBookmarks, .editWebsite, .editEntryAppearance, .resetEntryIcon, .refreshWebsiteIcon,
              .pinEntry, .unpinEntry, .deleteWebsite:
             break
         }
@@ -449,7 +449,7 @@ final class LauncherModel {
             edit = .hide(items)
         case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide,
              .selectAll, .arrangeLayout, .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle,
-             .displayMode, .addWebsite, .editWebsite, .editEntryAppearance, .resetEntryIcon,
+             .displayMode, .addWebsite, .addBookmarks, .editWebsite, .editEntryAppearance, .resetEntryIcon,
              .refreshWebsiteIcon, .pinEntry, .unpinEntry, .deleteWebsite:
             return
         }

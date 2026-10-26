@@ -291,6 +291,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
 
     private func performMenuCommand(_ command: ItemMenuCommand) {
         switch command {
+        case .addBookmarks(let page):
+            BookmarkPicker.show(controller: extraItemsController, toPage: page)
         case .addWebsite(let page):
             ExtraItemEditor.showWebsite(controller: extraItemsController, toPage: page)
         case .editWebsite(let id):
