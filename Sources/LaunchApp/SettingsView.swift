@@ -247,7 +247,7 @@ private struct AppearanceSettingsView: View {
                         iconChoice(style)
                     }
                 }
-                Picker("外观", selection: $settings.appIconTheme) {
+                Picker("图标外观", selection: $settings.appIconTheme) {
                     ForEach(AppIconTheme.allCases) { theme in
                         Text(theme.title).tag(theme)
                     }
