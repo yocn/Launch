@@ -6,7 +6,7 @@ struct LayoutMenuActions {
     let importLayout: () -> Void
     let canRestore: () -> Bool
     let restoreLayout: () -> Void
-    let hiddenApps: () -> [LaunchItem]
+    let hiddenItems: () -> [LaunchItem]
     let unhide: (LaunchItem) -> Void
     let unhideAll: () -> Void
 }
@@ -38,7 +38,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private let hasHotKeyConflict: () -> Bool
     private let onOpen: () -> Void
     private let onOpenSettings: () -> Void
-    private var hiddenApps: [LaunchItem] = []
+    private var hiddenItems: [LaunchItem] = []
 
     init(
         loginItemService: LoginItemService,
@@ -109,15 +109,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         loginItem.state = loginItemService.isEnabled ? .on : .off
         importItem.isEnabled = layoutMenu.canImport()
         restoreItem.isEnabled = layoutMenu.canRestore()
-        hiddenApps = layoutMenu.hiddenApps()
-        hiddenItem.isEnabled = !hiddenApps.isEmpty
-        hiddenItem.submenu = hiddenAppsMenu()
+        hiddenItems = layoutMenu.hiddenItems()
+        hiddenItem.isEnabled = !hiddenItems.isEmpty
+        hiddenItem.submenu = hiddenItemsMenu()
     }
 
-    private func hiddenAppsMenu() -> NSMenu {
+    private func hiddenItemsMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        for (index, app) in hiddenApps.enumerated() {
+        for (index, app) in hiddenItems.enumerated() {
             let item = NSMenuItem(title: app.displayName, action: #selector(unhideApp(_:)), keyEquivalent: "")
             item.target = self
             item.tag = index
@@ -131,7 +131,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func unhideApp(_ sender: NSMenuItem) {
-        layoutMenu.unhide(hiddenApps[sender.tag])
+        layoutMenu.unhide(hiddenItems[sender.tag])
     }
 
     @objc private func unhideAll() {

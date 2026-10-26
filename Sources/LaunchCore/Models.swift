@@ -89,7 +89,7 @@ public struct LayoutDocument: Codable, Equatable, Sendable {
         case extraItems
     }
 
-    // 早期文件没有 hiddenApps
+    // v1 按旧格式读入后转成当前格式，最早的 v1 文件没有 hiddenApps
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let version = try container.decode(Int.self, forKey: .schemaVersion)

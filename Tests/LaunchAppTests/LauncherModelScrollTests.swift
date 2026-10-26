@@ -46,7 +46,7 @@ final class LauncherModelScrollTests: XCTestCase {
     @MainActor
     private func makeModel() -> (LauncherModel, [LaunchItem], EditLog) {
         let apps = makeLaunchItems(count: 12)
-        let model = LauncherModel(apps: apps)
+        let model = LauncherModel(catalog: apps)
         let log = EditLog()
         model.updateLayout([apps.prefix(8).map(ResolvedItem.item), apps.dropFirst(8).map(ResolvedItem.item)])
         model.canEditLayout = true

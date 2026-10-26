@@ -151,7 +151,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             controller.model.canEditLayout = layoutCoordinator.isEditable
-            controller.model.updateHiddenApps(layoutCoordinator.hiddenApps)
+            controller.model.updateHiddenItems(layoutCoordinator.hiddenItems)
             controller.model.updateLayout(pages)
         }
         controller.model.onEdit = { [weak self] edit in
@@ -228,7 +228,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
                 },
                 canRestore: { [weak self] in self?.layoutCoordinator.canRestore ?? false },
                 restoreLayout: { [weak self] in self?.layoutCoordinator.restoreBackup() },
-                hiddenApps: { [weak self] in self?.layoutCoordinator.hiddenApps ?? [] },
+                hiddenItems: { [weak self] in self?.layoutCoordinator.hiddenItems ?? [] },
                 unhide: { [weak self] app in self?.layoutCoordinator.unhide(app) },
                 unhideAll: { [weak self] in self?.layoutCoordinator.unhideAll() }
             ),
@@ -409,7 +409,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         guard settings.sortField == .dateAdded || settings.sortField == .lastUsed else {
             return
         }
-        AppDatesProvider.load(controller.model.apps.compactMap(\.application)) { [weak self] dates in
+        AppDatesProvider.load(controller.model.catalog.compactMap(\.application)) { [weak self] dates in
             self?.controller.model.updateAppDates(dates)
         }
     }
@@ -481,7 +481,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
         return ([
             "Launch \(Self.appVersion)",
             ProcessInfo.processInfo.operatingSystemVersionString,
-            "应用数：\(controller.model.apps.count)，隐藏：\(controller.model.hiddenApps.count)",
+            "应用数：\(controller.model.catalog.count)，隐藏：\(controller.model.hiddenItems.count)",
             "来源目录：\(ApplicationSources.roots(custom: settings.customSourcePaths).map(\.path).joined(separator: "、"))",
             "网格：\(settings.grid.columns)×\(settings.grid.rows)，排序：\(settings.sortField.rawValue)，背景：\(settings.background.rawValue)",
             "屏幕：",

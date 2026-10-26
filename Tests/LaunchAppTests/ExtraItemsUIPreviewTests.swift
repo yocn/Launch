@@ -29,7 +29,7 @@ import XCTest
         let defaults = UserDefaults(suiteName: suite)!
         let settings = LauncherSettings(defaults: defaults)
         defer { defaults.removePersistentDomain(forName: suite) }
-        layout.onLayoutChange = { pages in model.canEditLayout = layout.isEditable; model.updateHiddenApps(layout.hiddenApps); model.updateLayout(pages) }
+        layout.onLayoutChange = { pages in model.canEditLayout = layout.isEditable; model.updateHiddenItems(layout.hiddenItems); model.updateLayout(pages) }
         layout.onDocumentChange = { extras.layoutDidChange() }
         extras.onCatalogChange = { items in controller.updateCatalog(items); Task { await layout.catalogDidChange(items) } }
         model.onEdit = { layout.apply($0) }

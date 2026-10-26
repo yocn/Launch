@@ -135,11 +135,11 @@ final class LauncherController {
         }
     }
 
-    func launch(_ app: LaunchItem) {
-        guard !model.isJiggling, app.isAvailable else {
+    func launch(_ item: LaunchItem) {
+        guard !model.isJiggling, item.isAvailable else {
             return
         }
-        switch app.target {
+        switch item.target {
         case .application(let application):
             openApplication(URL(fileURLWithPath: application.identity.path))
         case .website(let url):
@@ -152,14 +152,14 @@ final class LauncherController {
         hide(.launchedApp)
     }
 
-    func updateCatalog(_ apps: [LaunchItem]) {
-        guard apps != model.apps else {
+    func updateCatalog(_ items: [LaunchItem]) {
+        guard items != model.catalog else {
             return
         }
         // 网址、快捷指令的增改不影响应用图标，清缓存会让全部应用图标闪成占位
-        if apps.compactMap(\.application) != model.apps.compactMap(\.application) {
+        if items.compactMap(\.application) != model.catalog.compactMap(\.application) {
             iconCache.removeAll()
         }
-        model.updateApps(apps)
+        model.updateCatalog(items)
     }
 }

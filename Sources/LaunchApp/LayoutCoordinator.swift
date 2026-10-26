@@ -48,7 +48,7 @@ final class LayoutCoordinator {
     private var hasReportedSaveError = false
     private var undoStack: [LayoutDocument] = []
     private(set) var replacementGeneration = UUID()
-    private(set) var hiddenApps: [LaunchItem] = []
+    private(set) var hiddenItems: [LaunchItem] = []
 
     init(
         store: LayoutStore,
@@ -276,7 +276,7 @@ final class LayoutCoordinator {
         defer { onDocumentChange?() }
         guard let document else {
             let fallback = LayoutEngine.defaultDocument(catalog: catalog, pageCapacity: pageCapacity)
-            hiddenApps = []
+            hiddenItems = []
             onLayoutChange?(LayoutEngine.reconcile(layout: fallback, catalog: catalog, pageCapacity: pageCapacity).pages)
             return
         }
@@ -285,7 +285,7 @@ final class LayoutCoordinator {
             self.document = reconciled.document
             save(reconciled.document)
         }
-        hiddenApps = reconciled.hiddenItems
+        hiddenItems = reconciled.hiddenItems
         onLayoutChange?(reconciled.pages)
     }
 

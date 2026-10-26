@@ -19,7 +19,7 @@ final class LauncherModelJiggleTests: XCTestCase {
 
     @MainActor
     private func makeModel(apps: [LaunchItem], pages: [[ResolvedItem]]) -> LauncherModel {
-        let model = LauncherModel(apps: apps)
+        let model = LauncherModel(catalog: apps)
         model.updateLayout(pages)
         model.canEditLayout = true
         model.updateHomeLayout(layout)

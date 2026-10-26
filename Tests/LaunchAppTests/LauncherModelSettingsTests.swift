@@ -21,7 +21,7 @@ final class LauncherModelSettingsTests: XCTestCase {
 
     @MainActor
     private func makeModel(apps: [LaunchItem]) -> LauncherModel {
-        let model = LauncherModel(apps: apps)
+        let model = LauncherModel(catalog: apps)
         model.updateLayout(LauncherPagination.pages(apps.map(ResolvedItem.item), capacity: GridSize.default.capacity))
         model.canEditLayout = true
         model.updateHomeLayout(layout)
@@ -50,7 +50,7 @@ final class LauncherModelSettingsTests: XCTestCase {
             LaunchItem(identity: AppIdentity(bundleIdentifier: "com.example.\(name)", path: "/Applications/\(name).app"), displayName: name)
         }
         let folder = ResolvedFolder(id: "f", name: "Folder", items: [apps[1], apps[0]])
-        let model = LauncherModel(apps: apps)
+        let model = LauncherModel(catalog: apps)
         model.updateLayout([[.item(apps[0]), .folder(folder)], [.item(apps[2])]])
         model.canEditLayout = true
 
@@ -142,16 +142,16 @@ final class LauncherModelSettingsTests: XCTestCase {
     func testSearchCanIncludeHiddenApps() {
         let apps = makeLaunchItems(count: 3)
         let model = makeModel(apps: apps)
-        model.updateHiddenApps([apps[1]])
+        model.updateHiddenItems([apps[1]])
         model.setQuery("App")
 
-        XCTAssertEqual(model.hiddenApps, [apps[1]])
+        XCTAssertEqual(model.hiddenItems, [apps[1]])
         XCTAssertEqual(model.results, [apps[0], apps[2]])
 
         model.showsHiddenAppsInSearch = true
         XCTAssertEqual(model.results, apps)
-        XCTAssertTrue(model.isHiddenApp(apps[1]))
-        XCTAssertFalse(model.isHiddenApp(apps[0]))
+        XCTAssertTrue(model.isHiddenItem(apps[1]))
+        XCTAssertFalse(model.isHiddenItem(apps[0]))
         XCTAssertEqual(
             model.contextMenu(at: center(1)),
             .item(AppMenuContent(app: apps[1], canOpen: true, canEdit: true, canUninstall: false, isHidden: true))

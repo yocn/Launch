@@ -275,7 +275,7 @@ final class LayoutCoordinatorTests: XCTestCase {
 
         coordinator.apply(.hide([.item(apps[1].identity.stableKey), .item(apps[2].identity.stableKey)]))
         XCTAssertEqual(published.last, [[.item(apps[0])]])
-        XCTAssertEqual(coordinator.hiddenApps, [apps[1], apps[2]])
+        XCTAssertEqual(coordinator.hiddenItems, [apps[1], apps[2]])
         XCTAssertEqual(try store.load()?.hiddenItems, [apps[1].identity, apps[2].identity])
 
         coordinator.unhide(apps[2])
@@ -283,10 +283,10 @@ final class LayoutCoordinatorTests: XCTestCase {
 
         coordinator.unhideAll()
         XCTAssertEqual(published.last, [apps.map(ResolvedItem.item)])
-        XCTAssertEqual(coordinator.hiddenApps, [])
+        XCTAssertEqual(coordinator.hiddenItems, [])
 
         coordinator.undo()
-        XCTAssertEqual(coordinator.hiddenApps, [apps[1]])
+        XCTAssertEqual(coordinator.hiddenItems, [apps[1]])
     }
 
     @MainActor
@@ -304,7 +304,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         await coordinator.importFromLaunchpad()
 
         XCTAssertEqual(published.last, [[.item(apps[0]), .item(apps[2])]])
-        XCTAssertEqual(coordinator.hiddenApps, [apps[1]])
+        XCTAssertEqual(coordinator.hiddenItems, [apps[1]])
     }
 
     @MainActor
@@ -344,7 +344,7 @@ final class LayoutCoordinatorTests: XCTestCase {
         XCTAssertEqual(prompter.backupSummaries, [summary!])
         XCTAssertEqual(try store.load(), try LayoutBackup.decode(exported))
         XCTAssertEqual(published.last, [[.item(apps[0]), .item(apps[1])]])
-        XCTAssertEqual(coordinator.hiddenApps, [apps[2]])
+        XCTAssertEqual(coordinator.hiddenItems, [apps[2]])
         XCTAssertTrue(coordinator.canRestore)
 
         coordinator.undo()

@@ -151,7 +151,7 @@ final class LauncherControllerTests: XCTestCase {
         controller.updateCatalog(makeLaunchItems(count: 3))
         _ = iconCache.icon(for: apps[0].application!.identity.path)
         XCTAssertEqual(loads, 2)
-        XCTAssertEqual(controller.model.apps.count, 3)
+        XCTAssertEqual(controller.model.catalog.count, 3)
     }
 
     @MainActor
@@ -172,7 +172,7 @@ final class LauncherControllerTests: XCTestCase {
         _ = iconCache.icon(for: apps[0].application!.identity.path)
 
         XCTAssertEqual(loads, 1)
-        XCTAssertEqual(controller.model.apps.last?.displayName, "项目文档")
+        XCTAssertEqual(controller.model.catalog.last?.displayName, "项目文档")
     }
 
     @MainActor
@@ -392,7 +392,7 @@ final class LauncherControllerTests: XCTestCase {
     ) -> (LauncherController, FakePresenter) {
         let presenter = FakePresenter()
         let controller = LauncherController(
-            model: LauncherModel(apps: apps),
+            model: LauncherModel(catalog: apps),
             presenter: presenter,
             iconCache: iconCache,
             openApplication: openApplication

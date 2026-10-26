@@ -47,8 +47,8 @@ final class LauncherModel {
         let from: CGRect
     }
 
-    private(set) var apps: [LaunchItem] {
-        didSet { searchIndex = SearchIndex(items: apps) }
+    private(set) var catalog: [LaunchItem] {
+        didSet { searchIndex = SearchIndex(items: catalog) }
     }
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
@@ -83,7 +83,7 @@ final class LauncherModel {
     private(set) var multiSelection = MultiSelection()
     private(set) var marqueeRect: CGRect?
     private(set) var isPresented = false
-    private(set) var hiddenApps: [LaunchItem] = []
+    private(set) var hiddenItems: [LaunchItem] = []
     private(set) var wallpaper: Wallpaper?
     var showsHiddenAppsInSearch = false
     // 距上次关闭达到这个时长就回到第一页；为空表示从不
@@ -112,15 +112,15 @@ final class LauncherModel {
     @ObservationIgnored private var dragGroup: [LayoutItemID] = []
     @ObservationIgnored private var searchIndex: SearchIndex
 
-    init(apps: [LaunchItem] = []) {
-        self.apps = apps
-        searchIndex = SearchIndex(items: apps)
+    init(catalog: [LaunchItem] = []) {
+        self.catalog = catalog
+        searchIndex = SearchIndex(items: catalog)
     }
 
     var results: [LaunchItem] {
-        // searchIndex 不参与观察，读一次 apps 让搜索结果随条目变化刷新
-        _ = apps
-        let hidden = showsHiddenAppsInSearch ? [] : Set(hiddenApps.map(\.identity))
+        // searchIndex 不参与观察，读一次 catalog 让搜索结果随条目变化刷新
+        _ = catalog
+        let hidden = showsHiddenAppsInSearch ? [] : Set(hiddenItems.map(\.identity))
         return searchIndex.results(for: query, hidden: hidden)
     }
 
@@ -308,7 +308,7 @@ final class LauncherModel {
                 canOpen: !isJiggling,
                 canEdit: canEditMenuItems,
                 canUninstall: canUninstall(app),
-                isHidden: isHiddenApp(app),
+                isHidden: isHiddenItem(app),
                 canManageExtraItems: app.application == nil && canEditLayout,
                 isPinned: app.application == nil && isPinned(app.identity),
                 pinPage: app.application == nil ? (query.isEmpty ? currentPage : pageBeforeSearch) : 0
@@ -1166,8 +1166,8 @@ final class LauncherModel {
         return .clearedQuery
     }
 
-    func updateApps(_ newApps: [LaunchItem]) {
-        apps = newApps
+    func updateCatalog(_ items: [LaunchItem]) {
+        catalog = items
         normalizeState()
     }
 
@@ -1179,16 +1179,16 @@ final class LauncherModel {
         normalizeState()
     }
 
-    func updateHiddenApps(_ apps: [LaunchItem]) {
-        guard apps != hiddenApps else {
+    func updateHiddenItems(_ items: [LaunchItem]) {
+        guard items != hiddenItems else {
             return
         }
-        hiddenApps = apps
+        hiddenItems = items
         normalizeState()
     }
 
-    func isHiddenApp(_ app: LaunchItem) -> Bool {
-        hiddenApps.contains(app)
+    func isHiddenItem(_ item: LaunchItem) -> Bool {
+        hiddenItems.contains(item)
     }
 
     func updateWallpaper(_ wallpaper: Wallpaper?) {

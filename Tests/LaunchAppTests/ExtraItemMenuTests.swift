@@ -9,13 +9,13 @@ import os
 final class ExtraItemMenuTests: XCTestCase {
     func testSearchObservesCatalogChangesEvenWhenQueryAndIdentityStayTheSame() {
         let definition = ExtraItemDefinition(name: "旧名字", target: .website(URL(string: "https://example.com")!))
-        let model = LauncherModel(apps: [LaunchItem(definition: definition)])
+        let model = LauncherModel(catalog: [LaunchItem(definition: definition)])
         model.setQuery("example.com")
         let changed = OSAllocatedUnfairLock(initialState: false)
         withObservationTracking { _ = model.results } onChange: { changed.withLock { $0 = true } }
         var edited = definition
         edited.name = "新名字"
-        model.updateApps([LaunchItem(definition: edited)])
+        model.updateCatalog([LaunchItem(definition: edited)])
         XCTAssertTrue(changed.withLock { $0 }, "修改条目后，当前搜索界面必须重绘")
         XCTAssertEqual(model.results.first?.displayName, "新名字")
     }

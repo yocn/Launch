@@ -34,7 +34,7 @@ final class LauncherModelDragTests: XCTestCase {
 
     @MainActor
     private func makeModel(pages: [[ResolvedItem]], apps: [LaunchItem] = []) -> (LauncherModel, EditLog) {
-        let model = LauncherModel(apps: apps)
+        let model = LauncherModel(catalog: apps)
         let log = EditLog()
         model.updateLayout(pages)
         model.canEditLayout = true

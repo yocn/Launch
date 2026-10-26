@@ -24,7 +24,7 @@ final class LauncherModelMenuTests: XCTestCase {
 
     @MainActor
     private func makeModel(pages: [[ResolvedItem]], apps: [LaunchItem] = []) -> (LauncherModel, EditLog) {
-        let model = LauncherModel(apps: apps)
+        let model = LauncherModel(catalog: apps)
         let log = EditLog()
         model.updateLayout(pages)
         model.canEditLayout = true
@@ -114,9 +114,9 @@ final class LauncherModelMenuTests: XCTestCase {
     @MainActor
     func testSearchSkipsHiddenApps() {
         let apps = makeLaunchItems(count: 3)
-        let model = LauncherModel(apps: apps)
+        let model = LauncherModel(catalog: apps)
 
-        model.updateHiddenApps([apps[1]])
+        model.updateHiddenItems([apps[1]])
         model.setQuery("App")
 
         XCTAssertEqual(model.results, [apps[0], apps[2]])

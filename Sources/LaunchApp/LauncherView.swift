@@ -267,7 +267,7 @@ struct LauncherView: View {
                     onLaunch(app)
                 }
             }
-            .opacity(model.isHiddenApp(app) ? 0.45 : 1)
+            .opacity(model.isHiddenItem(app) ? 0.45 : 1)
         case .folder(let folder):
             LauncherFolderTile(folder: folder, layout: layout, isSelected: isSelected) {
                 if !dragTracker.suppressesTap {

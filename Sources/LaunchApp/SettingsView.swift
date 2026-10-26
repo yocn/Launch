@@ -370,11 +370,11 @@ private struct HiddenAppsSettingsView: View {
             }
             Toggle("在搜索结果中显示隐藏应用", isOn: $settings.showsHiddenAppsInSearch)
             Section("隐藏的应用") {
-                if model.hiddenApps.isEmpty {
+                if model.hiddenItems.isEmpty {
                     Text("没有隐藏的应用")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(model.hiddenApps, id: \.identity) { app in
+                    ForEach(model.hiddenItems, id: \.identity) { app in
                         HStack {
                             LaunchItemIcon(item: app, side: 24)
                             Text(app.displayName)
@@ -387,7 +387,7 @@ private struct HiddenAppsSettingsView: View {
                 }
             }
             Button("全部取消隐藏", action: onUnhideAll)
-                .disabled(model.hiddenApps.isEmpty)
+                .disabled(model.hiddenItems.isEmpty)
         }
         .formStyle(.grouped)
     }
