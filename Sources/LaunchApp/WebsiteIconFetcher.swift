@@ -55,34 +55,50 @@ enum ItemImageData {
 }
 
 struct WebsiteIconFetcher: Sendable {
-    typealias Load = @Sendable (URL, Int) async throws -> Data
+    // 返回内容与跟随跳转后的最终地址
+    typealias Load = @Sendable (URL, Int) async throws -> (Data, URL)
     private let load: Load
     init(load: @escaping Load = BoundedWebsiteRequest.load) { self.load = load }
 
+    // 图标常放在 CDN 等其他域名，只拦截凭证、非网页地址和局域网（访问局域网会触发系统的本地网络授权）
     static func isAllowed(_ url: URL, origin: URL) -> Bool {
-        let valid = ["http", "https"].contains(url.scheme?.lowercased() ?? "")
-        return valid && url.scheme?.lowercased() == origin.scheme?.lowercased()
-            && url.host?.lowercased() == origin.host?.lowercased() && url.port == origin.port
-            && url.user == nil && url.password == nil
+        guard ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.user == nil, url.password == nil,
+              let host = url.host?.lowercased(), !host.isEmpty else { return false }
+        return host == origin.host?.lowercased() || !isLocal(host)
+    }
+
+    private static func isLocal(_ host: String) -> Bool {
+        host == "localhost" || host.hasSuffix(".local") || host.contains(":")
+            || host.range(of: #"^[0-9.]+$"#, options: .regularExpression) != nil
     }
 
     func fetch(for url: URL) async -> Data? {
         guard (try? WebsiteAddress.normalized(url.absoluteString)) != nil else { return nil }
         let pageLimit = 512 * 1024
-        let data = try? await load(url, pageLimit)
+        var base = url
         var candidates: [URL] = []
-        if let data, data.count <= pageLimit, let html = String(data: data, encoding: .utf8) {
-            candidates = Self.candidates(in: html, base: url)
+        if let (data, finalURL) = try? await load(url, pageLimit), data.count <= pageLimit {
+            if Self.isAllowed(finalURL, origin: url) { base = finalURL }
+            candidates = Self.candidates(in: Self.text(of: data), base: base)
         }
-        if let fallback = URL(string: "/favicon.ico", relativeTo: url)?.absoluteURL { candidates.append(fallback) }
+        for path in ["/apple-touch-icon.png", "/favicon.ico"] {
+            if let fallback = URL(string: path, relativeTo: base)?.absoluteURL { candidates.append(fallback) }
+        }
         var seen = Set<URL>()
-        for candidate in candidates.filter({ Self.isAllowed($0, origin: url) && seen.insert($0).inserted }).prefix(3) {
+        for candidate in candidates.filter({ Self.isAllowed($0, origin: base) && seen.insert($0).inserted }).prefix(4) {
             guard !Task.isCancelled else { return nil }
-            if let data = try? await load(candidate, 1_048_576), let icon = ItemImageData.normalized(data, minimumSide: 64) {
+            if let (data, _) = try? await load(candidate, 1_048_576), let icon = ItemImageData.normalized(data, minimumSide: 64) {
                 return icon
             }
         }
         return nil
+    }
+
+    // 只需找 link 标签，UTF-8 失败时按国内网站常见的 GB18030 解码
+    private static func text(of data: Data) -> String {
+        if let text = String(data: data, encoding: .utf8) { return text }
+        let gb = CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue))
+        return String(data: data, encoding: String.Encoding(rawValue: gb)) ?? String(decoding: data, as: UTF8.self)
     }
 
     private static func candidates(in html: String, base: URL) -> [URL] {
@@ -102,24 +118,27 @@ struct WebsiteIconFetcher: Sendable {
             let rel = (attrs["rel"] ?? "").lowercased().split(whereSeparator: \.isWhitespace)
             let touch = rel.contains { $0.hasPrefix("apple-touch-icon") }
             guard touch || rel.contains("icon"), let href = attrs["href"],
-                  let url = URL(string: href, relativeTo: base)?.absoluteURL, isAllowed(url, origin: base) else { continue }
+                  let url = URL(string: href, relativeTo: base)?.absoluteURL else { continue }
             icons.append((url, touch ? 0 : 1))
         }
         return icons.sorted { $0.1 < $1.1 }.map(\.0)
     }
 }
 
+// 跟随跳转，但不降级到 http、不跳到本地或带凭证的地址
 private final class WebsiteRedirectPolicy: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let origin: URL
     init(origin: URL) { self.origin = origin }
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
-        completionHandler(request.url.map { WebsiteIconFetcher.isAllowed($0, origin: origin) } == true ? request : nil)
+        guard let url = request.url, WebsiteIconFetcher.isAllowed(url, origin: origin),
+              !(origin.scheme == "https" && url.scheme == "http") else { return completionHandler(nil) }
+        completionHandler(request)
     }
 }
 
 private enum BoundedWebsiteRequest {
-    static func load(_ url: URL, limit: Int) async throws -> Data {
+    static func load(_ url: URL, limit: Int) async throws -> (Data, URL) {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.httpShouldSetCookies = false
@@ -138,6 +157,6 @@ private enum BoundedWebsiteRequest {
             guard result.count < limit else { throw WebsiteError.rejectedResponse }
             result.append(byte)
         }
-        return result
+        return (result, response.url ?? url)
     }
 }
