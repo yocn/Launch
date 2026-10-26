@@ -137,10 +137,10 @@ final class LayoutCoordinator {
     }
 
     func undo() {
-        guard isEditable, let previous = undoStack.last else {
+        guard isEditable, let previous = undoStack.last, let document else {
             return
         }
-        if commit(previous, recordsUndo: false, invalidatesIcons: true) { undoStack.removeLast() }
+        if commit(previous.keepingCachedIcons(from: document), recordsUndo: false) { undoStack.removeLast() }
     }
 
     func unhide(_ app: LaunchItem) {
@@ -295,7 +295,7 @@ final class LayoutCoordinator {
     }
 
     @discardableResult
-    private func commit(_ next: LayoutDocument, recordsUndo: Bool = true, invalidatesIcons: Bool = false) -> Bool {
+    private func commit(_ next: LayoutDocument, recordsUndo: Bool = true) -> Bool {
         guard isEditable, let previous = document else { return false }
         guard next != previous else { return true }
         do { try store.save(next) }
@@ -305,7 +305,6 @@ final class LayoutCoordinator {
             if undoStack.count > Self.undoLimit { undoStack.removeFirst() }
         }
         document = next
-        if invalidatesIcons { replacementGeneration = UUID() }
         publish()
         return true
     }

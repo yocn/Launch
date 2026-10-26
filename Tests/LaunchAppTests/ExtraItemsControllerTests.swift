@@ -74,7 +74,7 @@ final class ExtraItemsControllerTests: XCTestCase {
         XCTAssertEqual(published.first?.count, 2)
     }
 
-    func testImportRestoreAndUndoInvalidateSameURLIconResponses() async throws {
+    func testImportAndRestoreInvalidateIconResponsesButUndoKeepsThem() async throws {
         let (layout, store) = try await makeLayout()
         let pending = DelayedEntryIcons()
         let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in await pending.load() })
@@ -100,7 +100,25 @@ final class ExtraItemsControllerTests: XCTestCase {
         layout.undo()
         await pending.finish(2, data: imported.cachedIconData)
         for _ in 0 ..< 10 { await Task.yield() }
-        XCTAssertNil(try store.load()?.extraItems.first?.cachedIconData)
+        XCTAssertEqual(try store.load()?.extraItems.first?.cachedIconData, imported.cachedIconData)
+    }
+
+    func testUndoingAnEditMadeBeforeTheIconArrivedKeepsTheIcon() async throws {
+        let (layout, store) = try await makeLayout()
+        let pending = DelayedEntryIcons()
+        let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in await pending.load() })
+        layout.onDocumentChange = { controller.layoutDidChange() }
+        let entry = try controller.saveWebsite(name: "文档", address: "example.com", existing: nil, toPage: 0, customIconData: nil)
+        await pending.waitFor(1)
+        _ = try controller.saveWebsite(name: "项目文档", address: "example.com", existing: entry, toPage: nil, customIconData: nil)
+        await pending.finish(0, data: entryTestPNG())
+        for _ in 0 ..< 10 { await Task.yield() }
+
+        layout.undo()
+
+        let saved = try XCTUnwrap(store.load()?.extraItems.first)
+        XCTAssertEqual(saved.name, "文档")
+        XCTAssertEqual(saved.cachedIconData, entryTestPNG())
     }
     func testAddingWebsiteToAFullPageKeepsItOnTheRequestedPage() async throws {
         let (layout, store) = try await makeLayout()
