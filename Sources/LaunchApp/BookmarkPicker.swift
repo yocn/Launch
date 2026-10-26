@@ -13,11 +13,18 @@ private final class BookmarkPickerModel {
     var selected: Set<UUID> = []
     // 文件夹默认折叠
     private(set) var expanded: Set<UUID> = []
-    let existing: Set<URL>
+    @ObservationIgnored private let controller: ExtraItemsController
+
+    // 窗口开着时网址可能被删除或新增，每次都读当前的
+    var existing: Set<URL> {
+        Set(controller.definitions.compactMap { entry -> URL? in
+            if case .website(let url) = entry.target { url } else { nil }
+        })
+    }
     @ObservationIgnored private var loadTask: Task<Void, Never>?
 
-    init(existing: Set<URL>) {
-        self.existing = existing
+    init(controller: ExtraItemsController) {
+        self.controller = controller
         load()
     }
 
@@ -175,10 +182,7 @@ private struct BookmarkPickerView: View {
             panel.makeKeyAndOrderFront(nil)
             return
         }
-        let existing = Set(controller.definitions.compactMap { entry -> URL? in
-            if case .website(let url) = entry.target { url } else { nil }
-        })
-        let model = BookmarkPickerModel(existing: existing)
+        let model = BookmarkPickerModel(controller: controller)
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 460, height: 460),
                             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         panel.isReleasedWhenClosed = false

@@ -50,10 +50,12 @@ struct ExtraItemsSettingsView: View {
             }
             if controller.fetchingIcons.contains(item.identity) { ProgressView().controlSize(.mini) }
             Menu {
-                if controller.isPinned(item.identity) {
-                    Button("从网格移除") { controller.unpin(item.identity) }
-                } else {
-                    Button("添加到网格") { controller.pin(item.identity, toPage: currentPage()) }
+                if case .shortcut = item.target {
+                    if controller.isPinned(item.identity) {
+                        Button("从网格移除") { controller.unpin(item.identity) }
+                    } else {
+                        Button("添加到网格") { controller.pin(item.identity, toPage: currentPage()) }
+                    }
                 }
                 if case .website = item.target {
                     Button("编辑网址…") {

@@ -82,6 +82,7 @@ final class LayoutCoordinator {
     }
 
     var extraItems: [ExtraItemDefinition] { document?.extraItems ?? [] }
+    var lastPageIndex: Int { max(0, (document?.pages.count ?? 1) - 1) }
     var pinnedIdentities: Set<ItemIdentity> { document?.pinnedIdentities ?? [] }
 
     @discardableResult
@@ -126,7 +127,10 @@ final class LayoutCoordinator {
     @discardableResult
     func pin(_ identity: ItemIdentity, toPage page: Int) -> Bool {
         guard isEditable, let document else { return false }
-        return commit(LayoutEditor.apply(.pin(identity, page: page), to: document, catalog: catalog, pageCapacity: pageCapacity))
+        // 目录是异步同步过来的，已保存的网址定义直接算进去，不依赖同步时序
+        let context = catalog + document.extraItems.filter { entry in !catalog.contains { $0.identity == entry.identity } }
+            .map { LaunchItem(definition: $0) }
+        return commit(LayoutEditor.apply(.pin(identity, page: page), to: document, catalog: context, pageCapacity: pageCapacity))
     }
 
     @discardableResult

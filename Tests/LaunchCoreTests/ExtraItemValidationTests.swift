@@ -19,7 +19,8 @@ final class ExtraItemValidationTests: XCTestCase {
         for data in [Data([1, 2, 3]), tooWide] {
             let entry = ExtraItemDefinition(name: "错误图片", target: .website(URL(string: "https://example.com")!), customIconData: data)
             XCTAssertThrowsError(try store.replace(with: LayoutDocument(extraItems: [entry])))
-            XCTAssertThrowsError(try store.save(LayoutDocument(extraItems: [entry])))
+            // 保存自己生成的布局不再解码校验图片；读取文件时仍会拒绝
+            XCTAssertThrowsError(try LayoutBackup.decode(LayoutBackup.encode(LayoutDocument(extraItems: [entry]))))
         }
         XCTAssertEqual(try Data(contentsOf: store.fileURL), before)
         XCTAssertEqual(try Data(contentsOf: store.backupURL), backup)

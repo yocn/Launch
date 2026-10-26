@@ -32,8 +32,23 @@ final class ExtraItemMenuTests: XCTestCase {
         XCTAssertFalse(names.contains("显示简介"))
         XCTAssertFalse(names.contains("在访达中显示"))
         XCTAssertTrue(names.contains("编辑网址…"))
-        trigger(menu.items[names.firstIndex(of: "添加到网格")!])
-        XCTAssertEqual(chosen, [.pinEntry(entry.identity, page: 2)])
+        XCTAssertFalse(names.contains("添加到网格"))
+        XCTAssertFalse(names.contains("从网格移除"))
+        trigger(menu.items[names.firstIndex(of: "删除网址入口…")!])
+        XCTAssertEqual(chosen, [.deleteWebsite(entry.identity)])
+    }
+
+    func testShortcutCanBePinnedToTheClickedPage() {
+        let id = UUID()
+        var content = AppMenuContent(app: LaunchItem(definition: ExtraItemDefinition(id: id, name: "指令", target: .shortcut(id))),
+                                     canOpen: true, canEdit: true, canUninstall: false)
+        content.canManageExtraItems = true
+        content.pinPage = 2
+        var chosen: [ItemMenuCommand] = []
+        let builder = ItemMenu { chosen.append($0) }
+        let menu = builder.makeMenu(.item(content))
+        trigger(menu.items[menu.items.map(\.title).firstIndex(of: "添加到网格")!])
+        XCTAssertEqual(chosen, [.pinEntry(.shortcut(id), page: 2)])
     }
 
     func testUnavailableShortcutCanBeRemovedButCannotRunAndIsNotDeleted() {

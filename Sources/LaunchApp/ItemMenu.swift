@@ -154,10 +154,13 @@ final class ItemMenu: NSObject {
         guard app.application != nil else {
             menu.addItem(.separator())
             let id = app.identity
-            if content.isPinned {
-                menu.addItem(item("从网格移除", .unpinEntry(id), isEnabled: content.canManageExtraItems))
-            } else {
-                menu.addItem(item("添加到网格", .pinEntry(id, page: content.pinPage), isEnabled: content.canManageExtraItems))
+            // 网址一律在网格里，只有快捷指令可以放进或移出网格
+            if case .shortcut = app.target {
+                if content.isPinned {
+                    menu.addItem(item("从网格移除", .unpinEntry(id), isEnabled: content.canManageExtraItems))
+                } else {
+                    menu.addItem(item("添加到网格", .pinEntry(id, page: content.pinPage), isEnabled: content.canManageExtraItems))
+                }
             }
             if case .website = app.target {
                 menu.addItem(item("编辑网址…", .editWebsite(id), isEnabled: content.canManageExtraItems))

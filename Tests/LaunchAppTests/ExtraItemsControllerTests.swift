@@ -238,6 +238,22 @@ final class ExtraItemsControllerTests: XCTestCase {
         XCTAssertEqual(try store.load()?.extraItems.map(\.name), ["已有"])
     }
 
+    func testWebsitesAddedWithoutAPageGoToTheGridAndLooseOnesAreMovedIn() async throws {
+        let (layout, store) = try await makeLayout()
+        let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })
+        layout.onDocumentChange = { controller.layoutDidChange() }
+        let added = try controller.saveWebsite(name: "新", address: "new.example.com", existing: nil, toPage: nil, customIconData: nil)
+        XCTAssertTrue(try XCTUnwrap(store.load()).pinnedIdentities.contains(added.identity))
+
+        // 旧版本留下的只在搜索里的网址
+        let loose = ExtraItemDefinition(name: "旧", target: .website(URL(string: "https://old.example.com")!))
+        XCTAssertTrue(layout.saveExtraItem(loose))
+        XCTAssertFalse(try XCTUnwrap(store.load()).pinnedIdentities.contains(loose.identity))
+        controller.layoutDidChange()
+        for _ in 0 ..< 10 { await Task.yield() }
+        XCTAssertTrue(try XCTUnwrap(store.load()).pinnedIdentities.contains(loose.identity))
+    }
+
     func testBookmarkIconIsKeptWhenFetchingTheWebsiteIconFails() async throws {
         let (layout, store) = try await makeLayout()
         let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })

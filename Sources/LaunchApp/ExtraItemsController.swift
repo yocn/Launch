@@ -52,6 +52,7 @@ final class ExtraItemsController {
     @ObservationIgnored private var hasScannedApplications = false
     // 清单成功读到过才能判断指令被删；启动时还没读到或读取失败都不置灰
     @ObservationIgnored private var hasListedShortcuts = false
+    @ObservationIgnored private var isPinningLooseWebsites = false
     @ObservationIgnored private var iconTasks: [ItemIdentity: Task<Void, Never>] = [:]
     @ObservationIgnored private var iconVersions: [ItemIdentity: UUID] = [:]
     @ObservationIgnored private var documentGeneration: UUID
@@ -88,6 +89,22 @@ final class ExtraItemsController {
             fetchingIcons.remove(identity)
         }
         rebuild()
+        pinLooseWebsites()
+    }
+
+    // 网址没有「只在搜索」的状态：旧版本留下的未放进网格的网址补放到最后一页
+    private func pinLooseWebsites() {
+        guard !isPinningLooseWebsites, layout.isEditable else { return }
+        let loose = layout.extraItems.filter { entry in
+            if case .website = entry.target { !layout.pinnedIdentities.contains(entry.identity) } else { false }
+        }
+        guard !loose.isEmpty else { return }
+        isPinningLooseWebsites = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            for entry in loose { layout.pin(entry.identity, toPage: layout.lastPageIndex) }
+            isPinningLooseWebsites = false
+        }
     }
 
     func refreshShortcuts() async {
@@ -113,7 +130,9 @@ final class ExtraItemsController {
         if let current = layout.extraItems.first(where: { $0.id == entry.id }), current.target == entry.target {
             entry.cachedIconData = current.cachedIconData
         }
-        guard layout.saveExtraItem(entry, toPage: page) else { throw ExtraItemError.saveFailed }
+        // 网址一律放进网格：新建时没指定页就放最后一页
+        let target = existing == nil ? (page ?? layout.lastPageIndex) : page
+        guard layout.saveExtraItem(entry, toPage: target) else { throw ExtraItemError.saveFailed }
         rebuild()
         if existing?.target != entry.target, customIconData == nil { refreshWebsiteIcon(entry.identity) }
         return entry
@@ -131,7 +150,7 @@ final class ExtraItemsController {
             let icon = link.icon.flatMap { ItemImageData.normalized($0) }
             return ExtraItemDefinition(name: link.name, target: .website(link.url), cachedIconData: icon)
         }
-        guard layout.saveExtraItems(entries, toPage: page) else { return 0 }
+        guard layout.saveExtraItems(entries, toPage: page ?? layout.lastPageIndex) else { return 0 }
         rebuild()
         entries.forEach { refreshWebsiteIcon($0.identity) }
         return entries.count
