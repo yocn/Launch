@@ -16,7 +16,7 @@ import XCTest
         print("UI_PREVIEW_DATA: \(root.path)")
         let store = LayoutStore(fileURL: root.appendingPathComponent("layout.json"))
         try store.save(LayoutDocument())
-        let layout = LayoutCoordinator(store: store, launchpad: NoEntryLaunchpad(), prompter: EntryPrompter())
+        let layout = LayoutCoordinator(store: store, launchpad: NoEntryLaunchpad(), prompter: EntryPrompter(), log: makeTestLog())
         layout.start()
         let id = UUID(uuidString: "88888888-8888-8888-8888-888888888888")!
         let extras = ExtraItemsController(layout: layout, shortcuts: ShortcutService(execute: { args, _ in

@@ -34,6 +34,13 @@ extension LaunchItem {
 }
 
 extension XCTestCase {
+    // 日志写到临时目录，不进用户真实的 launch.log
+    func makeTestLog() -> AppLog {
+        let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+        return AppLog(directory: url)
+    }
+
     func makeTemporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appending(path: UUID().uuidString, directoryHint: .isDirectory)

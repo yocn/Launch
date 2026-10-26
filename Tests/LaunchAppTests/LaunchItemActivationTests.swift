@@ -59,7 +59,7 @@ private actor ControlledShortcutRun {
         let root = try makeTemporaryDirectory()
         let store = LayoutStore(fileURL: root.appendingPathComponent("layout.json"))
         try store.save(LayoutDocument())
-        let layout = LayoutCoordinator(store: store, launchpad: NoEntryLaunchpad(), prompter: EntryPrompter())
+        let layout = LayoutCoordinator(store: store, launchpad: NoEntryLaunchpad(), prompter: EntryPrompter(), log: makeTestLog())
         layout.start()
         await layout.catalogDidChange([])
         let process = ControlledShortcutRun()
