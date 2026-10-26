@@ -10,7 +10,8 @@ public enum LayoutBackup {
         return try encoder.encode(document)
     }
 
-    public static func decode(_ data: Data) throws -> LayoutDocument {
+    // 图片解码较慢：读取外部文件时校验；保存自己生成的布局时图片已规范化，可跳过
+    public static func decode(_ data: Data, checksArtwork: Bool = true) throws -> LayoutDocument {
         let document = try JSONDecoder().decode(LayoutDocument.self, from: data)
         guard document.schemaVersion == LayoutDocument.currentVersion else {
             throw LayoutStoreError.unsupportedSchema(document.schemaVersion)
@@ -20,8 +21,8 @@ public enum LayoutBackup {
         for entry in document.extraItems {
             guard ids.insert(entry.id).inserted, identities.insert(entry.identity).inserted,
                   !entry.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  entry.customIconData.map(validArtwork) ?? true,
-                  entry.cachedIconData.map(validArtwork) ?? true else {
+                  !checksArtwork || (entry.customIconData.map(validArtwork) ?? true),
+                  !checksArtwork || (entry.cachedIconData.map(validArtwork) ?? true) else {
                 throw LayoutStoreError.invalidItems
             }
             if case .website(let url) = entry.target {

@@ -44,7 +44,7 @@ public struct LayoutStore {
 
     public func save(_ document: LayoutDocument) throws {
         let data = try LayoutBackup.encode(document)
-        _ = try decode(data)
+        _ = try LayoutBackup.decode(data, checksArtwork: false)
         try writeValidatedData(data, createBackup: false)
     }
 
