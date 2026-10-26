@@ -103,6 +103,7 @@ struct LauncherView: View {
             .animation(.easeOut(duration: 0.25), value: model.openFolderID)
         }
         .environment(\.showsItemNames, !settings.hidesNames)
+        .environment(\.fetchingIcons, model.fetchingIcons)
         .onExitCommand(perform: onEscape)
         .onAppear {
             searchFieldIsFocused = true

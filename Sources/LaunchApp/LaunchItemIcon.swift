@@ -1,6 +1,17 @@
 import SwiftUI
 import LaunchCore
 
+private struct FetchingIconsKey: EnvironmentKey {
+    static let defaultValue: Set<ItemIdentity> = []
+}
+
+extension EnvironmentValues {
+    var fetchingIcons: Set<ItemIdentity> {
+        get { self[FetchingIconsKey.self] }
+        set { self[FetchingIconsKey.self] = newValue }
+    }
+}
+
 enum ItemTypeBadge { case website, shortcut }
 
 enum ItemIconPresentation {
@@ -49,6 +60,7 @@ struct LaunchItemIcon: View {
     let item: LaunchItem
     let side: CGFloat
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.fetchingIcons) private var fetchingIcons
 
     var body: some View {
         base
@@ -61,6 +73,11 @@ struct LaunchItemIcon: View {
                 }
             }
             .opacity(item.isAvailable ? 1 : 0.45)
+            .overlay {
+                if fetchingIcons.contains(item.identity) {
+                    ProgressView().controlSize(.small).accessibilityLabel("正在获取图标")
+                }
+            }
     }
 
     @ViewBuilder private var base: some View {

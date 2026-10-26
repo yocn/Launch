@@ -35,7 +35,10 @@ final class ExtraItemsController {
     private(set) var shortcutRecords: [ShortcutRecord] = []
     private(set) var isRefreshing = false
     private(set) var runningShortcuts: Set<UUID> = []
-    private(set) var fetchingIcons: Set<ItemIdentity> = []
+    private(set) var fetchingIcons: Set<ItemIdentity> = [] {
+        didSet { onFetchingChange?(fetchingIcons) }
+    }
+    @ObservationIgnored var onFetchingChange: ((Set<ItemIdentity>) -> Void)?
     private(set) var lastError: String?
     private(set) var definitions: [ExtraItemDefinition] = []
     private(set) var pinnedIdentities: Set<ItemIdentity> = []

@@ -1179,6 +1179,13 @@ final class LauncherModel {
         normalizeState()
     }
 
+    // 正在取网站图标的条目，网格里显示转圈
+    private(set) var fetchingIcons: Set<ItemIdentity> = []
+
+    func updateFetchingIcons(_ identities: Set<ItemIdentity>) {
+        if identities != fetchingIcons { fetchingIcons = identities }
+    }
+
     func updateHiddenItems(_ items: [LaunchItem]) {
         guard items != hiddenItems else {
             return

@@ -83,3 +83,12 @@ final class WebsiteIconFetcherTests: XCTestCase {
         XCTAssertTrue(WebsiteIconFetcher.isAllowed(URL(string: "http://192.168.1.1/icon.png")!, origin: lan))
     }
 }
+
+final class RemoteImageDownloadTests: XCTestCase {
+    func testRejectsLocalNonWebAndMalformedAddressesWithoutRequesting() {
+        for value in ["", "not a url", "file:///etc/hosts", "http://192.168.1.1/a.png", "http://localhost/a.png",
+                      "http://router.local/a.png", "https://u:p@example.com/a.png", "javascript:alert(1)"] {
+            XCTAssertNil(RemoteImageDownload.fetch(value, timeout: 1), value)
+        }
+    }
+}

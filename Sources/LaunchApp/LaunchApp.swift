@@ -158,6 +158,7 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             self?.layoutCoordinator.apply(edit)
         }
         layoutCoordinator.onDocumentChange = { [weak self] in self?.extraItemsController.layoutDidChange() }
+        extraItemsController.onFetchingChange = { [weak self] ids in self?.controller.model.updateFetchingIcons(ids) }
         extraItemsController.onCatalogChange = { [weak self] items in
             guard let self else { return }
             controller.updateCatalog(items)

@@ -67,7 +67,7 @@ struct WebsiteIconFetcher: Sendable {
         return host == origin.host?.lowercased() || !isLocal(host)
     }
 
-    private static func isLocal(_ host: String) -> Bool {
+    static func isLocal(_ host: String) -> Bool {
         host == "localhost" || host.hasSuffix(".local") || host.contains(":")
             || host.range(of: #"^[0-9.]+$"#, options: .regularExpression) != nil
     }
@@ -158,5 +158,59 @@ private enum BoundedWebsiteRequest {
             result.append(byte)
         }
         return (result, response.url ?? url)
+    }
+}
+
+// 用户给的图片链接：同步下载（图标编辑窗口是模态的，异步结果回不来），限大小与时间，拒绝本地地址
+final class RemoteImageDownload: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    static let sizeLimit = 8 * 1024 * 1024
+    private var data = Data()
+    private var tooLarge = false
+    private var status = 0
+    private let finished = DispatchSemaphore(value: 0)
+
+    static func fetch(_ address: String, timeout: TimeInterval = 10) -> Data? {
+        guard let url = try? WebsiteAddress.normalized(address), let host = url.host?.lowercased(),
+              !WebsiteIconFetcher.isLocal(host) else { return nil }
+        let download = RemoteImageDownload()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.urlCredentialStorage = nil
+        configuration.urlCache = nil
+        configuration.timeoutIntervalForRequest = timeout
+        configuration.timeoutIntervalForResource = timeout
+        let session = URLSession(configuration: configuration, delegate: download, delegateQueue: nil)
+        let task = session.dataTask(with: url)
+        task.resume()
+        if download.finished.wait(timeout: .now() + timeout) == .timedOut { task.cancel() }
+        session.invalidateAndCancel()
+        guard (200 ... 299).contains(download.status), !download.tooLarge else { return nil }
+        return ItemImageData.normalized(download.data, inputLimit: sizeLimit)
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+                    completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+        status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        completionHandler(.allow)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        finished.signal()
+    }
+
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+        guard self.data.count + data.count <= Self.sizeLimit else {
+            tooLarge = true
+            dataTask.cancel()
+            return
+        }
+        self.data.append(data)
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        guard let url = request.url, url.scheme == "https" || task.originalRequest?.url?.scheme == "http",
+              !WebsiteIconFetcher.isLocal(url.host?.lowercased() ?? "") else { return completionHandler(nil) }
+        completionHandler(request)
     }
 }

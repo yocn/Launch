@@ -18,6 +18,11 @@ import UniformTypeIdentifiers
         if let chosen = ExtraItemEditor.chooseIcon() { data = chosen; preview.image = NSImage(data: chosen) }
     }
     @objc func reset() { data = nil; preview.image = fallback }
+    @objc func chooseFromLink() {
+        guard let chosen = ExtraItemEditor.imageFromLink() else { return }
+        data = chosen
+        preview.image = NSImage(data: chosen)
+    }
 }
 
 @MainActor enum ExtraItemEditor {
@@ -64,6 +69,25 @@ import UniformTypeIdentifiers
             do { try controller.updateAppearance(of: item.identity, name: name.stringValue, customIconData: icons.data); return }
             catch let failure { error.stringValue = failure.localizedDescription }
         }
+    }
+
+    // 输入图片网址并下载；失败时提示原因
+    static func imageFromLink() -> Data? {
+        let alert = NSAlert()
+        alert.messageText = "图片链接"
+        alert.addButton(withTitle: "下载")
+        alert.addButton(withTitle: "取消")
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        field.placeholderString = "https://example.com/icon.png"
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        guard alert.runAboveLauncher() == .alertFirstButtonReturn else { return nil }
+        if let image = RemoteImageDownload.fetch(field.stringValue) { return image }
+        let failure = NSAlert()
+        failure.messageText = "无法获取图片"
+        failure.informativeText = "请确认是可直接访问的 HTTP(S) 图片地址，图片不超过 8 MB，且不是局域网地址。"
+        _ = failure.runAboveLauncher()
+        return nil
     }
 
     static func chooseIcon() -> Data? {
@@ -119,11 +143,12 @@ import UniformTypeIdentifiers
         let selection = EntryIconSelection(data: entry?.customIconData,
                                            displayData: entry?.customIconData ?? entry?.cachedIconData, fallbackSymbol: symbol)
         view.addSubview(selection.preview)
-        for (title, action, x) in [("选择图片…", #selector(EntryIconSelection.choose), 126.0),
-                                    ("恢复默认", #selector(EntryIconSelection.reset), 236.0)] {
+        for (title, action, x) in [("选择图片…", #selector(EntryIconSelection.choose), 120.0),
+                                    ("图片链接…", #selector(EntryIconSelection.chooseFromLink), 214.0),
+                                    ("恢复默认", #selector(EntryIconSelection.reset), 308.0)] {
             let button = NSButton(title: title, target: selection, action: action)
             button.bezelStyle = .rounded
-            button.frame = NSRect(x: x, y: 54, width: 100, height: 28)
+            button.frame = NSRect(x: x, y: 54, width: 90, height: 28)
             view.addSubview(button)
         }
         return selection
