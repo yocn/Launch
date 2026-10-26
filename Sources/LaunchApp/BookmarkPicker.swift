@@ -11,6 +11,8 @@ private final class BookmarkPickerModel {
     private(set) var error: String?
     private(set) var isLoading = false
     var selected: Set<UUID> = []
+    // 文件夹默认折叠
+    private(set) var expanded: Set<UUID> = []
     let existing: Set<URL>
     @ObservationIgnored private var loadTask: Task<Void, Never>?
 
@@ -23,6 +25,7 @@ private final class BookmarkPickerModel {
     func load() {
         loadTask?.cancel()
         selected = []
+        expanded = []
         isLoading = true
         let browser = browser
         loadTask = Task {
@@ -43,9 +46,16 @@ private final class BookmarkPickerModel {
             return
         }
         func flatten(_ nodes: [BookmarkNode], _ depth: Int) -> [BookmarkRow] {
-            nodes.flatMap { [BookmarkRow(node: $0, depth: depth)] + flatten($0.children, depth + 1) }
+            nodes.flatMap { node in
+                [BookmarkRow(node: node, depth: depth)] + (expanded.contains(node.id) ? flatten(node.children, depth + 1) : [])
+            }
         }
         rows = flatten(tree, 0)
+    }
+
+    func toggle(_ folder: BookmarkNode) {
+        if !expanded.insert(folder.id).inserted { expanded.remove(folder.id) }
+        rebuildRows()
     }
 
     var needsFullDiskAccess: Bool { browser == .safari && error?.contains("完全磁盘访问") == true }
@@ -91,9 +101,19 @@ private struct BookmarkPickerView: View {
             } else {
                 List(model.rows) { row in
                     if row.node.isFolder {
-                        Label(row.node.name.isEmpty ? "未命名文件夹" : row.node.name, systemImage: "folder")
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.leading, CGFloat(row.depth) * 14)
+                        Button { model.toggle(row.node) } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: model.expanded.contains(row.node.id) ? "chevron.down" : "chevron.right")
+                                    .font(.caption2.weight(.bold)).frame(width: 10)
+                                Label(row.node.name.isEmpty ? "未命名文件夹" : row.node.name, systemImage: "folder")
+                                    .font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Text("\(row.node.children.count)").font(.caption).foregroundStyle(.secondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, CGFloat(row.depth) * 14)
                     } else {
                         bookmark(row.node, depth: row.depth)
                     }
