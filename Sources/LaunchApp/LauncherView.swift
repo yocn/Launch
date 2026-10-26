@@ -192,7 +192,7 @@ struct LauncherView: View {
                 ForEach(Array(model.pages.enumerated()), id: \.offset) { pageIndex, items in
                     if pageIndex > 0 {
                         Rectangle()
-                            .fill(Color.launcherInk.opacity(0.15))
+                            .fill(Color.launcherFill(0.15))
                             .frame(height: 1)
                             .padding(.horizontal, layout.horizontalInset)
                             .padding(.vertical, layout.folderRowSpacing * 1.5)
@@ -374,7 +374,7 @@ private struct LauncherAppTile: View {
         .frame(width: layout.tileWidth)
         .background {
             RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                .fill(Color.launcherInk.opacity(isSelected ? 0.26 : 0))
+                .fill(Color.launcherSelection(isSelected))
         }
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
         // 鼠标点击统一由 ItemDragController 处理；SwiftUI 手势不受本地事件监听拦截，这里只吞掉点击，免得落到背景上
@@ -410,7 +410,7 @@ private struct LauncherFolderTile: View {
         .frame(width: layout.tileWidth)
         .background {
             RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                .fill(Color.launcherInk.opacity(isSelected ? 0.26 : 0))
+                .fill(Color.launcherSelection(isSelected))
         }
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
         // 鼠标点击统一由 ItemDragController 处理；SwiftUI 手势不受本地事件监听拦截，这里只吞掉点击，免得落到背景上
@@ -442,7 +442,7 @@ private struct FolderPreview: View {
         .frame(width: layout.iconSide, height: layout.iconSide)
         .background {
             RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
-                .fill(Color.launcherInk.opacity(0.14))
+                .fill(Color.launcherFill(0.14))
                 .overlay {
                     RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
                         .stroke(Color.launcherInk.opacity(0.22), lineWidth: 1)
@@ -467,7 +467,7 @@ private struct GridCell<ItemView: View>: View {
                 .background(alignment: .top) {
                     if entry.isMergeTarget {
                         RoundedRectangle(cornerRadius: layout.folderCornerRadius * 1.2, style: .continuous)
-                            .fill(Color.launcherInk.opacity(0.24))
+                            .fill(Color.launcherFill(0.24))
                             .frame(width: layout.iconSide * 1.2, height: layout.iconSide * 1.2)
                             .padding(.top, layout.tilePadding - layout.iconSide * 0.1)
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
@@ -607,7 +607,7 @@ private struct LauncherBackground: View {
                     .fill(.regularMaterial)
             }
             // 压暗用深灰不用纯黑，按 LaunchOS 录屏拟合
-            Color.launcherDim.opacity(colorScheme == .dark ? settings.dimming : min(0.9, 0.4 + settings.dimming * 1.5))
+            Color.launcherDim.opacity(colorScheme == .dark ? settings.dimming : min(0.92, 0.6 + settings.dimming * 1.5))
         }
         .mask {
             if let edge = canvas?.fadeEdge {
@@ -945,7 +945,7 @@ private struct FolderOverlay: View {
             .padding(.vertical, layout.folderPanelPadding)
             .background {
                 RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
-                    .fill(Color.launcherInk.opacity(0.08))
+                    .fill(Color.launcherFill(0.08))
                     .overlay {
                         RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
                             .stroke(Color.launcherInk.opacity(0.15), lineWidth: 1)

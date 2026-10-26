@@ -149,4 +149,15 @@ extension Color {
     // 文字外围的柔和描边：深色下是深影，浅色下是浅影
     static let launcherShadow = dynamic(dark: NSColor.black.withAlphaComponent(0.38), light: NSColor.white.withAlphaComponent(0.5))
     static let launcherDim = dynamic(dark: NSColor(white: 0.12, alpha: 1), light: NSColor(white: 0.97, alpha: 1))
+
+    // 文件夹底板、面板底这类半透明填充：深色下是半透明白，浅色下是更实的白色玻璃
+    static func launcherFill(_ opacity: Double) -> Color {
+        dynamic(dark: NSColor.white.withAlphaComponent(opacity), light: NSColor.white.withAlphaComponent(min(0.9, opacity * 3.5)))
+    }
+
+    // 选中高亮：深色下提亮，浅色下压暗一点
+    static func launcherSelection(_ isSelected: Bool) -> Color {
+        guard isSelected else { return .clear }
+        return dynamic(dark: NSColor.white.withAlphaComponent(0.26), light: NSColor.black.withAlphaComponent(0.10))
+    }
 }
