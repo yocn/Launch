@@ -53,6 +53,9 @@ final class AppIconController {
     private var style = AppIconStyle.grid
     private var theme = AppIconTheme.system
     private var appliedKey: String?
+    private(set) var currentImage: NSImage?
+    // 菜单栏图标跟着应用图标变
+    var onChange: ((NSImage) -> Void)?
 
     init(application: NSApplication = .shared) {
         self.application = application
@@ -73,6 +76,8 @@ final class AppIconController {
         let key = "\(style.rawValue)-\(dark)"
         guard key != appliedKey, let image = AppIconAssets.image(style: style, dark: dark) else { return }
         application.applicationIconImage = image
+        currentImage = image
+        onChange?(image)
         IconCache.shared.setOverride(image, for: Bundle.main.bundleURL.path)
         appliedKey = key
     }

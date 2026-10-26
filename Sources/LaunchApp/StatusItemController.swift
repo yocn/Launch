@@ -138,6 +138,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         layoutMenu.unhideAll()
     }
 
+    // 与程序坞上的应用图标同一张；不用模板图，保持原来的颜色
+    func setIcon(_ image: NSImage) {
+        let icon = image.copy() as? NSImage ?? image
+        icon.size = NSSize(width: 20, height: 20)
+        icon.isTemplate = false
+        icon.accessibilityDescription = "Launch"
+        statusItem.button?.image = icon
+    }
+
     func setIconVisible(_ visible: Bool) {
         statusItem.isVisible = visible
     }

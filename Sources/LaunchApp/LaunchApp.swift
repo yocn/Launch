@@ -237,6 +237,8 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
             onOpen: { [weak self] in self?.controller.show() },
             onOpenSettings: { [weak self] in self?.settingsWindow.show() }
         )
+        appIconController.onChange = { [weak self] image in self?.statusItemController?.setIcon(image) }
+        if let image = appIconController.currentImage { statusItemController?.setIcon(image) }
         applySettings()
         startCatalogWatcher()
         warnIfHotKeyConflicts()
