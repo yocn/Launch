@@ -24,12 +24,15 @@ struct SettingsView: View {
             .tabItem { Label("通用", systemImage: "gearshape") }
             AppearanceSettingsView(settings: settings)
                 .tabItem { Label("外观", systemImage: "paintpalette") }
-            HiddenAppsSettingsView(settings: settings, model: model, onUnhide: onUnhide, onUnhideAll: onUnhideAll)
-                .tabItem { Label("应用", systemImage: "eye.slash") }
-            if let extraItems {
-                ExtraItemsSettingsView(controller: extraItems, currentPage: currentPage)
-                    .tabItem { Label("条目", systemImage: "link") }
-            }
+            HiddenAppsSettingsView(
+                settings: settings,
+                model: model,
+                onUnhide: onUnhide,
+                onUnhideAll: onUnhideAll,
+                extraItems: extraItems,
+                currentPage: currentPage
+            )
+            .tabItem { Label("应用", systemImage: "eye.slash") }
             DataSettingsView(actions: data)
                 .tabItem { Label("数据", systemImage: "externaldrive") }
         }
@@ -344,8 +347,11 @@ private struct HiddenAppsSettingsView: View {
     let model: LauncherModel
     let onUnhide: (LaunchItem) -> Void
     let onUnhideAll: () -> Void
+    let extraItems: ExtraItemsController?
+    let currentPage: () -> Int
 
     @State private var skippedSources: [String] = []
+    @State private var showsExtraItems = false
 
     var body: some View {
         Form {
@@ -367,6 +373,25 @@ private struct HiddenAppsSettingsView: View {
                 Text("应用来源")
             } footer: {
                 Text("子文件夹一并扫描")
+            }
+            if let extraItems {
+                Section("网址与快捷指令") {
+                    LabeledContent(extraItemsSummary(extraItems)) {
+                        Button("管理…") { showsExtraItems = true }
+                    }
+                }
+                .sheet(isPresented: $showsExtraItems) {
+                    VStack(spacing: 0) {
+                        ExtraItemsSettingsView(controller: extraItems, currentPage: currentPage)
+                        HStack {
+                            Spacer()
+                            Button("完成") { showsExtraItems = false }
+                                .keyboardShortcut(.defaultAction)
+                        }
+                        .padding()
+                    }
+                    .frame(width: 480, height: 400)
+                }
             }
             Toggle("在搜索结果中显示隐藏应用", isOn: $settings.showsHiddenAppsInSearch)
             Section("隐藏的应用") {
@@ -390,6 +415,12 @@ private struct HiddenAppsSettingsView: View {
                 .disabled(model.hiddenItems.isEmpty)
         }
         .formStyle(.grouped)
+    }
+
+    private func extraItemsSummary(_ controller: ExtraItemsController) -> String {
+        let websites = controller.items.filter { if case .website = $0.target { true } else { false } }.count
+        let shortcuts = controller.items.filter { if case .shortcut = $0.target { true } else { false } }.count
+        return "\(websites) 个网址、\(shortcuts) 个快捷指令"
     }
 
     private func addSources() {

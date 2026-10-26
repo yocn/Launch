@@ -178,5 +178,5 @@ Bundle ID 是主要匹配依据，但不能假设始终存在或全局唯一。�
 - `LayoutCoordinator` 原子保存完整文档并维护 20 步撤销；导入、恢复、撤销有 `replacementGeneration`，异步图标回写须复核请求版本、文档代次与 URL，不能覆盖恢复结果。满页固定将旧末项顺延，保留新入口在指定页。重新导入 Launchpad 时，已固定非应用按原序附在末尾，原分组/位置可能改变。
 - `WebsiteAddress` 仅允许无凭证 HTTP(S)。`WebsiteIconFetcher` 用临时无 Cookie/凭证会话、只请求同源资源，每请求 5 秒、页面 512 KiB、图片 1 MiB，最多 3 张，解码前像素上限 8192²，转最长边 256px PNG。只在新增、改网址或手动刷新时访问网站；失败用首字图标，不使用第三方 favicon 服务。
 - `ShortcutService` 后台执行 `/usr/bin/shortcuts list --show-identifiers`；运行用 `run <UUID>`，不经 shell，最长等待 300 秒，输出限额 1 MiB，同 UUID 运行中拒绝重复发起，错误不重试。超时停止的是 CLI 等待，不保证系统中已经开始的工作流已终止；不要立即重试有副作用的指令。
-- `LaunchItemIcon` 为网格/搜索/文件夹预览/拖动共用绘制入口。非应用左下角圆形角标约图标 1/3；`ExtraItemEditor` 提供网址与图片编辑，`ExtraItemsSettingsView` 是设置「条目」页。内部部分 `apps` / `hiddenApps` 旧属性名保留，但元素类型已经是 `LaunchItem`，不要误当真实应用。
+- `LaunchItemIcon` 为网格/搜索/文件夹预览/拖动共用绘制入口。非应用左下角圆形角标约图标 1/3；`ExtraItemEditor` 提供网址与图片编辑，`ExtraItemsSettingsView` 是设置「应用」页「网址与快捷指令 → 管理…」打开的面板（2026-10-26 起不再单独占页签）。`LauncherModel.catalog` / `hiddenItems` 装的是 `LaunchItem`，含网址与快捷指令，真实应用用 `.application` 取出。
 - 回归用临时布局与注入执行器；交互夹具：`LAUNCH_EXTRA_ITEMS_PREVIEW=1 swift test --filter ExtraItemsUIPreviewTests`，只用临时数据和假指令，不执行真实系统工作流。真实执行需要用户自行选择无副作用指令验证；实际验收证据见 manual-verification。
