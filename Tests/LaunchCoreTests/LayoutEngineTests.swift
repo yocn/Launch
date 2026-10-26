@@ -39,6 +39,24 @@ final class LayoutEngineTests: XCTestCase {
         }
     }
 
+    func testNewAppsFillEarlierPagesBeforeOpeningANewPage() {
+        let document = LayoutDocument(pages: [
+            LayoutPage(slots: [.item(mail.identity), .item(notes.identity), .item(zoom.identity)]),
+            LayoutPage(slots: [.item(layoutApp("Page2").identity)]),
+            LayoutPage(slots: [.item(layoutApp("A").identity), .item(layoutApp("B").identity), .item(layoutApp("C").identity)]),
+        ])
+        let alpha = layoutApp("Alpha")
+        let beta = layoutApp("Beta")
+        let gamma = layoutApp("Gamma")
+        let catalog = [mail, notes, zoom, layoutApp("Page2"), layoutApp("A"), layoutApp("B"), layoutApp("C"), alpha, beta, gamma]
+
+        let result = LayoutEngine.reconcile(layout: document, catalog: catalog, pageCapacity: 3)
+
+        XCTAssertEqual(result.document.pages[1].slots, [.item(layoutApp("Page2").identity), .item(alpha.identity), .item(beta.identity)])
+        XCTAssertEqual(result.document.pages[3].slots, [.item(gamma.identity)])
+        XCTAssertEqual(result.document.pages.count, 4)
+    }
+
     func testFolderShowsOnlyInstalledMembers() {
         let folder = LayoutFolder(id: "f", name: "效率", items: [mail.identity, gone])
         let document = LayoutDocument(pages: [LayoutPage(slots: [.folder(folder)])])

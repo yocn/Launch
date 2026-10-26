@@ -53,7 +53,7 @@ public enum LayoutEngine {
         guard !unplaced.isEmpty else {
             return ReconciledLayout(pages: initial.pages, document: layout, appendedApps: [], hiddenItems: hiddenItems)
         }
-        let document = appending(unplaced.map(\.identity), to: layout, pageCapacity: pageCapacity)
+        let document = appending(unplaced.map(\.identity), to: layout, pageCapacity: pageCapacity, fillsGaps: true)
         return ReconciledLayout(
             pages: resolve(document, with: resolver, hidden: hidden).pages,
             document: document,
@@ -65,11 +65,15 @@ public enum LayoutEngine {
     public static func appending(
         _ identities: [ItemIdentity],
         to document: LayoutDocument,
-        pageCapacity: Int
+        pageCapacity: Int,
+        fillsGaps: Bool = false
     ) -> LayoutDocument {
         var pages = document.pages.map(\.slots)
         for identity in identities {
-            if let last = pages.indices.last, pages[last].count < pageCapacity {
+            // 新装应用优先填进靠前页面的空位，没有空位再看末页或新开一页
+            if fillsGaps, let gap = pages.firstIndex(where: { $0.count < pageCapacity }) {
+                pages[gap].append(.item(identity))
+            } else if let last = pages.indices.last, pages[last].count < pageCapacity {
                 pages[last].append(.item(identity))
             } else {
                 pages.append([.item(identity)])
