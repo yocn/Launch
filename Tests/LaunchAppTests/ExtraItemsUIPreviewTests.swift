@@ -38,7 +38,11 @@ import XCTest
         controller.onRunShortcut = { id in Task { _ = try? await extras.runShortcut(id: id) } }
         Task {
             await layout.catalogDidChange([])
-            _ = try extras.saveWebsite(name: "示例网站", address: "example.com", existing: nil, toPage: 0, customIconData: nil)
+            do {
+                _ = try extras.saveWebsite(name: "示例网站", address: "example.com", existing: nil, toPage: 0, customIconData: nil)
+            } catch {
+                XCTFail("预览数据准备失败：\(error.localizedDescription)")
+            }
             await extras.refreshShortcuts()
             extras.pin(.shortcut(id), toPage: 0)
             extras.setApplications(makeLaunchItems(count: 8).compactMap(\.application))
