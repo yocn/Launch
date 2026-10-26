@@ -49,7 +49,7 @@ struct ShortcutService: Sendable {
     }
 }
 
-/// A bounded background process. No shell, no credentials, no automatic retries.
+// 直接启动进程不经 shell，有超时和输出上限，失败不自动重试
 enum ShortcutProcess {
     static func execute(_ arguments: [String], timeout: TimeInterval) async throws -> String {
         try await run(executable: URL(fileURLWithPath: "/usr/bin/shortcuts"), arguments: arguments, timeout: timeout)

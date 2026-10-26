@@ -34,7 +34,7 @@ enum ItemIconPresentation {
     }
 }
 
-/// Shared entry point: only real applications are sent to the file-based icon resolver.
+// 只有应用走按路径读图标，网址和快捷指令用自带图片或首字图标
 struct LaunchItemIcon: View {
     let item: LaunchItem
     let side: CGFloat

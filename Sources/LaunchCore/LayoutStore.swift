@@ -80,7 +80,7 @@ public struct LayoutStore {
            let original = try? Data(contentsOf: fileURL),
            let json = try? JSONSerialization.jsonObject(with: original) as? [String: Any],
            json["schemaVersion"] as? Int == 1 {
-            // Independent of the import/restore backup; never replace a migration snapshot.
+            // 与导入备份分开，只在第一次升级时留存，之后不覆盖
             try fileManager.copyItem(at: fileURL, to: migrationBackupURL)
         }
         if createBackup, fileManager.fileExists(atPath: fileURL.path(percentEncoded: false)) {

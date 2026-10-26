@@ -10,9 +10,15 @@ func layoutApp(_ name: String) -> LaunchItem {
     )
 }
 
-// Fixtures represent real application targets without exposing file paths on generic identities.
+// 测试里用应用构造条目
 extension ItemIdentity {
     init(bundleIdentifier: String?, path: String) {
         self = .application(AppIdentity(bundleIdentifier: bundleIdentifier, path: path))
+    }
+}
+
+extension LaunchItem {
+    init(identity: AppIdentity, displayName: String, category: String? = nil) {
+        self.init(application: CatalogApp(identity: identity, displayName: displayName, category: category))
     }
 }

@@ -48,7 +48,7 @@ final class LauncherModel {
     }
 
     private(set) var apps: [LaunchItem] {
-        didSet { searchIndex = SearchIndex(apps: apps) }
+        didSet { searchIndex = SearchIndex(items: apps) }
     }
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
@@ -114,11 +114,11 @@ final class LauncherModel {
 
     init(apps: [LaunchItem] = []) {
         self.apps = apps
-        searchIndex = SearchIndex(apps: apps)
+        searchIndex = SearchIndex(items: apps)
     }
 
     var results: [LaunchItem] {
-        // searchIndex is intentionally ignored by Observation; track its catalog source explicitly.
+        // searchIndex 不参与观察，读一次 apps 让搜索结果随条目变化刷新
         _ = apps
         let hidden = showsHiddenAppsInSearch ? [] : Set(hiddenApps.map(\.identity))
         return searchIndex.results(for: query, hidden: hidden)

@@ -5,7 +5,7 @@ func itemSort(_ lhs: LaunchItem, _ rhs: LaunchItem) -> Bool {
     return order == .orderedSame ? lhs.identity.stableKey < rhs.identity.stableKey : order == .orderedAscending
 }
 
-/// Only application identities contain file paths. Other targets never masquerade as .app bundles.
+// 只有应用带文件路径，网址和快捷指令不伪装成 .app
 public enum ItemIdentity: Codable, Equatable, Hashable, Sendable {
     case application(AppIdentity)
     case website(UUID)
@@ -95,8 +95,4 @@ public struct LaunchItem: Equatable, Hashable, Sendable, Identifiable {
         self.unavailableReason = unavailableReason
     }
 
-    // Convenient application adapter for existing callers and fixtures.
-    public init(identity: AppIdentity, displayName: String, category: String? = nil) {
-        self.init(application: CatalogApp(identity: identity, displayName: displayName, category: category))
-    }
 }

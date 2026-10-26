@@ -11,7 +11,7 @@ extension LayoutDocument {
         })
     }
 
-    /// Removing an entry is a layout operation, never a filesystem operation.
+    // 只改布局，不碰真实文件
     public func removingEntry(_ identity: ItemIdentity, removeDefinition: Bool) -> LayoutDocument {
         guard identity.applicationIdentity == nil else { return self }
         let updated = pages.map { page in

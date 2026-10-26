@@ -27,6 +27,12 @@ func makeLaunchItems(count: Int) -> [LaunchItem] {
     makeApps(count: count).map(LaunchItem.init(application:))
 }
 
+extension LaunchItem {
+    init(identity: AppIdentity, displayName: String, category: String? = nil) {
+        self.init(application: CatalogApp(identity: identity, displayName: displayName, category: category))
+    }
+}
+
 extension XCTestCase {
     func makeTemporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory

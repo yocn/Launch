@@ -3,10 +3,10 @@ import Foundation
 public enum SearchService {
     public static func results(
         for query: String,
-        in apps: [LaunchItem],
+        in items: [LaunchItem],
         hidden: Set<ItemIdentity>
     ) -> [LaunchItem] {
-        SearchIndex(items: apps).results(for: query, hidden: hidden)
+        SearchIndex(items: items).results(for: query, hidden: hidden)
     }
 }
 
@@ -40,8 +40,6 @@ public struct SearchIndex: Sendable {
             )
         }
     }
-
-    public init(apps: [LaunchItem]) { self.init(items: apps) }
 
     public func results(for query: String, hidden: Set<ItemIdentity>) -> [LaunchItem] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)

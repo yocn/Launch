@@ -89,7 +89,7 @@ final class SearchServiceTests: XCTestCase {
 
     func testIndexReusesPrecomputedSyllables() {
         let notes = app("备忘录", file: "Notes")
-        let index = SearchIndex(apps: [notes])
+        let index = SearchIndex(items: [notes])
 
         XCTAssertEqual(index.results(for: "bwl", hidden: []), [notes])
         XCTAssertEqual(index.results(for: "", hidden: []), [notes])

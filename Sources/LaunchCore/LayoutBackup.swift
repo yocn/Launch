@@ -55,7 +55,7 @@ public enum LayoutBackup {
         return document
     }
 
-    // Check headers before bounded thumbnail decoding; never hand imported bytes straight to NSImage.
+    // 先读尺寸再限尺寸解码，导入的字节不直接交给 NSImage
     private static func validArtwork(_ data: Data) -> Bool {
         guard !data.isEmpty, data.count <= 1_048_576,
               let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
