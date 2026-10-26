@@ -5,24 +5,49 @@ import SwiftUI
 @MainActor @Observable
 private final class BookmarkPickerModel {
     var browser: BookmarkBrowser = .chrome { didSet { load() } }
-    var query = ""
+    var query = "" { didSet { rebuildRows() } }
     private(set) var tree: [BookmarkNode] = []
+    private(set) var rows: [BookmarkRow] = []
     private(set) var error: String?
+    private(set) var isLoading = false
     var selected: Set<UUID> = []
     let existing: Set<URL>
+    @ObservationIgnored private var loadTask: Task<Void, Never>?
 
     init(existing: Set<URL>) {
         self.existing = existing
         load()
     }
 
+    // 读文件和解析放到后台，切换浏览器时作废上一次
     func load() {
+        loadTask?.cancel()
         selected = []
-        do { tree = try BrowserBookmarks.load(browser); error = nil }
-        catch { tree = []; self.error = error.localizedDescription }
+        isLoading = true
+        let browser = browser
+        loadTask = Task {
+            let result = await Task.detached { Result { try BrowserBookmarks.load(browser) } }.value
+            guard !Task.isCancelled else { return }
+            switch result {
+            case .success(let nodes): tree = nodes; error = nil
+            case .failure(let failure): tree = []; error = failure.localizedDescription
+            }
+            rebuildRows()
+            isLoading = false
+        }
     }
 
-    var searchResults: [BookmarkNode] { BrowserBookmarks.links(in: tree, matching: query) }
+    private func rebuildRows() {
+        if !query.isEmpty {
+            rows = BrowserBookmarks.links(in: tree, matching: query).map { BookmarkRow(node: $0, depth: 0) }
+            return
+        }
+        func flatten(_ nodes: [BookmarkNode], _ depth: Int) -> [BookmarkRow] {
+            nodes.flatMap { [BookmarkRow(node: $0, depth: depth)] + flatten($0.children, depth + 1) }
+        }
+        rows = flatten(tree, 0)
+    }
+
     var needsFullDiskAccess: Bool { browser == .safari && error?.contains("完全磁盘访问") == true }
 
     func links(for ids: Set<UUID>) -> [(name: String, url: URL)] {
@@ -32,7 +57,7 @@ private final class BookmarkPickerModel {
     }
 }
 
-private struct BookmarkRow: Identifiable {
+struct BookmarkRow: Identifiable {
     let id = UUID()
     let node: BookmarkNode
     let depth: Int
@@ -51,7 +76,9 @@ private struct BookmarkPickerView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             TextField("搜索名称或网址", text: $model.query).textFieldStyle(.roundedBorder)
-            if let error = model.error {
+            if model.isLoading {
+                ProgressView("正在读取书签…").frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error = model.error {
                 VStack(spacing: 8) {
                     Text(error).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     if model.needsFullDiskAccess {
@@ -62,7 +89,7 @@ private struct BookmarkPickerView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(rows) { row in
+                List(model.rows) { row in
                     if row.node.isFolder {
                         Label(row.node.name.isEmpty ? "未命名文件夹" : row.node.name, systemImage: "folder")
                             .font(.subheadline.weight(.semibold))
@@ -84,15 +111,6 @@ private struct BookmarkPickerView: View {
         }
         .padding(16)
         .frame(width: 460, height: 460)
-    }
-
-    // 搜索时平铺结果，否则按文件夹层级平铺显示
-    private var rows: [BookmarkRow] {
-        if !model.query.isEmpty { return model.searchResults.map { BookmarkRow(node: $0, depth: 0) } }
-        func flatten(_ nodes: [BookmarkNode], _ depth: Int) -> [BookmarkRow] {
-            nodes.flatMap { [BookmarkRow(node: $0, depth: depth)] + flatten($0.children, depth + 1) }
-        }
-        return flatten(model.tree, 0)
     }
 
     private func bookmark(_ node: BookmarkNode, depth: Int) -> some View {
