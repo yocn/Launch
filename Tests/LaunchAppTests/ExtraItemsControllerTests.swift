@@ -57,6 +57,23 @@ final class ExtraItemsControllerTests: XCTestCase {
         XCTAssertNil(layout.extraItems.first?.nameOverride)
     }
 
+    func testCatalogIsNotPublishedBeforeApplicationsAreScanned() async throws {
+        let (layout, _) = try await makeLayout()
+        let listing = EntryListing()
+        let controller = ExtraItemsController(layout: layout, shortcuts: ShortcutService(execute: { _, _ in await listing.output() }), fetchIcon: { _ in nil })
+        var published: [[LaunchItem]] = []
+        controller.onCatalogChange = { published.append($0) }
+
+        await controller.refreshShortcuts()
+        XCTAssertEqual(controller.items.count, 1)
+        XCTAssertTrue(published.isEmpty)
+
+        let app = CatalogApp(identity: AppIdentity(bundleIdentifier: "com.example.notes", path: "/Applications/Notes.app"), displayName: "备忘录")
+        controller.setApplications([app])
+        XCTAssertEqual(published.count, 1)
+        XCTAssertEqual(published.first?.count, 2)
+    }
+
     func testImportRestoreAndUndoInvalidateSameURLIconResponses() async throws {
         let (layout, store) = try await makeLayout()
         let pending = DelayedEntryIcons()

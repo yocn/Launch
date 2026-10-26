@@ -29,6 +29,8 @@ final class ExtraItemsController {
     @ObservationIgnored private let shortcuts: ShortcutService
     @ObservationIgnored private let fetchIcon: @Sendable (URL) async -> Data?
     @ObservationIgnored private var applications: [LaunchItem] = []
+    // 应用扫描完成前不推送目录：布局会在只有条目、没有应用时跑首次设置
+    @ObservationIgnored private var hasScannedApplications = false
     @ObservationIgnored private var iconTasks: [ItemIdentity: Task<Void, Never>] = [:]
     @ObservationIgnored private var iconVersions: [ItemIdentity: UUID] = [:]
     @ObservationIgnored private var documentGeneration: UUID
@@ -46,6 +48,7 @@ final class ExtraItemsController {
 
     func setApplications(_ apps: [CatalogApp]) {
         applications = apps.map(LaunchItem.init(application:))
+        hasScannedApplications = true
         rebuild()
     }
 
@@ -196,6 +199,8 @@ final class ExtraItemsController {
         next.sort { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
         guard items != next else { return }
         items = next
-        onCatalogChange?(next)
+        if hasScannedApplications {
+            onCatalogChange?(next)
+        }
     }
 }
