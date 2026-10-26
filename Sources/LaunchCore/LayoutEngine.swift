@@ -12,8 +12,11 @@ struct CatalogResolver {
     private let byPath: [String: LaunchItem]
 
     init(catalog: [LaunchItem]) {
+        // 同一应用装了多份时按路径固定选第一份，不随扫描顺序变化
         let ordered = catalog.sorted {
-            $0.identity.stableKey < $1.identity.stableKey
+            let lhs = $0.application?.identity.path ?? $0.identity.stableKey
+            let rhs = $1.application?.identity.path ?? $1.identity.stableKey
+            return lhs.localizedStandardCompare(rhs) == .orderedAscending
         }
         byKey = Dictionary(
             ordered.map { ($0.identity.stableKey, $0) },

@@ -28,6 +28,17 @@ final class LayoutEngineTests: XCTestCase {
         XCTAssertEqual(result.pages, [[.item(mail)]])
     }
 
+    func testDuplicateCopiesResolveToTheFirstPathRegardlessOfScanOrder() {
+        let system = LaunchItem(identity: AppIdentity(bundleIdentifier: "com.example.tool", path: "/Applications/Tool.app"), displayName: "Tool")
+        let user = LaunchItem(identity: AppIdentity(bundleIdentifier: "com.example.tool", path: "/Users/me/Applications/Tool.app"), displayName: "Tool")
+        let document = LayoutDocument(pages: [LayoutPage(slots: [.item(system.identity)])])
+
+        for catalog in [[system, user], [user, system]] {
+            let result = LayoutEngine.reconcile(layout: document, catalog: catalog, pageCapacity: 35)
+            XCTAssertEqual(result.pages, [[.item(system)]])
+        }
+    }
+
     func testFolderShowsOnlyInstalledMembers() {
         let folder = LayoutFolder(id: "f", name: "效率", items: [mail.identity, gone])
         let document = LayoutDocument(pages: [LayoutPage(slots: [.folder(folder)])])
