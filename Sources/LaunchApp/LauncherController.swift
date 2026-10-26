@@ -59,6 +59,7 @@ final class LauncherController {
             return
         }
         let start = ContinuousClock.now
+        Task { await iconCache.reloadChanged() }
         model.prepareForPresentation()
         presenter.present()
         model.setPresented(true)
@@ -153,6 +154,7 @@ final class LauncherController {
     }
 
     func updateCatalog(_ items: [LaunchItem]) {
+        Task { await iconCache.reloadChanged() }
         guard items != model.catalog else {
             return
         }
