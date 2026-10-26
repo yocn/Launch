@@ -135,7 +135,7 @@ struct LauncherView: View {
                     systemImage: "magnifyingglass",
                     description: Text("换个关键词试试")
                 )
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.launcherInk)
             } else if model.browsingStyle == .scroll {
                 scrollContent(layout: layout, columns: columns)
             } else {
@@ -192,7 +192,7 @@ struct LauncherView: View {
                 ForEach(Array(model.pages.enumerated()), id: \.offset) { pageIndex, items in
                     if pageIndex > 0 {
                         Rectangle()
-                            .fill(.white.opacity(0.15))
+                            .fill(Color.launcherInk.opacity(0.15))
                             .frame(height: 1)
                             .padding(.horizontal, layout.horizontalInset)
                             .padding(.vertical, layout.folderRowSpacing * 1.5)
@@ -290,18 +290,17 @@ struct LauncherView: View {
         HStack(spacing: layout.searchBarSpacing) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: layout.searchIconSize, weight: .medium))
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(Color.launcherInk.opacity(0.9))
 
             // 液态玻璃会按背后亮暗切换外观，系统占位色在亮背景下变深灰，所以显式给白色
             TextField("搜索应用", text: Binding(
                 get: { model.query },
                 set: { model.setQuery($0) }
-            ), prompt: Text("搜索应用").foregroundStyle(.white.opacity(0.6)))
+            ), prompt: Text("搜索应用").foregroundStyle(Color.launcherInk.opacity(0.6)))
                 .textFieldStyle(.plain)
                 .font(.system(size: layout.searchFontSize, weight: .regular))
-                .foregroundStyle(.white)
-                .tint(.white)
-                .environment(\.colorScheme, .dark)
+                .foregroundStyle(Color.launcherInk)
+                .tint(Color.launcherInk)
                 .focused($searchFieldIsFocused)
 
             if SearchPresentation.showsClearControl(for: model.query) {
@@ -310,7 +309,7 @@ struct LauncherView: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: layout.clearIconSize))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Color.launcherInk.opacity(0.7))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("清除搜索")
@@ -318,7 +317,7 @@ struct LauncherView: View {
                 Button(action: onMainMenu) {
                     Image(systemName: "ellipsis.circle")
                         .font(.system(size: layout.moreIconSize))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Color.launcherInk.opacity(0.7))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("更多选项")
@@ -341,7 +340,7 @@ struct LauncherView: View {
                     model.selectPage(pageIndex)
                 } label: {
                     Circle()
-                        .fill(pageIndex == model.currentPage ? .white : .white.opacity(0.4))
+                        .fill(pageIndex == model.currentPage ? Color.launcherInk : Color.launcherInk.opacity(0.4))
                         .frame(width: layout.pageDotSize, height: layout.pageDotSize)
                 }
                 .buttonStyle(.plain)
@@ -364,8 +363,8 @@ private struct LauncherAppTile: View {
             LaunchItemIcon(item: app, side: layout.iconSide)
             Text(app.displayName)
                 .font(.system(size: layout.labelFontSize, weight: .medium))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+                .foregroundStyle(Color.launcherInk)
+                .shadow(color: Color.launcherShadow, radius: 2, y: 1)
                 .lineLimit(1)
                 .frame(maxWidth: layout.tileWidth)
                 .frame(height: layout.labelHeight)
@@ -375,7 +374,7 @@ private struct LauncherAppTile: View {
         .frame(width: layout.tileWidth)
         .background {
             RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                .fill(.white.opacity(isSelected ? 0.26 : 0))
+                .fill(Color.launcherInk.opacity(isSelected ? 0.26 : 0))
         }
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
         // 鼠标点击统一由 ItemDragController 处理；SwiftUI 手势不受本地事件监听拦截，这里只吞掉点击，免得落到背景上
@@ -400,8 +399,8 @@ private struct LauncherFolderTile: View {
             FolderPreview(apps: Array(folder.items.prefix(9)), layout: layout)
             Text(folder.name)
                 .font(.system(size: layout.labelFontSize, weight: .medium))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+                .foregroundStyle(Color.launcherInk)
+                .shadow(color: Color.launcherShadow, radius: 2, y: 1)
                 .lineLimit(1)
                 .frame(maxWidth: layout.tileWidth)
                 .frame(height: layout.labelHeight)
@@ -411,7 +410,7 @@ private struct LauncherFolderTile: View {
         .frame(width: layout.tileWidth)
         .background {
             RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous)
-                .fill(.white.opacity(isSelected ? 0.26 : 0))
+                .fill(Color.launcherInk.opacity(isSelected ? 0.26 : 0))
         }
         .contentShape(RoundedRectangle(cornerRadius: layout.tileCornerRadius, style: .continuous))
         // 鼠标点击统一由 ItemDragController 处理；SwiftUI 手势不受本地事件监听拦截，这里只吞掉点击，免得落到背景上
@@ -443,10 +442,10 @@ private struct FolderPreview: View {
         .frame(width: layout.iconSide, height: layout.iconSide)
         .background {
             RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
-                .fill(.white.opacity(0.14))
+                .fill(Color.launcherInk.opacity(0.14))
                 .overlay {
                     RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
-                        .stroke(.white.opacity(0.22), lineWidth: 1)
+                        .stroke(Color.launcherInk.opacity(0.22), lineWidth: 1)
                 }
         }
     }
@@ -468,7 +467,7 @@ private struct GridCell<ItemView: View>: View {
                 .background(alignment: .top) {
                     if entry.isMergeTarget {
                         RoundedRectangle(cornerRadius: layout.folderCornerRadius * 1.2, style: .continuous)
-                            .fill(.white.opacity(0.24))
+                            .fill(Color.launcherInk.opacity(0.24))
                             .frame(width: layout.iconSide * 1.2, height: layout.iconSide * 1.2)
                             .padding(.top, layout.tilePadding - layout.iconSide * 0.1)
                             .transition(.scale(scale: 0.6).combined(with: .opacity))
@@ -595,6 +594,7 @@ private struct LauncherBackground: View {
     let model: LauncherModel
     let settings: LauncherSettings
     @Environment(BackgroundCanvas.self) private var canvas: BackgroundCanvas?
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         ZStack {
@@ -607,7 +607,7 @@ private struct LauncherBackground: View {
                     .fill(.regularMaterial)
             }
             // 压暗用深灰不用纯黑，按 LaunchOS 录屏拟合
-            Color(white: 0.12).opacity(settings.dimming)
+            Color.launcherDim.opacity(colorScheme == .dark ? settings.dimming : min(0.9, 0.4 + settings.dimming * 1.5))
         }
         .mask {
             if let edge = canvas?.fadeEdge {
@@ -702,7 +702,7 @@ private struct WindowFrame: ViewModifier {
                 }
                 .overlay {
                     shape
-                        .strokeBorder(.white.opacity(0.18), lineWidth: 1)
+                        .strokeBorder(Color.launcherInk.opacity(0.18), lineWidth: 1)
                         .frame(width: size.width, height: size.height)
                 }
                 .background {
@@ -751,10 +751,10 @@ private struct MarqueeOverlay: View {
             if let rect = model.marqueeRect {
                 let origin = proxy.frame(in: .global).origin
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(.white.opacity(0.12))
+                    .fill(Color.launcherInk.opacity(0.12))
                     .overlay {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(.white.opacity(0.6), lineWidth: 1)
+                            .stroke(Color.launcherInk.opacity(0.6), lineWidth: 1)
                     }
                     .frame(width: rect.width, height: rect.height)
                     .position(x: rect.midX - origin.x, y: rect.midY - origin.y)
@@ -826,7 +826,7 @@ private struct FolderTitle: View {
             }
         }
         .font(.system(size: layout.folderTitleFontSize, weight: .medium))
-        .foregroundStyle(.white)
+        .foregroundStyle(Color.launcherInk)
         .frame(width: layout.tileWidth * 3, height: layout.folderTitleHeight)
     }
 }
@@ -882,8 +882,8 @@ private struct DragCard: View {
     private func label(_ text: String) -> some View {
         Text(text)
             .font(.system(size: layout.labelFontSize, weight: .medium))
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
+            .foregroundStyle(Color.launcherInk)
+            .shadow(color: Color.launcherShadow, radius: 2, y: 1)
             .lineLimit(1)
             .frame(maxWidth: layout.tileWidth)
             .frame(height: layout.labelHeight)
@@ -945,10 +945,10 @@ private struct FolderOverlay: View {
             .padding(.vertical, layout.folderPanelPadding)
             .background {
                 RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
-                    .fill(.white.opacity(0.08))
+                    .fill(Color.launcherInk.opacity(0.08))
                     .overlay {
                         RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
-                            .stroke(.white.opacity(0.15), lineWidth: 1)
+                            .stroke(Color.launcherInk.opacity(0.15), lineWidth: 1)
                     }
                     .padding(.horizontal, layout.horizontalInset - layout.folderPanelOutset)
                     .onTapGesture {}
@@ -960,7 +960,7 @@ private struct FolderOverlay: View {
                             model.selectFolderPage(pageIndex)
                         } label: {
                             Circle()
-                                .fill(pageIndex == model.folderPage ? .white : .white.opacity(0.4))
+                                .fill(pageIndex == model.folderPage ? Color.launcherInk : Color.launcherInk.opacity(0.4))
                                 .frame(width: layout.pageDotSize, height: layout.pageDotSize)
                         }
                         .buttonStyle(.plain)

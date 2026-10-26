@@ -67,6 +67,13 @@ final class AppIconController {
     func apply(style: AppIconStyle, theme: AppIconTheme) {
         self.style = style
         self.theme = theme
+        // 外观不只管图标：设置窗口、菜单、弹窗和启动器主界面都跟着浅色或深色
+        let appearance: NSAppearance? = switch theme {
+        case .system: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
+        if application.appearance?.name != appearance?.name { application.appearance = appearance }
         refresh()
     }
 

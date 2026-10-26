@@ -136,3 +136,17 @@ struct LaunchItemIcon: View {
             .accessibilityHidden(true)
     }
 }
+
+// 启动器主界面的前景与背景色，随外观自动变：深色是白字加深色玻璃，浅色是深色字加浅色玻璃
+extension Color {
+    private static func dynamic(dark: NSColor, light: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+        })
+    }
+
+    static let launcherInk = dynamic(dark: .white, light: NSColor(white: 0.1, alpha: 1))
+    // 文字外围的柔和描边：深色下是深影，浅色下是浅影
+    static let launcherShadow = dynamic(dark: NSColor.black.withAlphaComponent(0.38), light: NSColor.white.withAlphaComponent(0.5))
+    static let launcherDim = dynamic(dark: NSColor(white: 0.12, alpha: 1), light: NSColor(white: 0.97, alpha: 1))
+}
