@@ -136,13 +136,21 @@ private struct BookmarkPickerView: View {
     private func bookmark(_ node: BookmarkNode, depth: Int) -> some View {
         let url = node.url!
         let added = model.existing.contains(url)
+        let icon = node.icon.flatMap(NSImage.init(data:))
         return Toggle(isOn: Binding(
             get: { model.selected.contains(node.id) },
             set: { if $0 { model.selected.insert(node.id) } else { model.selected.remove(node.id) } }
         )) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(node.name).lineLimit(1)
-                Text(added ? "已添加" : url.absoluteString).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            HStack(spacing: 8) {
+                Group {
+                    if let icon { Image(nsImage: icon).resizable().interpolation(.high) }
+                    else { Image(systemName: "globe").foregroundStyle(.secondary) }
+                }
+                .frame(width: 20, height: 20)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(node.name).lineLimit(1)
+                    Text(added ? "已添加" : url.absoluteString).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
             }
         }
         .toggleStyle(.checkbox)

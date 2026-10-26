@@ -1,10 +1,13 @@
 import Foundation
+import SQLite3
 
 struct BookmarkNode: Identifiable, Equatable {
     let id = UUID()
     let name: String
     let url: URL?
     var children: [BookmarkNode]
+    // 浏览器本地缓存的小图标，只用于选择列表预览
+    var icon: Data?
 
     static func link(_ name: String, _ url: URL) -> BookmarkNode { BookmarkNode(name: name, url: url, children: []) }
     static func folder(_ name: String, _ children: [BookmarkNode]) -> BookmarkNode { BookmarkNode(name: name, url: nil, children: children) }
@@ -46,9 +49,42 @@ enum BrowserBookmarks {
             throw BookmarkError.needsFullDiskAccess
         }
         switch browser {
-        case .chrome: return try parseChrome(data)
+        case .chrome:
+            let icons = chromeFavicons()
+            return try parseChrome(data).map { attach(icons, to: $0) }
         case .safari: return try parseSafari(data)
         }
+    }
+
+    // Chrome 的 Favicons 库运行时被占用，复制一份只读打开；按网址取最大的一张
+    static func chromeFavicons() -> [String: Data] {
+        let source = BookmarkBrowser.chrome.fileURL.deletingLastPathComponent().appending(path: "Favicons")
+        let copy = FileManager.default.temporaryDirectory.appending(path: "launch-favicons-\(UUID().uuidString).db")
+        guard (try? FileManager.default.copyItem(at: source, to: copy)) != nil else { return [:] }
+        defer { try? FileManager.default.removeItem(at: copy) }
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(copy.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { return [:] }
+        defer { sqlite3_close(db) }
+        let sql = "SELECT m.page_url, b.image_data FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id ORDER BY b.width DESC"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return [:] }
+        defer { sqlite3_finalize(statement) }
+        var result: [String: Data] = [:]
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let text = sqlite3_column_text(statement, 0), let bytes = sqlite3_column_blob(statement, 1) else { continue }
+            let url = String(cString: text)
+            if result[url] == nil {
+                result[url] = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 1)))
+            }
+        }
+        return result
+    }
+
+    static func attach(_ icons: [String: Data], to node: BookmarkNode) -> BookmarkNode {
+        var node = node
+        node.icon = node.url.flatMap { icons[$0.absoluteString] }
+        node.children = node.children.map { attach(icons, to: $0) }
+        return node
     }
 
     static func parseChrome(_ data: Data) throws -> [BookmarkNode] {
