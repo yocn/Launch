@@ -156,7 +156,10 @@ final class LauncherController {
         guard apps != model.apps else {
             return
         }
-        iconCache.removeAll()
+        // 网址、快捷指令的增改不影响应用图标，清缓存会让全部应用图标闪成占位
+        if apps.compactMap(\.application) != model.apps.compactMap(\.application) {
+            iconCache.removeAll()
+        }
         model.updateApps(apps)
     }
 }

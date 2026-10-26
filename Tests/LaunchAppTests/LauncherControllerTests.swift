@@ -155,6 +155,27 @@ final class LauncherControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testExtraItemChangesDoNotReloadApplicationIcons() {
+        var loads = 0
+        let iconCache = IconCache { _, _ in
+            loads += 1
+        }
+        let apps = makeLaunchItems(count: 2)
+        let (controller, _) = makeController(apps: apps, iconCache: iconCache)
+        _ = iconCache.icon(for: apps[0].application!.identity.path)
+
+        let website = ExtraItemDefinition(name: "文档", target: .website(URL(string: "https://example.com")!))
+        controller.updateCatalog(apps + [LaunchItem(definition: website)])
+        var renamed = website
+        renamed.name = "项目文档"
+        controller.updateCatalog(apps + [LaunchItem(definition: renamed)])
+        _ = iconCache.icon(for: apps[0].application!.identity.path)
+
+        XCTAssertEqual(loads, 1)
+        XCTAssertEqual(controller.model.apps.last?.displayName, "项目文档")
+    }
+
+    @MainActor
     func testBackgroundClickClosesOpenFolderBeforeLauncher() {
         let apps = makeLaunchItems(count: 1)
         let (controller, presenter) = makeController(apps: apps)
