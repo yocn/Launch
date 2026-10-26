@@ -137,11 +137,14 @@ private struct BookmarkPickerView: View {
         let url = node.url!
         let added = model.existing.contains(url)
         let icon = node.icon.flatMap(NSImage.init(data:))
-        return Toggle(isOn: Binding(
-            get: { model.selected.contains(node.id) },
-            set: { if $0 { model.selected.insert(node.id) } else { model.selected.remove(node.id) } }
-        )) {
-            HStack(spacing: 8) {
+        let isOn = model.selected.contains(node.id)
+        return Button {
+            if isOn { model.selected.remove(node.id) } else { model.selected.insert(node.id) }
+        } label: {
+            HStack(alignment: .center, spacing: 8) {
+                Image(systemName: isOn ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 16))
+                    .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
                 Group {
                     if let icon { Image(nsImage: icon).resizable().interpolation(.high) }
                     else { Image(systemName: "globe").foregroundStyle(.secondary) }
@@ -151,10 +154,13 @@ private struct BookmarkPickerView: View {
                     Text(node.name).lineLimit(1)
                     Text(added ? "已添加" : url.absoluteString).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
+                Spacer(minLength: 0)
             }
+            .contentShape(Rectangle())
         }
-        .toggleStyle(.checkbox)
+        .buttonStyle(.plain)
         .disabled(added)
+        .opacity(added ? 0.5 : 1)
         .padding(.leading, CGFloat(depth) * 14)
     }
 }
