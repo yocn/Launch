@@ -141,7 +141,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     // 与程序坞上的应用图标同一张；不用模板图，保持原来的颜色。PNG 四周有透明留白，先裁掉再按菜单栏高度显示
     func setIcon(_ image: NSImage) {
         let icon = Self.trimmingTransparentMargin(image)
-        icon.size = NSSize(width: 22, height: 22)
+        icon.size = NSSize(width: 18, height: 18)
         icon.isTemplate = false
         icon.accessibilityDescription = "Launch"
         statusItem.button?.image = icon
