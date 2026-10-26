@@ -94,6 +94,7 @@ final class LauncherController {
     }
 
     func handleBackgroundClick() {
+        DebugLog.log("handleBackgroundClick modified=\(model.isModifiedClick) folder=\(model.openFolderID ?? "-") multi=\(model.multiSelection.isEmpty) jiggle=\(model.isJiggling)")
         guard !model.isModifiedClick else {
             return
         }

@@ -80,7 +80,9 @@ final class ItemDragController: NSObject, NSDraggingSource {
         guard let point = globalPoint(of: event) else {
             return event
         }
-        if dismissOverlay() {
+        let overlay = dismissOverlay()
+        DebugLog.log("mouseDown overlay关闭=\(overlay) press=\(model.itemPress(at: point) != nil)")
+        if overlay {
             isDismissingClick = true
             return nil
         }
@@ -169,6 +171,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
     }
 
     func consumesBackgroundClick() -> Bool {
+        DebugLog.log("consumesBackgroundClick time=\(String(describing: dismissedClickTime))")
         guard let time = dismissedClickTime, ProcessInfo.processInfo.systemUptime - time < 0.3 else {
             return false
         }

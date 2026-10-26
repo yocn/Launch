@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import SQLite3
 
 struct BookmarkNode: Identifiable, Equatable {
@@ -52,7 +53,13 @@ enum BrowserBookmarks {
         case .chrome:
             let icons = chromeFavicons()
             return try parseChrome(data).map { attach(icons, to: $0) }
-        case .safari: return try parseSafari(data)
+        case .safari:
+            let icons = safariFavicons()
+            let tree = try parseSafari(data)
+            let all = links(in: tree, matching: "").count
+            let hit = links(in: tree.map { attach(icons, to: $0) }, matching: "").filter { $0.icon != nil }.count
+            DebugLog.log("Safari 图标库 \(icons.count) 个网址，书签命中 \(hit)/\(all)")
+            return tree.map { attach(icons, to: $0) }
         }
     }
 
@@ -80,9 +87,53 @@ enum BrowserBookmarks {
         return result
     }
 
+    // Safari 的 Favicon Cache：page_url 记网址到图标 uuid，图片文件在 favicons 目录下（ICO，文件名是 32 位十六进制）
+    static func safariFavicons() -> [String: Data] {
+        let base = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Safari/Favicon Cache")
+        let dir = FileManager.default.temporaryDirectory.appending(path: "launch-safari-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let copy = dir.appending(path: "favicons.db")
+        for suffix in ["", "-wal", "-shm"] {
+            try? FileManager.default.copyItem(atPath: base.appending(path: "favicons.db").path + suffix, toPath: copy.path + suffix)
+        }
+        var db: OpaquePointer?
+        // WAL 里还有未合并的内容，需要读写方式打开才会应用
+        guard sqlite3_open_v2(copy.path, &db, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK else { return [:] }
+        defer { sqlite3_close(db) }
+        let sql = "SELECT p.url, i.uuid, i.url, i.width FROM page_url p JOIN icon_info i ON i.uuid = p.uuid ORDER BY i.width DESC"
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return [:] }
+        defer { sqlite3_finalize(statement) }
+        let files = base.appending(path: "favicons")
+        func md5(_ text: String) -> String {
+            Insecure.MD5.hash(data: Data(text.utf8)).map { String(format: "%02X", $0) }.joined()
+        }
+        var result: [String: Data] = [:]
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let page = sqlite3_column_text(statement, 0), let uuid = sqlite3_column_text(statement, 1),
+                  let icon = sqlite3_column_text(statement, 2) else { continue }
+            let key = String(cString: page)
+            guard result[key] == nil else { continue }
+            let id = String(cString: uuid)
+            let names = [md5(id), md5(id.lowercased()), md5(String(cString: icon))]
+            for name in names {
+                if let data = try? Data(contentsOf: files.appending(path: name)) {
+                    result[key] = data
+                    break
+                }
+            }
+        }
+        return result
+    }
+
     static func attach(_ icons: [String: Data], to node: BookmarkNode) -> BookmarkNode {
         var node = node
-        node.icon = node.url.flatMap { icons[$0.absoluteString] }
+        node.icon = node.url.flatMap { url in
+            let full = url.absoluteString
+            let origin = url.scheme.flatMap { scheme in url.host.map { "\(scheme)://\($0)" } } ?? ""
+            return icons[full] ?? icons[full.hasSuffix("/") ? String(full.dropLast()) : full + "/"] ?? icons[origin]
+        }
         node.children = node.children.map { attach(icons, to: $0) }
         return node
     }

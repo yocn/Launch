@@ -12,8 +12,13 @@ if [[ "${1:-}" == "--install" ]]; then
     configuration=release
 fi
 
-swift build -c "${configuration}" --product LaunchApp
-bin_dir=$(swift build -c "${configuration}" --show-bin-path)
+# LAUNCH_DEBUG_LOG=1 时把调试日志编译进包
+extra_flags=()
+if [[ "${LAUNCH_DEBUG_LOG:-}" == "1" ]]; then
+    extra_flags=(-Xswiftc -DLAUNCH_DEBUG_LOG)
+fi
+swift build -c "${configuration}" --product LaunchApp "${extra_flags[@]+"${extra_flags[@]}"}"
+bin_dir=$(swift build -c "${configuration}" --show-bin-path "${extra_flags[@]+"${extra_flags[@]}"}")
 
 bundle_dir="${project_dir}/.build/Launch.app"
 contents_dir="${bundle_dir}/Contents"
