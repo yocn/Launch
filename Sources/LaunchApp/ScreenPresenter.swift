@@ -230,6 +230,9 @@ final class ScreenPresenter: LauncherPresenting {
         onPresent?(screen)
         self.screen = screen
         layout(on: screen)
+        // 第一次显示时窗口还没按新尺寸布局，会先出现一块局部矩形再铺满；显示前先布局并绘制好
+        panel.contentView?.layoutSubtreeIfNeeded()
+        panel.displayIfNeeded()
         NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
