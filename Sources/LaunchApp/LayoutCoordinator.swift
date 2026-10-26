@@ -144,6 +144,8 @@ final class LayoutCoordinator {
     func updateCachedIcon(_ data: Data?, for identity: ItemIdentity, expectedURL: URL) {
         guard var entry = extraItems.first(where: { $0.identity == identity }),
               case .website(let current) = entry.target, current == expectedURL else { return }
+        // 没取到时保留已有图标（例如从浏览器书签带来的）
+        guard let data else { return }
         entry.cachedIconData = data
         saveExtraItem(entry, recordsUndo: false)
     }

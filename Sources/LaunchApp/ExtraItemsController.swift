@@ -118,13 +118,15 @@ final class ExtraItemsController {
 
     // 书签批量添加：跳过已有的网址，整批一次撤销，图标随后逐个取
     @discardableResult
-    func addWebsites(_ links: [(name: String, url: URL)], toPage page: Int?) -> Int {
+    func addWebsites(_ links: [(name: String, url: URL, icon: Data?)], toPage page: Int?) -> Int {
         var known = Set(layout.extraItems.compactMap { entry -> URL? in
             if case .website(let url) = entry.target { url } else { nil }
         })
         let entries = links.compactMap { link -> ExtraItemDefinition? in
             guard known.insert(link.url).inserted else { return nil }
-            return ExtraItemDefinition(name: link.name, target: .website(link.url))
+            // 先用浏览器本地缓存的图标，联网取到更清晰的再替换；联网失败也有图标
+            let icon = link.icon.flatMap { ItemImageData.normalized($0) }
+            return ExtraItemDefinition(name: link.name, target: .website(link.url), cachedIconData: icon)
         }
         guard layout.saveExtraItems(entries, toPage: page) else { return 0 }
         rebuild()

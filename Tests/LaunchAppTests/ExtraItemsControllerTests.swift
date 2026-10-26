@@ -229,7 +229,7 @@ final class ExtraItemsControllerTests: XCTestCase {
         let a = URL(string: "https://a.example.com")!, b = URL(string: "https://b.example.com")!
         _ = try controller.saveWebsite(name: "已有", address: "a.example.com", existing: nil, toPage: nil, customIconData: nil)
 
-        let added = controller.addWebsites([("A", a), ("B", b), ("B2", b)], toPage: 0)
+        let added = controller.addWebsites([("A", a, nil), ("B", b, nil), ("B2", b, nil)], toPage: 0)
         XCTAssertEqual(added, 1)
         XCTAssertEqual(try store.load()?.extraItems.map(\.name), ["已有", "B"])
         XCTAssertEqual(try store.load()?.pages.first?.slots.count, 1)
@@ -238,10 +238,19 @@ final class ExtraItemsControllerTests: XCTestCase {
         XCTAssertEqual(try store.load()?.extraItems.map(\.name), ["已有"])
     }
 
+    func testBookmarkIconIsKeptWhenFetchingTheWebsiteIconFails() async throws {
+        let (layout, store) = try await makeLayout()
+        let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })
+        let url = URL(string: "https://www.google.com.hk/")!
+        XCTAssertEqual(controller.addWebsites([("Google", url, entryTestPNG())], toPage: nil), 1)
+        for _ in 0 ..< 10 { await Task.yield() }
+        XCTAssertNotNil(try store.load()?.extraItems.first?.cachedIconData)
+    }
+
     func testBatchAddPlacesManyItemsInOrderAcrossPages() async throws {
         let (layout, store) = try await makeLayout()
         let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })
-        let links = (0 ..< 40).map { (name: "站\($0)", url: URL(string: "https://s\($0).example.com")!) }
+        let links = (0 ..< 40).map { (name: "站\($0)", url: URL(string: "https://s\($0).example.com")!, icon: Data?.none) }
         XCTAssertEqual(controller.addWebsites(links, toPage: 0), 40)
         let document = try XCTUnwrap(store.load())
         let names = document.pages.flatMap(\.slots).compactMap { slot -> String? in

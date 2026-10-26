@@ -60,9 +60,9 @@ private final class BookmarkPickerModel {
 
     var needsFullDiskAccess: Bool { browser == .safari && error?.contains("完全磁盘访问") == true }
 
-    func links(for ids: Set<UUID>) -> [(name: String, url: URL)] {
+    func links(for ids: Set<UUID>) -> [(name: String, url: URL, icon: Data?)] {
         BrowserBookmarks.links(in: tree, matching: "").compactMap { node in
-            ids.contains(node.id) ? node.url.map { (node.name, $0) } : nil
+            ids.contains(node.id) ? node.url.map { (node.name, $0, node.icon) } : nil
         }
     }
 }
