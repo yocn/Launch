@@ -138,13 +138,32 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         layoutMenu.unhideAll()
     }
 
-    // 与程序坞上的应用图标同一张；不用模板图，保持原来的颜色
+    // 与程序坞上的应用图标同一张；不用模板图，保持原来的颜色。PNG 四周有透明留白，先裁掉再按菜单栏高度显示
     func setIcon(_ image: NSImage) {
-        let icon = image.copy() as? NSImage ?? image
-        icon.size = NSSize(width: 20, height: 20)
+        let icon = Self.trimmingTransparentMargin(image)
+        icon.size = NSSize(width: 22, height: 22)
         icon.isTemplate = false
         icon.accessibilityDescription = "Launch"
         statusItem.button?.image = icon
+    }
+
+    // 只看较不透明的像素，忽略柔和的投影
+    static func trimmingTransparentMargin(_ image: NSImage) -> NSImage {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return image }
+        let width = cgImage.width, height = cgImage.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        guard let context = CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        var minX = width, maxX = -1, minY = height, maxY = -1
+        for y in 0 ..< height {
+            for x in 0 ..< width where pixels[(y * width + x) * 4 + 3] > 128 {
+                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        guard maxX >= minX, maxY >= minY,
+              let cropped = cgImage.cropping(to: CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)) else { return image }
+        return NSImage(cgImage: cropped, size: .zero)
     }
 
     func setIconVisible(_ visible: Bool) {
