@@ -3,7 +3,9 @@ import LaunchCore
 import SwiftUI
 
 @MainActor @Observable
-private final class BookmarkPickerModel {
+final class BookmarkPickerModel {
+    typealias Loader = @Sendable (BookmarkBrowser) throws -> [BookmarkNode]
+
     var browser: BookmarkBrowser = .chrome { didSet { load() } }
     var query = "" { didSet { rebuildRows() } }
     private(set) var tree: [BookmarkNode] = []
@@ -22,9 +24,11 @@ private final class BookmarkPickerModel {
         })
     }
     @ObservationIgnored private var loadTask: Task<Void, Never>?
+    @ObservationIgnored private let loader: Loader
 
-    init(controller: ExtraItemsController) {
+    init(controller: ExtraItemsController, loader: @escaping Loader = BrowserBookmarks.load) {
         self.controller = controller
+        self.loader = loader
         load()
     }
 
@@ -35,8 +39,9 @@ private final class BookmarkPickerModel {
         expanded = []
         isLoading = true
         let browser = browser
+        let loader = loader
         loadTask = Task {
-            let result = await Task.detached { Result { try BrowserBookmarks.load(browser) } }.value
+            let result = await Task.detached { Result { try loader(browser) } }.value
             guard !Task.isCancelled else {
                 return
             }
