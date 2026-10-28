@@ -53,35 +53,35 @@ final class LauncherModel {
     private(set) var layoutPages: [[ResolvedItem]]?
     private(set) var query = ""
     private(set) var grid = GridSize.default
-    private(set) var browsingStyle = BrowsingStyle.paged
-    private(set) var displayMode = DisplayMode.fullScreen
+    var browsingStyle = BrowsingStyle.paged
+    var displayMode = DisplayMode.fullScreen
     // 滚动浏览时交给视图执行：滚到某页，或拖动靠近上下边缘时滚一段
-    private(set) var scrollRequest: ScrollRequest?
-    @ObservationIgnored private var scrollSerial = 0
+    var scrollRequest: ScrollRequest?
+    @ObservationIgnored var scrollSerial = 0
     // 滚动浏览时各页网格的全局位置；分页时只用 gridFrame
-    @ObservationIgnored private var pageFrames: [Int: CGRect] = [:]
-    @ObservationIgnored private var lastAutoScroll: TimeInterval?
+    @ObservationIgnored var pageFrames: [Int: CGRect] = [:]
+    @ObservationIgnored var lastAutoScroll: TimeInterval?
     private(set) var displaySort = DisplaySort()
     // 非自定义排序时为排好的一串，其余情况与 layoutPages 相同
     private(set) var arrangedPages: [[ResolvedItem]]?
     private(set) var hint: String?
     @ObservationIgnored private var appDates: [String: AppDates] = [:]
     @ObservationIgnored private var hintGeneration = 0
-    private(set) var currentPage = 0
-    private var pageBeforeSearch = 0
-    private(set) var selectedIndex: Int?
+    var currentPage = 0
+    var pageBeforeSearch = 0
+    var selectedIndex: Int?
     private(set) var presentationCount = 0
     private(set) var openFolderID: String?
     private(set) var folderPage = 0
-    private(set) var folderSelectedIndex: Int?
+    var folderSelectedIndex: Int?
     private(set) var gridPosition: CGFloat = 0
     private(set) var folderPosition: CGFloat = 0
-    private(set) var dragPreview: DragPreview?
-    private(set) var landing: Landing?
+    var dragPreview: DragPreview?
+    var landing: Landing?
     private(set) var isJiggling = false
     private(set) var renamingFolderID: String?
-    private(set) var multiSelection = MultiSelection()
-    private(set) var marqueeRect: CGRect?
+    var multiSelection = MultiSelection()
+    var marqueeRect: CGRect?
     private(set) var isPresented = false
     private(set) var hiddenItems: [LaunchItem] = []
     private(set) var wallpaper: Wallpaper?
@@ -100,16 +100,16 @@ final class LauncherModel {
     @ObservationIgnored var onEdit: ((LayoutEdit) -> Void)?
     @ObservationIgnored var canEditLayout = false
     @ObservationIgnored var canUninstall: (LaunchItem) -> Bool = { _ in false }
-    @ObservationIgnored private(set) var homeLayout: LauncherHomeLayout?
-    @ObservationIgnored private(set) var gridFrame: CGRect = .zero
-    @ObservationIgnored private(set) var folderGridFrame: CGRect = .zero
-    @ObservationIgnored private var dragSession: DragSession?
-    @ObservationIgnored private var dragStartPoint: CGPoint = .zero
-    @ObservationIgnored private var pendingLayout: [[ResolvedItem]]?
+    @ObservationIgnored var homeLayout: LauncherHomeLayout?
+    @ObservationIgnored var gridFrame: CGRect = .zero
+    @ObservationIgnored var folderGridFrame: CGRect = .zero
+    @ObservationIgnored var dragSession: DragSession?
+    @ObservationIgnored var dragStartPoint: CGPoint = .zero
+    @ObservationIgnored var pendingLayout: [[ResolvedItem]]?
     // ⌘ 或 ⌃ 按下的点击；SwiftUI 的翻页与点空白手势不受事件监听拦截，靠它忽略
     @ObservationIgnored var isModifiedClick = false
-    @ObservationIgnored private var marqueeStart: CGPoint?
-    @ObservationIgnored private var dragGroup: [LayoutItemID] = []
+    @ObservationIgnored var marqueeStart: CGPoint?
+    @ObservationIgnored var dragGroup: [LayoutItemID] = []
     @ObservationIgnored private var searchIndex: SearchIndex
 
     init(catalog: [LaunchItem] = []) {
@@ -202,145 +202,6 @@ final class LauncherModel {
         canEditLayout && query.isEmpty && layoutPages != nil && renamingFolderID == nil && displaySort.field == .custom
     }
 
-    var canMultiSelect: Bool {
-        canDragItems && openFolder == nil
-    }
-
-    func toggleMultiSelection(_ item: LayoutItemID) {
-        guard canMultiSelect else {
-            return
-        }
-        multiSelection.toggle(item)
-    }
-
-    @discardableResult
-    func clearMultiSelection() -> Bool {
-        guard !multiSelection.isEmpty else {
-            return false
-        }
-        multiSelection = MultiSelection()
-        return true
-    }
-
-    func beginMarquee(at point: CGPoint) -> Bool {
-        guard canMultiSelect, gridFrame.contains(point) else {
-            return false
-        }
-        marqueeStart = point
-        multiSelection.beginMarquee()
-        return true
-    }
-
-    func updateMarquee(to point: CGPoint) {
-        guard let start = marqueeStart, let homeLayout else {
-            return
-        }
-        let rect = CGRect(
-            x: min(start.x, point.x),
-            y: min(start.y, point.y),
-            width: abs(point.x - start.x),
-            height: abs(point.y - start.y)
-        )
-        marqueeRect = rect
-        let gridPages = pages
-        let hits = visibleHomePages().flatMap { page, frame in
-            homeTester(frame, layout: homeLayout)
-                .tileIndices(intersecting: rect, itemCount: gridPages[page].count)
-                .compactMap { gridPages[page][$0].layoutID }
-        }
-        var selection = multiSelection
-        selection.updateMarquee(hits: Set(hits))
-        setMultiSelection(selection)
-    }
-
-    // 没拖出选框即为 ⌘ 单击，切换按下处图标的选中状态
-    func endMarquee() {
-        guard let start = marqueeStart else {
-            return
-        }
-        var selection = multiSelection
-        if marqueeRect == nil, let item = itemPress(at: start)?.item.layoutID {
-            selection.toggle(item)
-        }
-        selection.endMarquee()
-        setMultiSelection(selection)
-        marqueeStart = nil
-        marqueeRect = nil
-    }
-
-    func dragCount(for press: ItemPress) -> Int {
-        isGroupDrag(press) ? multiSelection.count : 1
-    }
-
-    func selectionMenu(at point: CGPoint) -> SelectionMenuContent? {
-        guard canMultiSelect, let item = itemPress(at: point)?.item.layoutID, multiSelection.contains(item) else {
-            return nil
-        }
-        let gridPages = pages
-        let folders = gridPages.joined().compactMap { item -> SelectionMenuContent.Folder? in
-            guard case .folder(let folder) = item, multiSelection.contains(.folder(folder.id)) else {
-                return nil
-            }
-            return SelectionMenuContent.Folder(id: folder.id, name: folder.name)
-        }
-        return SelectionMenuContent(
-            count: multiSelection.ordered(in: gridPages).count,
-            folders: folders,
-            pageCount: gridPages.count
-        )
-    }
-
-    // 未选中的图标弹出自己的菜单前先清空多选
-    func contextMenu(at point: CGPoint) -> ItemMenuContent? {
-        if let selection = selectionMenu(at: point) {
-            return .selection(selection)
-        }
-        guard let press = itemPress(at: point) else {
-            var menu = mainMenu
-            menu.pageIndex = homePage(at: point)?.page ?? currentPage
-            return .main(menu)
-        }
-        clearMultiSelection()
-        switch press.item {
-        case .item(let app):
-            return .item(AppMenuContent(
-                app: app,
-                canOpen: !isJiggling,
-                canEdit: canEditMenuItems,
-                canUninstall: canUninstall(app),
-                isHidden: isHiddenItem(app),
-                canManageExtraItems: app.application == nil && canEditLayout,
-                isPinned: app.application == nil && isPinned(app.identity),
-                pinPage: app.application == nil ? (query.isEmpty ? currentPage : pageBeforeSearch) : 0
-            ))
-        case .folder(let folder):
-            return .folder(FolderMenuContent(folder: folder, canEdit: canEditMenuItems))
-        case .empty:
-            return nil
-        }
-    }
-
-    var mainMenu: MainMenuContent {
-        MainMenuContent(
-            canSelectAll: canMultiSelect && !visibleItems.isEmpty,
-            canArrange: canMultiSelect,
-            sort: displaySort,
-            browsingStyle: browsingStyle,
-            displayMode: displayMode,
-            canAddWebsite: canEditLayout && query.isEmpty && displaySort.field == .custom,
-            pageIndex: currentPage
-        )
-    }
-
-    private func isPinned(_ identity: ItemIdentity) -> Bool {
-        (layoutPages ?? []).joined().contains { item in
-            switch item {
-            case .item(let entry): return entry.identity == identity
-            case .folder(let folder): return folder.items.contains { $0.identity == identity }
-            case .empty: return false
-            }
-        }
-    }
 
     func updateDisplaySort(_ sort: DisplaySort) {
         guard sort != displaySort else {
@@ -393,503 +254,7 @@ final class LauncherModel {
         normalizeState()
     }
 
-    func selectAllOnPage() {
-        guard canMultiSelect else {
-            return
-        }
-        setMultiSelection(MultiSelection(items: Set(visibleItems.compactMap(\.layoutID))))
-    }
 
-    func performMenuCommand(_ command: ItemMenuCommand) {
-        switch command {
-        case .mergeIntoNewFolder, .mergeInto, .moveToPage, .moveToNewPage, .hideSelection:
-            performSelectionCommand(command)
-        case .hide(let item):
-            if canEditMenuItems {
-                onEdit?(.hide([item]))
-            }
-        case .ungroup(let folder):
-            if canEditMenuItems {
-                onEdit?(.ungroupFolder(folder))
-            }
-        case .rename(let folder):
-            showFolder(id: folder)
-            beginRenamingFolder()
-        case .selectAll:
-            selectAllOnPage()
-        case .open, .revealInFinder, .showInfo, .moveToTrash, .openSettings, .unhide, .arrangeLayout,
-             .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle, .displayMode,
-             .addWebsite, .addBookmarks, .editWebsite, .editEntryAppearance, .resetEntryIcon, .refreshWebsiteIcon,
-             .pinEntry, .unpinEntry, .deleteWebsite:
-            break
-        }
-    }
-
-    // 搜索结果里也能隐藏，所以不要求搜索框为空
-    private var canEditMenuItems: Bool {
-        canEditLayout && layoutPages != nil && renamingFolderID == nil
-    }
-
-    private func performSelectionCommand(_ command: ItemMenuCommand) {
-        let items = multiSelection.ordered(in: pages)
-        guard canMultiSelect, !items.isEmpty else {
-            return
-        }
-        let edit: LayoutEdit
-        switch command {
-        case .mergeIntoNewFolder:
-            edit = .mergeIntoNewFolder(items)
-        case .mergeInto(let folder):
-            edit = .moveGroup(items, to: .merge(.folder(folder)))
-        case .moveToPage(let page):
-            edit = .moveGroup(items, to: .insert(page: page, before: nil))
-        case .moveToNewPage:
-            edit = .moveGroup(items, to: .newPage)
-        case .hideSelection:
-            edit = .hide(items)
-        case .open, .revealInFinder, .showInfo, .hide, .moveToTrash, .rename, .ungroup, .openSettings, .unhide,
-             .selectAll, .arrangeLayout, .sortField, .sortDescending, .sortsFolderContents, .folderPlacement, .browsingStyle,
-             .displayMode, .addWebsite, .addBookmarks, .editWebsite, .editEntryAppearance, .resetEntryIcon,
-             .refreshWebsiteIcon, .pinEntry, .unpinEntry, .deleteWebsite:
-            return
-        }
-        clearMultiSelection()
-        selectedIndex = nil
-        onEdit?(edit)
-    }
-
-    private func isGroupDrag(_ press: ItemPress) -> Bool {
-        guard case .grid = press.origin, let item = press.item.layoutID else {
-            return false
-        }
-        return multiSelection.count > 1 && multiSelection.contains(item)
-    }
-
-    private func setMultiSelection(_ selection: MultiSelection) {
-        if selection != multiSelection {
-            multiSelection = selection
-        }
-    }
-
-    private static func groupSources(_ items: [LayoutItemID], in pages: [[ResolvedItem]]) -> [Int: [Int]] {
-        let wanted = Set(items)
-        var sources: [Int: [Int]] = [:]
-        for (page, pageItems) in pages.enumerated() {
-            for (index, item) in pageItems.enumerated() where item.layoutID.map(wanted.contains) == true {
-                sources[page, default: []].append(index)
-            }
-        }
-        return sources
-    }
-
-    func updateHomeLayout(_ layout: LauncherHomeLayout) {
-        homeLayout = layout
-    }
-
-    func updateGridFrame(_ frame: CGRect) {
-        gridFrame = frame
-    }
-
-    func updateDisplayMode(_ mode: DisplayMode) {
-        if mode != displayMode {
-            displayMode = mode
-        }
-    }
-
-    func updateBrowsingStyle(_ style: BrowsingStyle) {
-        guard style != browsingStyle else {
-            return
-        }
-        browsingStyle = style
-        pageFrames = [:]
-        setGridPage(clampedPage(currentPage), animated: false)
-    }
-
-    // 滚动浏览时 gridFrame 是滚动区域，各页位置由视图逐页上报
-    func updatePageFrame(_ frame: CGRect, page: Int) {
-        pageFrames[page] = frame
-        followScroll()
-    }
-
-    // 当前页仍有部分可见时不变；完全滚出后换成最上面可见的页，键盘选中随之清掉
-    private func followScroll() {
-        guard browsingStyle == .scroll, dragSession == nil else {
-            return
-        }
-        let visible = visibleHomePages().map(\.page)
-        guard !visible.contains(currentPage), let top = visible.min() else {
-            return
-        }
-        currentPage = top
-        selectedIndex = nil
-    }
-
-    private func requestScroll(_ kind: ScrollRequest.Kind) {
-        scrollSerial += 1
-        scrollRequest = ScrollRequest(kind: kind, serial: scrollSerial)
-    }
-
-    private func visibleHomePages() -> [(page: Int, frame: CGRect)] {
-        guard browsingStyle == .scroll else {
-            return pages.indices.contains(currentPage) ? [(currentPage, gridFrame)] : []
-        }
-        return pageFrames
-            .filter { pages.indices.contains($0.key) && $0.value.intersects(gridFrame) }
-            .sorted { $0.key < $1.key }
-            .map { ($0.key, $0.value) }
-    }
-
-    // 分页时屏幕上只有当前页；滚动时按指针所在页，拖动时取最近的页
-    private func homePage(at point: CGPoint, nearest: Bool = false) -> (page: Int, frame: CGRect)? {
-        let candidates = visibleHomePages()
-        guard browsingStyle == .scroll else {
-            return candidates.first
-        }
-        let spacing = homeLayout?.folderRowSpacing ?? 0
-        if let hit = candidates.first(where: { $0.frame.insetBy(dx: 0, dy: -spacing / 2).contains(point) }) {
-            return hit
-        }
-        guard nearest else {
-            return nil
-        }
-        func distance(_ frame: CGRect) -> CGFloat {
-            point.y < frame.minY ? frame.minY - point.y : max(point.y - frame.maxY, 0)
-        }
-        return candidates.min { distance($0.frame) < distance($1.frame) }
-    }
-
-    private func homeFrame(ofPage page: Int) -> CGRect? {
-        browsingStyle == .scroll ? pageFrames[page] : (page == currentPage ? gridFrame : nil)
-    }
-
-    private func homeTester(_ frame: CGRect, layout: LauncherHomeLayout) -> GridHitTester {
-        guard browsingStyle == .scroll else {
-            return GridHitTester(layout: layout, frame: frame, topInset: layout.gridTopInset)
-        }
-        var tester = GridHitTester(layout: layout, frame: frame, rowSpacing: layout.folderRowSpacing)
-        tester.detectsPageEdges = false
-        return tester
-    }
-
-    // 滚动浏览时拖到滚动区上下边缘附近自动滚动，越靠边越快
-    private func autoScroll(at point: CGPoint, now: TimeInterval) {
-        let zone: CGFloat = 80
-        let fastest: CGFloat = 1200
-        let speed: CGFloat
-        if point.y > gridFrame.maxY - zone {
-            speed = fastest * min(1, (point.y - (gridFrame.maxY - zone)) / zone)
-        } else if point.y < gridFrame.minY + zone {
-            speed = -fastest * min(1, (gridFrame.minY + zone - point.y) / zone)
-        } else {
-            lastAutoScroll = nil
-            return
-        }
-        let elapsed = lastAutoScroll.map { min(max(now - $0, 0), 0.1) } ?? 1.0 / 30
-        lastAutoScroll = now
-        requestScroll(.by(speed * elapsed))
-    }
-
-    func updateFolderGridFrame(_ frame: CGRect) {
-        folderGridFrame = frame
-    }
-
-    func itemPress(at point: CGPoint) -> ItemPress? {
-        guard let homeLayout else {
-            return nil
-        }
-        if let folder = openFolder {
-            let apps = visibleFolderApps
-            let tester = GridHitTester(layout: homeLayout, frame: folderGridFrame, rowSpacing: homeLayout.folderRowSpacing)
-            return tester.tileIndex(at: point, itemCount: apps.count).map {
-                ItemPress(item: .item(apps[$0]), origin: .folder(id: folder.id, page: folderPage, index: $0))
-            }
-        }
-        guard let (page, frame) = homePage(at: point) else {
-            return nil
-        }
-        let items = pages[page]
-        guard let index = homeTester(frame, layout: homeLayout).tileIndex(at: point, itemCount: items.count), items[index] != .empty else {
-            return nil
-        }
-        return ItemPress(item: items[index], origin: .grid(page: page, index: index))
-    }
-
-    func frame(of origin: DragOrigin) -> CGRect? {
-        guard let homeLayout else {
-            return nil
-        }
-        switch origin {
-        case .grid(let page, let index):
-            return homeFrame(ofPage: page).map { homeTester($0, layout: homeLayout).tileRect(index) }
-        case .folder(_, _, let index):
-            return GridHitTester(layout: homeLayout, frame: folderGridFrame, rowSpacing: homeLayout.folderRowSpacing).tileRect(index)
-        }
-    }
-
-    func beginItemDrag(_ press: ItemPress, at point: CGPoint) {
-        guard canDragItems else {
-            return
-        }
-        selectedIndex = nil
-        folderSelectedIndex = nil
-        dragStartPoint = point
-        if isGroupDrag(press) {
-            dragGroup = multiSelection.ordered(in: pages)
-        } else {
-            dragGroup = []
-            clearMultiSelection()
-        }
-        dragSession = DragSession(item: press.item, origin: press.origin, group: Self.groupSources(dragGroup, in: pages))
-        publishDragPreview()
-    }
-
-    func updateItemDrag(at point: CGPoint, now: TimeInterval) {
-        guard var session = dragSession else {
-            return
-        }
-        if browsingStyle == .scroll, openFolder == nil {
-            autoScroll(at: point, now: now)
-            // 拖到最后一页下方时多出一页空页可放
-            if !session.hasExtraPage, let last = pageFrames[pages.count - 1], point.y > last.maxY + (homeLayout?.folderRowSpacing ?? 0) {
-                session.addExtraPage()
-                dragSession = session
-                publishDragPreview()
-            }
-        }
-        let events = session.update(
-            hit: dragHit(at: point, preview: session.preview),
-            outsideFolder: isOutsideFolder(point),
-            now: now
-        )
-        dragSession = session
-        for event in events {
-            switch event {
-            case .leaveFolder:
-                closeFolder()
-            case .turnPage(let direction):
-                if direction == .next, currentPage >= pages.count - 1 {
-                    guard dragSession?.hasExtraPage == false else {
-                        continue
-                    }
-                    dragSession?.addExtraPage()
-                    publishDragPreview()
-                }
-                setGridPage(clampedPage(currentPage + (direction == .next ? 1 : -1)), animated: true)
-            }
-        }
-        publishDragPreview()
-    }
-
-    func endItemDrag(at point: CGPoint, now: TimeInterval) {
-        guard let session = dragSession else {
-            return
-        }
-        let preview = session.preview
-        let target = session.dropTarget(for: dragHit(at: point, preview: preview))
-        let edit = target.flatMap { layoutEdit(for: $0, preview: preview) }
-        if edit != nil, case .insert? = target, let frame = frame(of: preview.origin) {
-            let ids = preview.isGroup ? dragGroup.map { Self.entryID($0) } : [Self.entryID(preview.item, index: 0)]
-            landing = Landing(
-                entryIDs: Set(ids),
-                from: frame.offsetBy(dx: point.x - dragStartPoint.x, dy: point.y - dragStartPoint.y)
-            )
-        }
-        if edit != nil, preview.isGroup {
-            clearMultiSelection()
-        }
-        finishItemDrag()
-        if let edit {
-            onEdit?(edit)
-        }
-    }
-
-    func clearLanding() {
-        landing = nil
-    }
-
-    func cancelItemDrag() {
-        finishItemDrag()
-    }
-
-    func gridEntries(page: Int, items: [ResolvedItem], area: DragArea) -> [GridEntry] {
-        let preview = dragPreview
-        let entries = preview?.entries(
-            page: page,
-            itemCount: items.count,
-            capacity: grid.capacity,
-            in: area
-        ) ?? items.indices.map(PreviewEntry.item)
-        var seen = Set<String>()
-        var gaps = 0
-        return entries.map { entry in
-            switch entry {
-            case .gap:
-                defer { gaps += 1 }
-                return GridEntry(
-                    id: gaps == 0 ? "drag-gap" : "drag-gap-\(gaps)",
-                    content: .gap,
-                    isMergeTarget: false,
-                    isPicked: false
-                )
-            case .item(let index):
-                let base = Self.entryID(items[index], index: index)
-                let id = seen.insert(base).inserted ? base : "\(base)#\(index)"
-                let isMergeTarget = preview?.area == area && preview?.target == .merge(page: page, index: index)
-                let isPicked = area == .grid && items[index].layoutID.map(multiSelection.contains) == true
-                return GridEntry(
-                    id: id,
-                    content: .item(items[index], index: index),
-                    isMergeTarget: isMergeTarget,
-                    isPicked: isPicked
-                )
-            }
-        }
-    }
-
-    static func entryID(_ item: ResolvedItem, index: Int) -> String {
-        switch item {
-        case .item(let app):
-            "app:" + app.identity.stableKey
-        case .folder(let folder):
-            "folder:" + folder.id
-        case .empty:
-            "empty:\(index)"
-        }
-    }
-
-    static func entryID(_ item: LayoutItemID) -> String {
-        switch item {
-        case .item(let key):
-            "app:" + key
-        case .folder(let id):
-            "folder:" + id
-        }
-    }
-
-    private func finishItemDrag() {
-        dragGroup = []
-        dragSession = nil
-        dragPreview = nil
-        if let pendingLayout {
-            self.pendingLayout = nil
-            updateLayout(pendingLayout)
-        } else {
-            normalizeState()
-        }
-    }
-
-    private func publishDragPreview() {
-        let preview = dragSession?.preview
-        if preview != dragPreview {
-            dragPreview = preview
-        }
-    }
-
-    private func dragHit(at point: CGPoint, preview: DragPreview) -> DragHit {
-        guard let homeLayout else {
-            return .none
-        }
-        let page: Int
-        let itemCount: Int
-        let tester: GridHitTester
-        if preview.area == .folder {
-            guard let folder = openFolder else {
-                return .none
-            }
-            let folderPages = folderPages
-            page = folderPage
-            itemCount = folderPages.indices.contains(page) ? folderPages[page].count : 0
-            tester = GridHitTester(
-                layout: homeLayout,
-                frame: folderGridFrame,
-                rowCount: homeLayout.folderRowCount(memberCount: folder.items.count),
-                rowSpacing: homeLayout.folderRowSpacing
-            )
-        } else {
-            let gridPages = pages
-            guard let (hitPage, frame) = homePage(at: point, nearest: true) else {
-                return .none
-            }
-            page = hitPage
-            itemCount = gridPages.indices.contains(page) ? gridPages[page].count : 0
-            tester = homeTester(frame, layout: homeLayout)
-        }
-        let entries = preview.entries(
-            page: page,
-            itemCount: itemCount,
-            capacity: grid.capacity,
-            in: preview.area
-        )
-        return preview.hit(
-            for: tester.hit(point, itemCount: entries.count),
-            entries: entries,
-            itemCount: itemCount,
-            page: page,
-            in: preview.area
-        )
-    }
-
-    private func isOutsideFolder(_ point: CGPoint) -> Bool {
-        guard openFolder != nil, let homeLayout else {
-            return false
-        }
-        let panel = folderGridFrame.insetBy(
-            dx: homeLayout.horizontalInset - homeLayout.folderPanelOutset,
-            dy: -homeLayout.folderPanelPadding
-        )
-        return !panel.contains(point)
-    }
-
-    private func layoutEdit(for target: DragTarget, preview: DragPreview) -> LayoutEdit? {
-        guard let itemID = preview.item.layoutID else {
-            return nil
-        }
-        if preview.area == .folder {
-            guard case .folder(let folderID, _, _) = preview.origin,
-                  case .item(let app) = preview.item,
-                  case .insert(let page, let index) = target else {
-                return nil
-            }
-            let before = Self.folderAnchor(pages: folderPages, page: page, index: index, moving: app)
-            return .reorderInFolder(folder: folderID, app: app.identity.stableKey, before: before)
-        }
-        let gridPages = pages
-        let dropTarget: LayoutDropTarget
-        switch target {
-        case .merge(let page, let index):
-            guard gridPages.indices.contains(page),
-                  gridPages[page].indices.contains(index),
-                  let targetID = gridPages[page][index].layoutID else {
-                return nil
-            }
-            dropTarget = .merge(targetID)
-        case .insert(let page, let index):
-            if preview.hasExtraPage, page == gridPages.count - 1 {
-                dropTarget = .newPage
-            } else {
-                let sources = Set(preview.sourceIndices(onPage: page, in: .grid))
-                let items = (gridPages.indices.contains(page) ? gridPages[page] : [])
-                    .enumerated()
-                    .filter { !sources.contains($0.offset) }
-                    .map(\.element)
-                dropTarget = .insert(page: page, before: index < items.count ? items[index].layoutID : nil)
-            }
-        }
-        if preview.isGroup {
-            return .moveGroup(dragGroup, to: dropTarget)
-        }
-        if case .folder(let folderID, _, _) = preview.origin, case .item(let app) = preview.item {
-            return .moveOutOfFolder(app: app.identity.stableKey, folder: folderID, to: dropTarget)
-        }
-        return .move(itemID, to: dropTarget)
-    }
-
-    private static func folderAnchor(pages: [[LaunchItem]], page: Int, index: Int, moving: LaunchItem) -> String? {
-        let trimmed = pages.map { $0.filter { $0 != moving } }
-        let members = Array(trimmed.joined())
-        let offset = trimmed.prefix(page).reduce(0) { $0 + $1.count } + index
-        return offset < members.count ? members[offset].identity.stableKey : nil
-    }
 
     func dragPage(by translation: CGFloat) {
         // 发起图标拖拽的那次拖动事件也会被转给 SwiftUI 翻页手势，且它永远收不到结束
@@ -948,7 +313,7 @@ final class LauncherModel {
         }
     }
 
-    private func setGridPage(_ page: Int, animated: Bool) {
+    func setGridPage(_ page: Int, animated: Bool) {
         currentPage = page
         if browsingStyle == .scroll {
             requestScroll(.page(page))
@@ -1218,7 +583,7 @@ final class LauncherModel {
         rearrange()
     }
 
-    private func normalizeState() {
+    func normalizeState() {
         if let layoutPages {
             var selection = multiSelection
             selection.retain(Set(layoutPages.joined().compactMap(\.layoutID)))
@@ -1247,7 +612,7 @@ final class LauncherModel {
         return min(index, count - 1)
     }
 
-    private func clampedPage(_ index: Int) -> Int {
+    func clampedPage(_ index: Int) -> Int {
         LauncherPagination.normalizedPageIndex(index, pageCount: pages.count)
     }
 }
