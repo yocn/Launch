@@ -351,7 +351,7 @@ struct LauncherView: View {
     }
 }
 
-private struct LauncherAppTile: View {
+struct LauncherAppTile: View {
     let app: LaunchItem
     let layout: LauncherHomeLayout
     let isSelected: Bool
@@ -423,36 +423,7 @@ private struct LauncherFolderTile: View {
     }
 }
 
-private struct FolderPreview: View {
-    let apps: [LaunchItem]
-    let layout: LauncherHomeLayout
-
-    var body: some View {
-        let side = layout.folderPreviewIconSide
-        let spacing = layout.folderPreviewSpacing
-        let gridSide = side * 3 + spacing * 2
-        LazyVGrid(
-            columns: Array(repeating: GridItem(.fixed(side), spacing: spacing), count: 3),
-            spacing: spacing
-        ) {
-            ForEach(apps, id: \.identity) { app in
-                LaunchItemIcon(item: app, side: side)
-            }
-        }
-        .frame(width: gridSide, height: gridSide, alignment: .top)
-        .frame(width: layout.iconSide, height: layout.iconSide)
-        .background {
-            RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
-                .fill(.white.opacity(0.14))
-                .overlay {
-                    RoundedRectangle(cornerRadius: layout.folderCornerRadius, style: .continuous)
-                        .stroke(.white.opacity(0.22), lineWidth: 1)
-                }
-        }
-    }
-}
-
-private struct GridCell<ItemView: View>: View {
+struct GridCell<ItemView: View>: View {
     let model: LauncherModel
     let entry: LauncherModel.GridEntry
     let layout: LauncherHomeLayout
@@ -567,158 +538,6 @@ private struct SelectionCheck: View {
 }
 
 // 只有这一层读取背景设置与壁纸，切换时不重建网格
-// 整块屏幕在本窗口里的位置；显示程序坞时启动器和程序坞那一条分属两个窗口，壁纸据此对齐
-@MainActor
-@Observable
-final class BackgroundCanvas {
-    var screenFrame: CGRect?
-    // 显示程序坞时启动器背景在这条边上渐隐，透出垫在下面的那一条
-    var fadeEdge: Edge?
-}
-
-// 程序坞那一条的背景，垫在程序坞下面，与启动器的背景和淡入淡出一致
-struct DockStripView: View {
-    let model: LauncherModel
-    let settings: LauncherSettings
-    let onTap: () -> Void
-
-    var body: some View {
-        LauncherBackground(model: model, settings: settings)
-            .opacity(model.isPresented ? 1 : 0)
-            .animation(PresentationTransition.backgroundAnimation(presented: model.isPresented), value: model.isPresented)
-            .ignoresSafeArea()
-            .onTapGesture(perform: onTap)
-    }
-}
-
-private struct LauncherBackground: View {
-    let model: LauncherModel
-    let settings: LauncherSettings
-    @Environment(BackgroundCanvas.self) private var canvas: BackgroundCanvas?
-
-    var body: some View {
-        ZStack {
-            if settings.background != .glass, let wallpaper = model.wallpaper {
-                WallpaperImage(wallpaper: wallpaper, canvas: canvas?.screenFrame)
-            } else if BackdropBlur.isAvailable {
-                BackdropBlurView()
-            } else {
-                Rectangle()
-                    .fill(.regularMaterial)
-            }
-            // 压暗用深灰不用纯黑，按 LaunchOS 录屏拟合
-            Color(white: 0.12).opacity(settings.dimming)
-        }
-        .mask {
-            if let edge = canvas?.fadeEdge {
-                EdgeFade(edge: edge, length: DockStrip.blendLength)
-            } else {
-                Rectangle()
-            }
-        }
-        .contentShape(Rectangle())
-    }
-}
-
-private struct EdgeFade: View {
-    let edge: Edge
-    let length: CGFloat
-
-    var body: some View {
-        switch edge {
-        case .leading:
-            HStack(spacing: 0) {
-                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: length)
-                Rectangle()
-            }
-        case .trailing:
-            HStack(spacing: 0) {
-                Rectangle()
-                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: length)
-            }
-        case .top:
-            VStack(spacing: 0) {
-                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                    .frame(height: length)
-                Rectangle()
-            }
-        case .bottom:
-            VStack(spacing: 0) {
-                Rectangle()
-                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: length)
-            }
-        }
-    }
-}
-
-private struct WallpaperImage: View {
-    let wallpaper: Wallpaper
-    let canvas: CGRect?
-
-    var body: some View {
-        GeometryReader { proxy in
-            let rect = canvas ?? CGRect(origin: .zero, size: proxy.size)
-            ZStack {
-                Color(nsColor: wallpaper.fillColor ?? .black)
-                switch wallpaper.fill {
-                case .aspectFill:
-                    image.aspectRatio(contentMode: .fill)
-                case .aspectFit:
-                    image.aspectRatio(contentMode: .fit)
-                case .stretch:
-                    image
-                case .center:
-                    Image(nsImage: wallpaper.image)
-                }
-            }
-            .frame(width: rect.width, height: rect.height)
-            .clipped()
-            .offset(x: rect.minX, y: rect.minY)
-        }
-        .clipped()
-    }
-
-    private var image: some View {
-        Image(nsImage: wallpaper.image)
-            .resizable()
-            .interpolation(.high)
-    }
-}
-
-// 窗口模式：背景只留中间的圆角区域，加一圈淡边与柔和投影
-private struct WindowFrame: ViewModifier {
-    let size: CGSize?
-    let cornerRadius: CGFloat
-
-    func body(content: Content) -> some View {
-        if let size {
-            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            content
-                .mask {
-                    shape.frame(width: size.width, height: size.height)
-                }
-                .overlay {
-                    shape
-                        .strokeBorder(.white.opacity(0.18), lineWidth: 1)
-                        .frame(width: size.width, height: size.height)
-                }
-                .background {
-                    shape
-                        .fill(.black.opacity(0.3))
-                        .frame(width: size.width, height: size.height)
-                        .blur(radius: 24)
-                        .offset(y: 10)
-                }
-        } else {
-            content
-        }
-    }
-}
-
-// 只有这一层读取提示文字
 private struct HintOverlay: View {
     let model: LauncherModel
     let layout: LauncherHomeLayout
@@ -784,219 +603,6 @@ private struct JiggleModifier: ViewModifier {
     }
 }
 
-private struct FolderTitle: View {
-    let model: LauncherModel
-    let folder: ResolvedFolder
-    let layout: LauncherHomeLayout
-
-    @FocusState private var isFocused: Bool
-
-    var body: some View {
-        Group {
-            if model.renamingFolderID == folder.id {
-                TextField("", text: Binding(
-                    get: { model.folderNameDraft },
-                    set: { model.folderNameDraft = $0 }
-                ))
-                .textFieldStyle(.plain)
-                .multilineTextAlignment(.center)
-                .focused($isFocused)
-                .onSubmit {
-                    model.finishRenamingFolder()
-                }
-                .onChange(of: isFocused) { _, focused in
-                    if !focused {
-                        model.finishRenamingFolder()
-                    }
-                }
-                .onAppear {
-                    // 刚出现时输入框还不在响应链里，同步设置焦点会被忽略
-                    DispatchQueue.main.async {
-                        isFocused = true
-                        DispatchQueue.main.async {
-                            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
-                        }
-                    }
-                }
-            } else {
-                Text(folder.name)
-                    .onTapGesture {
-                        model.beginRenamingFolder()
-                    }
-            }
-        }
-        .font(.system(size: layout.folderTitleFontSize, weight: .medium))
-        .foregroundStyle(.white)
-        .frame(width: layout.tileWidth * 3, height: layout.folderTitleHeight)
-    }
-}
-
-@MainActor
-enum DragCardRenderer {
-    static func image(
-        for item: ResolvedItem,
-        count: Int,
-        showsName: Bool,
-        layout: LauncherHomeLayout,
-        scale: CGFloat
-    ) -> NSImage? {
-        let renderer = ImageRenderer(content: DragCard(item: item, count: count, showsName: showsName, layout: layout))
-        renderer.scale = scale
-        return renderer.nsImage
-    }
-}
-
-private struct DragCard: View {
-    let item: ResolvedItem
-    let count: Int
-    let showsName: Bool
-    let layout: LauncherHomeLayout
-
-    var body: some View {
-        VStack(spacing: layout.iconLabelSpacing) {
-            switch item {
-            case .item(let app):
-                LaunchItemIcon(item: app, side: layout.iconSide)
-                label(app.displayName)
-            case .folder(let folder):
-                FolderPreview(apps: Array(folder.items.prefix(9)), layout: layout)
-                label(folder.name)
-            case .empty:
-                EmptyView()
-            }
-        }
-        .padding(.vertical, layout.tilePadding)
-        .frame(width: layout.tileWidth)
-        .overlay(alignment: .topTrailing) {
-            if count > 1 {
-                Text("\(count)")
-                    .font(.system(size: layout.labelFontSize, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, layout.uninstallBadgeSide * 0.25)
-                    .frame(minWidth: layout.uninstallBadgeSide, minHeight: layout.uninstallBadgeSide)
-                    .background(Capsule().fill(.red))
-            }
-        }
-    }
-
-    private func label(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: layout.labelFontSize, weight: .medium))
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.38), radius: 2, y: 1)
-            .lineLimit(1)
-            .frame(maxWidth: layout.tileWidth)
-            .frame(height: layout.labelHeight)
-            .opacity(showsName ? 1 : 0)
-    }
-}
-
-private struct FolderOverlay: View {
-    let model: LauncherModel
-    let folder: ResolvedFolder
-    let layout: LauncherHomeLayout
-    let columns: [GridItem]
-    let dragTracker: PageDragTracker
-    let onLaunch: (LaunchItem) -> Void
-
-    var body: some View {
-        let pages = model.folderPages
-        VStack(spacing: layout.folderTitleSpacing) {
-            FolderTitle(model: model, folder: folder, layout: layout)
-            PageOffset(model: model, pager: .folder, pageWidth: layout.contentSize.width) {
-            HStack(alignment: .top, spacing: 0) {
-                ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, apps in
-                    LazyVGrid(columns: columns, spacing: layout.folderRowSpacing) {
-                        ForEach(model.gridEntries(page: pageIndex, items: apps.map(ResolvedItem.item), area: .folder)) { entry in
-                            GridCell(model: model, entry: entry, layout: layout) { item, index in
-                                if case .item(let app) = item {
-                                    LauncherAppTile(
-                                        app: app,
-                                        layout: layout,
-                                        isSelected: pageIndex == model.folderPage && index == model.folderSelectedIndex
-                                    ) {
-                                        if !dragTracker.suppressesTap {
-                                            onLaunch(app)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, layout.horizontalInset)
-                    .frame(width: layout.contentSize.width, alignment: .top)
-                    .allowsHitTesting(pageIndex == model.folderPage)
-                }
-            }
-            .animation(.easeOut(duration: 0.25), value: model.dragPreview)
-            }
-            .frame(
-                width: layout.contentSize.width,
-                height: layout.folderGridHeight(memberCount: folder.items.count),
-                alignment: .topLeading
-            )
-            .clipped()
-            .onGeometryChange(for: CGRect.self) { proxy in
-                proxy.frame(in: .global)
-            } action: { frame in
-                model.updateFolderGridFrame(frame)
-            }
-            .modifier(PageDragArea(model: model, tracker: dragTracker))
-            .padding(.vertical, layout.folderPanelPadding)
-            .background {
-                RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
-                    .fill(.white.opacity(0.08))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: layout.folderPanelCornerRadius, style: .continuous)
-                            .stroke(.white.opacity(0.15), lineWidth: 1)
-                    }
-                    .padding(.horizontal, layout.horizontalInset - layout.folderPanelOutset)
-                    .onTapGesture {}
-            }
-            if pages.count > 1 {
-                HStack(spacing: layout.pageDotSpacing) {
-                    ForEach(pages.indices, id: \.self) { pageIndex in
-                        Button {
-                            model.selectFolderPage(pageIndex)
-                        } label: {
-                            Circle()
-                                .fill(pageIndex == model.folderPage ? .white : .white.opacity(0.4))
-                                .frame(width: layout.pageDotSize, height: layout.pageDotSize)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("文件夹第 \(pageIndex + 1) 页")
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct FolderZoomModifier: ViewModifier {
-    let scale: CGFloat
-    let offset: CGSize
-    let opacity: Double
-
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(scale)
-            .offset(offset)
-            .opacity(opacity)
-    }
-}
-
-private extension AnyTransition {
-    static func folderZoom(from source: CGRect?, in size: CGSize) -> AnyTransition {
-        guard let source, size.width > 0 else {
-            return .opacity.combined(with: .scale(scale: 0.92))
-        }
-        let offset = CGSize(width: source.midX - size.width / 2, height: source.midY - size.height / 2)
-        return .modifier(
-            active: FolderZoomModifier(scale: max(source.width / size.width, 0.05), offset: offset, opacity: 0),
-            identity: FolderZoomModifier(scale: 1, offset: .zero, opacity: 1)
-        )
-    }
-}
 
 @MainActor
 final class PageDragTracker {
@@ -1009,7 +615,7 @@ final class PageDragTracker {
     }
 }
 
-private struct PageDragArea: ViewModifier {
+struct PageDragArea: ViewModifier {
     let model: LauncherModel
     let tracker: PageDragTracker
 
@@ -1035,7 +641,7 @@ private struct PageDragArea: ViewModifier {
 }
 
 // 只有这一层读取逐帧变化的翻页位置，翻页时不重建页面内容
-private struct PageOffset<Content: View>: View {
+struct PageOffset<Content: View>: View {
     enum Pager {
         case grid
         case folder
