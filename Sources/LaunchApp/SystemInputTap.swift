@@ -30,6 +30,7 @@ final class SystemInputTap {
     private static let accessibilityChanged = Notification.Name("com.apple.accessibility.api")
 
     private let onTrigger: () -> Void
+    private let onPinch: (PinchDirection) -> Void
     private var recognizer = PinchRecognizer()
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
@@ -41,8 +42,9 @@ final class SystemInputTap {
     private var swallowsGesture = false
     private var firstTouch: TimeInterval?
 
-    init(onTrigger: @escaping () -> Void) {
+    init(onTrigger: @escaping () -> Void, onPinch: @escaping (PinchDirection) -> Void) {
         self.onTrigger = onTrigger
+        self.onPinch = onPinch
     }
 
     static var isTrusted: Bool {
@@ -255,12 +257,12 @@ final class SystemInputTap {
             return swallowsGesture
         }
         if firstTouch == nil { firstTouch = ProcessInfo.processInfo.systemUptime }
-        if recognizer.update(touches: active.map(\.normalizedPosition)) {
+        if let direction = recognizer.update(touches: active.map(\.normalizedPosition)) {
             let elapsed = (ProcessInfo.processInfo.systemUptime - (firstTouch ?? 0)) * 1000
-            DebugLog.log(String(format: "捏合识别：从手指放下到识别 %.0fms", elapsed))
-            AppLog.shared.info("识别到 \(active.count) 指捏合")
+            DebugLog.log(String(format: "手势识别：%@，从手指放下到识别 %.0fms", direction == .pinchIn ? "向内捏合" : "向外张开", elapsed))
+            AppLog.shared.info("识别到 \(active.count) 指\(direction == .pinchIn ? "捏合" : "张开")")
             swallowsGesture = true
-            onTrigger()
+            onPinch(direction)
         }
         return swallowsGesture
     }

@@ -1,6 +1,10 @@
 import CoreGraphics
 
-// 所选手指数的触点一起向内收拢到起始距离的 75% 以内算一次捏合；手指数变化时从新的手指数重新开始
+enum PinchDirection {
+    case pinchIn, spreadOut
+}
+
+// 所选手指数的触点一起向内收拢到起始距离的 75% 以内算向内捏合，向外张开到 1/0.75 倍以上算张开；手指数变化时从新的手指数重新开始
 struct PinchRecognizer {
     var gesture = PinchGesture.off
     private var startSpread: CGFloat?
@@ -8,23 +12,31 @@ struct PinchRecognizer {
     private var fired = false
 
     // 触点为触控板上的归一化位置（0～1）
-    mutating func update(touches: [CGPoint]) -> Bool {
+    mutating func update(touches: [CGPoint]) -> PinchDirection? {
         guard accepts(touches.count) else {
             end()
-            return false
+            return nil
         }
         let spread = Self.spread(of: touches)
         guard let start = startSpread, startCount == touches.count else {
             startSpread = spread
             startCount = touches.count
             fired = false
-            return false
+            return nil
         }
-        guard !fired, spread < start * 0.75 else {
-            return false
+        guard !fired else {
+            return nil
+        }
+        let direction: PinchDirection
+        if spread < start * 0.75 {
+            direction = .pinchIn
+        } else if spread > start / 0.75 {
+            direction = .spreadOut
+        } else {
+            return nil
         }
         fired = true
-        return true
+        return direction
     }
 
     mutating func end() {

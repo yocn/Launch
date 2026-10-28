@@ -79,6 +79,19 @@ final class LauncherController {
         }
     }
 
+    // 向内捏合只打开，向外张开只关闭
+    func handlePinch(_ direction: PinchDirection) {
+        switch direction {
+        case .pinchIn:
+            if !presenter.isVisible { show() }
+        case .spreadOut:
+            if presenter.isVisible {
+                closeSettings()
+                hide(.toggle)
+            }
+        }
+    }
+
     func hide(_ reason: LauncherHideReason) {
         guard presenter.isVisible else {
             return

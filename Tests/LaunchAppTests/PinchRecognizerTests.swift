@@ -15,47 +15,59 @@ final class PinchRecognizerTests: XCTestCase {
         var recognizer = PinchRecognizer()
         recognizer.gesture = .threeFingers
 
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.3)))
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.25)))
-        XCTAssertTrue(recognizer.update(touches: touches(3, radius: 0.21)))
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.1)))
+        XCTAssertNil(recognizer.update(touches: touches(3, radius: 0.3)))
+        XCTAssertNil(recognizer.update(touches: touches(3, radius: 0.25)))
+        XCTAssertEqual(recognizer.update(touches: touches(3, radius: 0.21)), .pinchIn)
+        XCTAssertNil(recognizer.update(touches: touches(3, radius: 0.1)))
         recognizer.end()
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.3)))
-        XCTAssertTrue(recognizer.update(touches: touches(3, radius: 0.12)))
+        XCTAssertNil(recognizer.update(touches: touches(3, radius: 0.3)))
+        XCTAssertEqual(recognizer.update(touches: touches(3, radius: 0.12)), .pinchIn)
     }
 
     func testSmallDriftBelowTheThresholdDoesNotTrigger() {
         var recognizer = PinchRecognizer()
         recognizer.gesture = .fourOrFiveFingers
-        XCTAssertFalse(recognizer.update(touches: touches(4, radius: 0.3)))
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.3)))
         // 收拢到 80% 以内的手指漂移不算捏合
-        XCTAssertFalse(recognizer.update(touches: touches(4, radius: 0.24)))
-        XCTAssertTrue(recognizer.update(touches: touches(4, radius: 0.22)))
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.24)))
+        XCTAssertEqual(recognizer.update(touches: touches(4, radius: 0.22)), .pinchIn)
     }
 
     func testIgnoresSpreadingAndOtherFingerCounts() {
         var recognizer = PinchRecognizer()
         recognizer.gesture = .threeFingers
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.15)))
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.35)))
+        XCTAssertNil(recognizer.update(touches: touches(3, radius: 0.15)))
+        // 向外张开不会被当作向内捏合
+        XCTAssertEqual(recognizer.update(touches: touches(3, radius: 0.35)), .spreadOut)
         recognizer.end()
 
-        XCTAssertFalse(recognizer.update(touches: touches(4, radius: 0.3)))
-        XCTAssertFalse(recognizer.update(touches: touches(4, radius: 0.1)))
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.3)))
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.1)))
     }
 
     func testFourOrFiveAcceptsBothAndRestartsWhenCountChanges() {
         var recognizer = PinchRecognizer()
         recognizer.gesture = .fourOrFiveFingers
 
-        XCTAssertFalse(recognizer.update(touches: touches(4, radius: 0.3)))
-        XCTAssertFalse(recognizer.update(touches: touches(5, radius: 0.25)))
-        XCTAssertTrue(recognizer.update(touches: touches(5, radius: 0.1)))
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.3)))
+        XCTAssertNil(recognizer.update(touches: touches(5, radius: 0.25)))
+        XCTAssertEqual(recognizer.update(touches: touches(5, radius: 0.1)), .pinchIn)
     }
 
     func testOffNeverFires() {
         var recognizer = PinchRecognizer()
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.3)))
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.05)))
+        XCTAssertNil(recognizer.update(touches: touches(3, radius: 0.3)))
+        XCTAssertNil(recognizer.update(touches: touches(3, radius: 0.05)))
+    }
+
+    func testSpreadOutNeedsTheMirrorDistanceAndFiresOnce() {
+        var recognizer = PinchRecognizer()
+        recognizer.gesture = .fourOrFiveFingers
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.2)))
+        // 张开到 1.33 倍以内的漂移不算
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.25)))
+        XCTAssertEqual(recognizer.update(touches: touches(4, radius: 0.28)), .spreadOut)
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.4)))
+        XCTAssertNil(recognizer.update(touches: touches(4, radius: 0.05)))
     }
 }

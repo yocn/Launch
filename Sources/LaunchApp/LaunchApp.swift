@@ -43,9 +43,10 @@ private final class LaunchAppDelegate: NSObject, NSApplicationDelegate {
     private lazy var hotCornerMonitor = HotCornerMonitor { [weak self] in
         self?.controller.toggle()
     }
-    private lazy var inputTap = SystemInputTap { [weak self] in
-        self?.controller.toggle()
-    }
+    private lazy var inputTap = SystemInputTap(
+        onTrigger: { [weak self] in self?.controller.toggle() },
+        onPinch: { [weak self] direction in self?.controller.handlePinch(direction) }
+    )
     private let appActions = AppActions()
     private let settings = LauncherSettings()
     private let appIconController = AppIconController()
