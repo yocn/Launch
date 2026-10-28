@@ -16,12 +16,21 @@ final class PinchRecognizerTests: XCTestCase {
         recognizer.gesture = .threeFingers
 
         XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.3)))
-        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.22)))
-        XCTAssertTrue(recognizer.update(touches: touches(3, radius: 0.15)))
+        XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.25)))
+        XCTAssertTrue(recognizer.update(touches: touches(3, radius: 0.21)))
         XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.1)))
         recognizer.end()
         XCTAssertFalse(recognizer.update(touches: touches(3, radius: 0.3)))
         XCTAssertTrue(recognizer.update(touches: touches(3, radius: 0.12)))
+    }
+
+    func testSmallDriftBelowTheThresholdDoesNotTrigger() {
+        var recognizer = PinchRecognizer()
+        recognizer.gesture = .fourOrFiveFingers
+        XCTAssertFalse(recognizer.update(touches: touches(4, radius: 0.3)))
+        // 收拢到 80% 以内的手指漂移不算捏合
+        XCTAssertFalse(recognizer.update(touches: touches(4, radius: 0.24)))
+        XCTAssertTrue(recognizer.update(touches: touches(4, radius: 0.22)))
     }
 
     func testIgnoresSpreadingAndOtherFingerCounts() {

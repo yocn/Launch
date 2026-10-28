@@ -1,6 +1,6 @@
 import CoreGraphics
 
-// 所选手指数的触点一起向内收拢到起始距离的 60% 以内算一次捏合；手指数变化时从新的手指数重新开始
+// 所选手指数的触点一起向内收拢到起始距离的 75% 以内算一次捏合；手指数变化时从新的手指数重新开始
 struct PinchRecognizer {
     var gesture = PinchGesture.off
     private var startSpread: CGFloat?
@@ -20,7 +20,7 @@ struct PinchRecognizer {
             fired = false
             return false
         }
-        guard !fired, spread < start * 0.6 else {
+        guard !fired, spread < start * 0.75 else {
             return false
         }
         fired = true
