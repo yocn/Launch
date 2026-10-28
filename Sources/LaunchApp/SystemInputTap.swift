@@ -39,6 +39,7 @@ final class SystemInputTap {
     // 拦截反复被系统停用或创建失败后不再自动挂上，等权限变化或改设置
     private var isSuspended = false
     private var swallowsGesture = false
+    private var firstTouch: TimeInterval?
 
     init(onTrigger: @escaping () -> Void) {
         self.onTrigger = onTrigger
@@ -248,11 +249,15 @@ final class SystemInputTap {
         }
         let active = gesture.allTouches().filter { $0.phase != .ended && $0.phase != .cancelled }
         guard !active.isEmpty else {
+            firstTouch = nil
             recognizer.end()
             defer { swallowsGesture = false }
             return swallowsGesture
         }
+        if firstTouch == nil { firstTouch = ProcessInfo.processInfo.systemUptime }
         if recognizer.update(touches: active.map(\.normalizedPosition)) {
+            let elapsed = (ProcessInfo.processInfo.systemUptime - (firstTouch ?? 0)) * 1000
+            DebugLog.log(String(format: "捏合识别：从手指放下到识别 %.0fms", elapsed))
             AppLog.shared.info("识别到 \(active.count) 指捏合")
             swallowsGesture = true
             onTrigger()

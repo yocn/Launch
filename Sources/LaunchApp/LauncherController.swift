@@ -64,6 +64,7 @@ final class LauncherController {
         presenter.present()
         model.setPresented(true)
         let elapsed = ContinuousClock.now - start
+        DebugLog.log("show() 合计 \(Int(elapsed / .milliseconds(1))) 毫秒")
         if elapsed > .milliseconds(300) {
             AppLog.shared.warning("唤起时主线程耗时 \(Int(elapsed / .milliseconds(1))) 毫秒")
         }

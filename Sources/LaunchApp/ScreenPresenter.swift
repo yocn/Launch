@@ -224,20 +224,35 @@ final class ScreenPresenter: LauncherPresenting {
     }
 
     func present() {
+        let clock = ContinuousClock()
+        let start = clock.now
         dismissal.cancel()
         panel.ignoresMouseEvents = false
         guard let screen = targetScreen() else {
             return
         }
+        let afterScreen = clock.now
         onPresent?(screen)
+        let afterOnPresent = clock.now
         self.screen = screen
         layout(on: screen)
+        let afterLayout = clock.now
         // 第一次显示时窗口还没按新尺寸布局，会先出现一块局部矩形再铺满；显示前先布局并绘制好
         panel.contentView?.layoutSubtreeIfNeeded()
         panel.displayIfNeeded()
+        let afterDisplay = clock.now
         NSApp.unhide(nil)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
+        #if DEBUG || LAUNCH_DEBUG_LOG
+        FrameProbe.begin(on: panel.contentView)
+        #endif
+        let end = clock.now
+        DebugLog.log("唤起耗时 选屏\(ms(afterScreen - start)) 壁纸等\(ms(afterOnPresent - afterScreen)) 布局\(ms(afterLayout - afterOnPresent)) 绘制\(ms(afterDisplay - afterLayout)) 激活显示\(ms(end - afterDisplay)) 合计\(ms(end - start))")
+    }
+
+    private func ms(_ duration: Duration) -> String {
+        String(format: "%.1fms", Double(duration.components.attoseconds) / 1e15 + Double(duration.components.seconds) * 1000)
     }
 
     private func layout(on screen: NSScreen) {
