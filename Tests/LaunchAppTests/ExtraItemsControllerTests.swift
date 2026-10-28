@@ -254,6 +254,35 @@ final class ExtraItemsControllerTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(store.load()).pinnedIdentities.contains(loose.identity))
     }
 
+    func testEditingAppearanceValidatesNameAndSetsOrResetsTheCustomIcon() async throws {
+        let (layout, store) = try await makeLayout()
+        let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })
+        let site = try controller.saveWebsite(name: "文档", address: "example.com", existing: nil, toPage: nil, customIconData: nil)
+
+        XCTAssertThrowsError(try controller.updateAppearance(of: site.identity, name: "  ", customIconData: nil))
+        XCTAssertEqual(try store.load()?.extraItems.first?.name, "文档")
+
+        try controller.updateAppearance(of: site.identity, name: "项目文档", customIconData: entryTestPNG())
+        var saved = try XCTUnwrap(store.load()?.extraItems.first)
+        XCTAssertEqual(saved.name, "项目文档")
+        XCTAssertEqual(saved.customIconData, entryTestPNG())
+
+        try controller.updateAppearance(of: site.identity, name: nil, customIconData: nil)
+        saved = try XCTUnwrap(store.load()?.extraItems.first)
+        XCTAssertEqual(saved.name, "项目文档")
+        XCTAssertNil(saved.customIconData)
+    }
+
+    func testSavingAWebsiteRejectsEmptyNamesAndUnsafeAddresses() async throws {
+        let (layout, store) = try await makeLayout()
+        let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })
+        XCTAssertThrowsError(try controller.saveWebsite(name: "", address: "example.com", existing: nil, toPage: nil, customIconData: nil))
+        for address in ["", "javascript:alert(1)", "file:///etc/hosts", "https://user:pw@example.com"] {
+            XCTAssertThrowsError(try controller.saveWebsite(name: "站", address: address, existing: nil, toPage: nil, customIconData: nil), address)
+        }
+        XCTAssertTrue(try XCTUnwrap(store.load()).extraItems.isEmpty)
+    }
+
     func testBookmarkIconIsKeptWhenFetchingTheWebsiteIconFails() async throws {
         let (layout, store) = try await makeLayout()
         let controller = ExtraItemsController(layout: layout, fetchIcon: { _ in nil })
