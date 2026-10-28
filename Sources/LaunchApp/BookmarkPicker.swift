@@ -37,10 +37,16 @@ private final class BookmarkPickerModel {
         let browser = browser
         loadTask = Task {
             let result = await Task.detached { Result { try BrowserBookmarks.load(browser) } }.value
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                return
+            }
             switch result {
-            case .success(let nodes): tree = nodes; error = nil
-            case .failure(let failure): tree = []; error = failure.localizedDescription
+            case .success(let nodes):
+                tree = nodes
+                error = nil
+            case .failure(let failure):
+                tree = []
+                error = failure.localizedDescription
             }
             rebuildRows()
             isLoading = false
@@ -61,7 +67,9 @@ private final class BookmarkPickerModel {
     }
 
     func toggle(_ folder: BookmarkNode) {
-        if !expanded.insert(folder.id).inserted { expanded.remove(folder.id) }
+        if !expanded.insert(folder.id).inserted {
+            expanded.remove(folder.id)
+        }
         rebuildRows()
     }
 
@@ -153,8 +161,12 @@ private struct BookmarkPickerView: View {
                     .font(.system(size: 16))
                     .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
                 Group {
-                    if let icon { Image(nsImage: icon).resizable().interpolation(.high) }
-                    else { Image(systemName: "globe").foregroundStyle(.secondary) }
+                    if let icon {
+                        Image(nsImage: icon).resizable().interpolation(.high)
+                    }
+                    else {
+                        Image(systemName: "globe").foregroundStyle(.secondary)
+                    }
                 }
                 .frame(width: 20, height: 20)
                 VStack(alignment: .leading, spacing: 1) {
@@ -204,7 +216,9 @@ private struct BookmarkPickerView: View {
     }
 
     private static func finish() {
-        if let closing { NotificationCenter.default.removeObserver(closing) }
+        if let closing {
+            NotificationCenter.default.removeObserver(closing)
+        }
         closing = nil
         panel = nil
     }

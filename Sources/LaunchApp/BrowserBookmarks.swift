@@ -43,7 +43,9 @@ enum BookmarkError: LocalizedError {
 enum BrowserBookmarks {
     static func load(_ browser: BookmarkBrowser) throws -> [BookmarkNode] {
         let url = browser.fileURL
-        guard FileManager.default.fileExists(atPath: url.path) else { throw BookmarkError.notFound(browser.rawValue) }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw BookmarkError.notFound(browser.rawValue)
+        }
         let data: Data
         do { data = try Data(contentsOf: url) }
         catch let error as NSError where error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoPermissionError {
@@ -67,18 +69,26 @@ enum BrowserBookmarks {
     static func chromeFavicons() -> [String: Data] {
         let source = BookmarkBrowser.chrome.fileURL.deletingLastPathComponent().appending(path: "Favicons")
         let copy = FileManager.default.temporaryDirectory.appending(path: "launch-favicons-\(UUID().uuidString).db")
-        guard (try? FileManager.default.copyItem(at: source, to: copy)) != nil else { return [:] }
+        guard (try? FileManager.default.copyItem(at: source, to: copy)) != nil else {
+            return [:]
+        }
         defer { try? FileManager.default.removeItem(at: copy) }
         var db: OpaquePointer?
-        guard sqlite3_open_v2(copy.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { return [:] }
+        guard sqlite3_open_v2(copy.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+            return [:]
+        }
         defer { sqlite3_close(db) }
         let sql = "SELECT m.page_url, b.image_data FROM icon_mapping m JOIN favicon_bitmaps b ON b.icon_id = m.icon_id ORDER BY b.width DESC"
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return [:] }
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+            return [:]
+        }
         defer { sqlite3_finalize(statement) }
         var result: [String: Data] = [:]
         while sqlite3_step(statement) == SQLITE_ROW {
-            guard let text = sqlite3_column_text(statement, 0), let bytes = sqlite3_column_blob(statement, 1) else { continue }
+            guard let text = sqlite3_column_text(statement, 0), let bytes = sqlite3_column_blob(statement, 1) else {
+                continue
+            }
             let url = String(cString: text)
             if result[url] == nil {
                 result[url] = Data(bytes: bytes, count: Int(sqlite3_column_bytes(statement, 1)))
@@ -99,11 +109,15 @@ enum BrowserBookmarks {
         }
         var db: OpaquePointer?
         // WAL 里还有未合并的内容，需要读写方式打开才会应用
-        guard sqlite3_open_v2(copy.path, &db, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK else { return [:] }
+        guard sqlite3_open_v2(copy.path, &db, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK else {
+            return [:]
+        }
         defer { sqlite3_close(db) }
         let sql = "SELECT p.url, i.uuid, i.url, i.width FROM page_url p JOIN icon_info i ON i.uuid = p.uuid ORDER BY i.width DESC"
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { return [:] }
+        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+            return [:]
+        }
         defer { sqlite3_finalize(statement) }
         let files = base.appending(path: "favicons")
         func md5(_ text: String) -> String {
@@ -114,7 +128,9 @@ enum BrowserBookmarks {
             guard let page = sqlite3_column_text(statement, 0), let uuid = sqlite3_column_text(statement, 1),
                   let icon = sqlite3_column_text(statement, 2) else { continue }
             let key = String(cString: page)
-            guard result[key] == nil else { continue }
+            guard result[key] == nil else {
+                continue
+            }
             let id = String(cString: uuid)
             let names = [md5(id), md5(id.lowercased()), md5(String(cString: icon))]
             for name in names {
@@ -163,8 +179,12 @@ enum BrowserBookmarks {
         return (root["Children"] as? [[String: Any]] ?? []).compactMap { dict in
             let title = dict["Title"] as? String ?? ""
             // 阅读列表和历史记录不是书签
-            guard title != "com.apple.ReadingList", title != "History" else { return nil }
-            guard let node = safariNode(dict), !node.children.isEmpty else { return nil }
+            guard title != "com.apple.ReadingList", title != "History" else {
+                return nil
+            }
+            guard let node = safariNode(dict), !node.children.isEmpty else {
+                return nil
+            }
             let names = ["BookmarksBar": "个人收藏", "BookmarksMenu": "书签菜单"]
             return .folder(names[title] ?? title, node.children)
         }
@@ -173,7 +193,9 @@ enum BrowserBookmarks {
     private static func safariNode(_ dict: [String: Any]) -> BookmarkNode? {
         switch dict["WebBookmarkType"] as? String {
         case "WebBookmarkTypeLeaf":
-            guard let url = webURL(dict["URLString"] as? String) else { return nil }
+            guard let url = webURL(dict["URLString"] as? String) else {
+                return nil
+            }
             let title = (dict["URIDictionary"] as? [String: Any])?["title"] as? String ?? ""
             return .link(title.isEmpty ? (url.host ?? "") : title, url)
         case "WebBookmarkTypeList":
@@ -185,7 +207,9 @@ enum BrowserBookmarks {
     }
 
     private static func webURL(_ text: String?) -> URL? {
-        guard let text, let url = try? WebsiteAddress.normalized(text), text.lowercased().hasPrefix("http") else { return nil }
+        guard let text, let url = try? WebsiteAddress.normalized(text), text.lowercased().hasPrefix("http") else {
+            return nil
+        }
         return url
     }
 

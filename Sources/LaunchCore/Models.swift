@@ -130,7 +130,11 @@ public enum ResolvedItem: Equatable, Sendable {
 
 private struct LegacyLayoutDocument: Decodable {
     struct Page: Decodable { let slots: [Slot] }
-    struct Folder: Decodable { let id: String; let name: String; let apps: [AppIdentity] }
+    struct Folder: Decodable {
+        let id: String
+        let name: String
+        let apps: [AppIdentity]
+    }
     enum Slot: Decodable {
         case app(AppIdentity), folder(Folder), empty
         var converted: LayoutSlot {

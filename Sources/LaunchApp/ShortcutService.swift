@@ -42,9 +42,13 @@ struct ShortcutService: Sendable {
             guard let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: text.length)),
                   let id = UUID(uuidString: text.substring(with: match.range(at: 2))) else { continue }
             let name = text.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespaces)
-            if seen.insert(id).inserted { result.append(ShortcutRecord(id: id, name: name)) }
+            if seen.insert(id).inserted {
+                result.append(ShortcutRecord(id: id, name: name))
+            }
         }
-        if result.isEmpty, !rows.isEmpty { throw ShortcutError.invalidList }
+        if result.isEmpty, !rows.isEmpty {
+            throw ShortcutError.invalidList
+        }
         return result
     }
 }
@@ -78,26 +82,42 @@ enum ShortcutProcess {
                     while true {
                         let count = read(fd, &buffer, buffer.count)
                         if count > 0 {
-                            if output.count + count > outputLimit { failure = .tooMuchOutput; break }
+                            if output.count + count > outputLimit {
+                                failure = .tooMuchOutput
+                                break
+                            }
                             output.append(contentsOf: buffer.prefix(count))
                             continue
                         }
-                        if !process.isRunning { break }
-                        if Date() >= deadline { failure = .timedOut; break }
+                        if !process.isRunning {
+                            break
+                        }
+                        if Date() >= deadline {
+                            failure = .timedOut
+                            break
+                        }
                         usleep(10_000)
                     }
                     if failure != nil, process.isRunning {
                         process.terminate()
                         usleep(100_000)
-                        if process.isRunning { _ = kill(process.processIdentifier, SIGKILL) }
+                        if process.isRunning {
+                            _ = kill(process.processIdentifier, SIGKILL)
+                        }
                     }
                     process.waitUntilExit()
                     try? pipe.fileHandleForReading.close()
-                    if let failure { throw failure }
+                    if let failure {
+                        throw failure
+                    }
                     let text = String(decoding: output, as: UTF8.self)
-                    guard process.terminationStatus == 0 else { throw ShortcutError.failed(String(text.prefix(1000))) }
+                    guard process.terminationStatus == 0 else {
+                        throw ShortcutError.failed(String(text.prefix(1000)))
+                    }
                     continuation.resume(returning: text)
-                } catch { continuation.resume(throwing: error) }
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
         }
     }

@@ -328,7 +328,10 @@ final class LayoutCoordinator {
         guard isEditable, let previous = document else { return false }
         guard next != previous else { return true }
         do { try store.save(next) }
-        catch { fail("保存布局失败：\(error.localizedDescription)"); return false }
+        catch {
+            fail("保存布局失败：\(error.localizedDescription)")
+            return false
+        }
         if recordsUndo {
             undoStack.append(previous)
             if undoStack.count > Self.undoLimit { undoStack.removeFirst() }

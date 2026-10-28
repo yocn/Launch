@@ -14,17 +14,25 @@ struct ExtraItemsSettingsView: View {
                     Button("从浏览器书签添加…") { BookmarkPicker.show(controller: controller, toPage: nil) }
                 }
                 .disabled(!controller.canEdit)
-                if websites.isEmpty { Text("还没有网址").foregroundStyle(.secondary) }
+                if websites.isEmpty {
+                    Text("还没有网址").foregroundStyle(.secondary)
+                }
                 ForEach(websites) { item in row(item) }
             }
             Section {
                 HStack {
                     Button("刷新快捷指令") { Task { await controller.refreshShortcuts() } }
                         .disabled(controller.isRefreshing)
-                    if controller.isRefreshing { ProgressView().controlSize(.small) }
+                    if controller.isRefreshing {
+                        ProgressView().controlSize(.small)
+                    }
                 }
-                if let error = controller.lastError { Text(error).font(.caption).foregroundStyle(.orange) }
-                if shortcuts.isEmpty && !controller.isRefreshing { Text("没有找到快捷指令").foregroundStyle(.secondary) }
+                if let error = controller.lastError {
+                    Text(error).font(.caption).foregroundStyle(.orange)
+                }
+                if shortcuts.isEmpty && !controller.isRefreshing {
+                    Text("没有找到快捷指令").foregroundStyle(.secondary)
+                }
                 ForEach(shortcuts) { item in row(item) }
             } header: { Text("快捷指令") }
         }
@@ -42,13 +50,17 @@ struct ExtraItemsSettingsView: View {
                 if case .website(let url) = item.target {
                     Text(url.absoluteString).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
-                if let reason = item.unavailableReason { Text(reason).font(.caption).foregroundStyle(.orange).lineLimit(1) }
+                if let reason = item.unavailableReason {
+                    Text(reason).font(.caption).foregroundStyle(.orange).lineLimit(1)
+                }
             }
             Spacer(minLength: 4)
             if case .shortcut(let id) = item.target, controller.runningShortcuts.contains(id) {
                 ProgressView().controlSize(.mini).help("正在运行")
             }
-            if controller.fetchingIcons.contains(item.identity) { ProgressView().controlSize(.mini) }
+            if controller.fetchingIcons.contains(item.identity) {
+                ProgressView().controlSize(.mini)
+            }
             Menu {
                 if case .shortcut = item.target {
                     if controller.isPinned(item.identity) {
@@ -66,7 +78,9 @@ struct ExtraItemsSettingsView: View {
                 Button("更换图标…") { ExtraItemEditor.showAppearance(item: item, controller: controller) }
                 Button("恢复默认图标") {
                     do { try controller.updateAppearance(of: item.identity, name: nil, customIconData: nil) }
-                    catch { _ = NSAlert(error: error).runAboveLauncher() }
+                    catch {
+                        _ = NSAlert(error: error).runAboveLauncher()
+                    }
                 }
                 if case .website = item.target {
                     Divider()

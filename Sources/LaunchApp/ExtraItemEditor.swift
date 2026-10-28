@@ -15,11 +15,21 @@ import UniformTypeIdentifiers
         super.init()
     }
     @objc func choose() {
-        if let chosen = ExtraItemEditor.chooseIcon() { data = chosen; preview.image = NSImage(data: chosen) }
+        if let chosen = ExtraItemEditor.chooseIcon() {
+            data = chosen
+            preview.image = NSImage(data: chosen)
+        }
     }
-    @objc func reset() { data = nil; preview.image = fallback }
+
+    @objc func reset() {
+        data = nil
+        preview.image = fallback
+    }
+
     @objc func chooseFromLink() {
-        guard let chosen = ExtraItemEditor.imageFromLink() else { return }
+        guard let chosen = ExtraItemEditor.imageFromLink() else {
+            return
+        }
         data = chosen
         preview.image = NSImage(data: chosen)
     }
@@ -46,12 +56,16 @@ import UniformTypeIdentifiers
                 _ = try controller.saveWebsite(name: name.stringValue, address: address.stringValue,
                                                existing: existing, toPage: page, customIconData: icons.data)
                 return
-            } catch let failure { error.stringValue = failure.localizedDescription }
+            } catch let failure {
+                error.stringValue = failure.localizedDescription
+            }
         }
     }
 
     static func showAppearance(item: LaunchItem, controller: ExtraItemsController) {
-        guard item.application == nil else { return }
+        guard item.application == nil else {
+            return
+        }
         let alert = NSAlert()
         alert.messageText = "更换图标"
         alert.addButton(withTitle: "保存")
@@ -66,8 +80,12 @@ import UniformTypeIdentifiers
         alert.accessoryView = view
         alert.window.initialFirstResponder = name
         while alert.runAboveLauncher() == .alertFirstButtonReturn {
-            do { try controller.updateAppearance(of: item.identity, name: name.stringValue, customIconData: icons.data); return }
-            catch let failure { error.stringValue = failure.localizedDescription }
+            do {
+                try controller.updateAppearance(of: item.identity, name: name.stringValue, customIconData: icons.data)
+                return
+            } catch let failure {
+                error.stringValue = failure.localizedDescription
+            }
         }
     }
 
@@ -81,8 +99,12 @@ import UniformTypeIdentifiers
         field.placeholderString = "https://example.com/icon.png"
         alert.accessoryView = field
         alert.window.initialFirstResponder = field
-        guard alert.runAboveLauncher() == .alertFirstButtonReturn else { return nil }
-        if let image = RemoteImageDownload.fetch(field.stringValue) { return image }
+        guard alert.runAboveLauncher() == .alertFirstButtonReturn else {
+            return nil
+        }
+        if let image = RemoteImageDownload.fetch(field.stringValue) {
+            return image
+        }
         let failure = NSAlert()
         failure.messageText = "无法获取图片"
         failure.informativeText = "请确认是可直接访问的 HTTP(S) 图片地址，图片不超过 8 MB，且不是局域网地址。"
@@ -97,26 +119,37 @@ import UniformTypeIdentifiers
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.level = .aboveLauncher
-        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        guard panel.runModal() == .OK, let url = panel.url else {
+            return nil
+        }
         do {
             let limit = 16 * 1024 * 1024
             guard let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= limit else {
                 throw ExtraIconError.invalidImage
             }
             let data = try Data(contentsOf: url, options: .mappedIfSafe)
-            guard let image = ItemImageData.normalized(data, inputLimit: limit) else { throw ExtraIconError.invalidImage }
+            guard let image = ItemImageData.normalized(data, inputLimit: limit) else {
+                throw ExtraIconError.invalidImage
+            }
             return image
-        } catch { _ = NSAlert(error: error).runAboveLauncher(); return nil }
+        } catch {
+            _ = NSAlert(error: error).runAboveLauncher()
+            return nil
+        }
     }
 
     static func confirmDelete(_ item: LaunchItem, controller: ExtraItemsController) {
-        guard case .website = item.target else { return }
+        guard case .website = item.target else {
+            return
+        }
         let alert = NSAlert()
         alert.messageText = "删除网址“\(item.displayName)”？"
         alert.informativeText = "只移除 Launch 中的入口，可用 ⌘Z 撤销。"
         alert.addButton(withTitle: "删除")
         alert.addButton(withTitle: "取消")
-        if alert.runAboveLauncher() == .alertFirstButtonReturn { controller.deleteWebsite(item.identity) }
+        if alert.runAboveLauncher() == .alertFirstButtonReturn {
+            controller.deleteWebsite(item.identity)
+        }
     }
 
     private static func field(_ value: String, placeholder: String, y: CGFloat, in view: NSView) -> NSTextField {

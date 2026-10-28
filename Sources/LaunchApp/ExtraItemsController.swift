@@ -94,21 +94,29 @@ final class ExtraItemsController {
 
     // 网址没有「只在搜索」的状态：旧版本留下的未放进网格的网址补放到最后一页
     private func pinLooseWebsites() {
-        guard !isPinningLooseWebsites, layout.isEditable else { return }
+        guard !isPinningLooseWebsites, layout.isEditable else {
+            return
+        }
         let loose = layout.extraItems.filter { entry in
             if case .website = entry.target { !layout.pinnedIdentities.contains(entry.identity) } else { false }
         }
-        guard !loose.isEmpty else { return }
+        guard !loose.isEmpty else {
+            return
+        }
         isPinningLooseWebsites = true
         Task { @MainActor [weak self] in
-            guard let self else { return }
+            guard let self else {
+                return
+            }
             for entry in loose { layout.pin(entry.identity, toPage: layout.lastPageIndex) }
             isPinningLooseWebsites = false
         }
     }
 
     func refreshShortcuts() async {
-        guard !isRefreshing else { return }
+        guard !isRefreshing else {
+            return
+        }
         isRefreshing = true
         defer { isRefreshing = false }
         do {
@@ -116,7 +124,9 @@ final class ExtraItemsController {
             hasListedShortcuts = true
             lastError = nil
         }
-        catch { lastError = error.localizedDescription }
+        catch {
+            lastError = error.localizedDescription
+        }
         rebuild()
     }
 
@@ -124,7 +134,9 @@ final class ExtraItemsController {
     func saveWebsite(name: String, address: String, existing: ExtraItemDefinition?, toPage page: Int?,
                      customIconData: Data?) throws -> ExtraItemDefinition {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else { throw ExtraItemError.emptyName }
+        guard !name.isEmpty else {
+            throw ExtraItemError.emptyName
+        }
         let url = try WebsiteAddress.normalized(address)
         var entry = ExtraItemDefinition(id: existing?.id ?? UUID(), name: name, target: .website(url), customIconData: customIconData)
         if let current = layout.extraItems.first(where: { $0.id == entry.id }), current.target == entry.target {
@@ -132,9 +144,13 @@ final class ExtraItemsController {
         }
         // 网址一律放进网格：新建时没指定页就放最后一页
         let target = existing == nil ? (page ?? layout.lastPageIndex) : page
-        guard layout.saveExtraItem(entry, toPage: target) else { throw ExtraItemError.saveFailed }
+        guard layout.saveExtraItem(entry, toPage: target) else {
+            throw ExtraItemError.saveFailed
+        }
         rebuild()
-        if existing?.target != entry.target, customIconData == nil { refreshWebsiteIcon(entry.identity) }
+        if existing?.target != entry.target, customIconData == nil {
+            refreshWebsiteIcon(entry.identity)
+        }
         return entry
     }
 
@@ -145,12 +161,16 @@ final class ExtraItemsController {
             if case .website(let url) = entry.target { url } else { nil }
         })
         let entries = links.compactMap { link -> ExtraItemDefinition? in
-            guard known.insert(link.url).inserted else { return nil }
+            guard known.insert(link.url).inserted else {
+                return nil
+            }
             // 先用浏览器本地缓存的图标，联网取到更清晰的再替换；联网失败也有图标
             let icon = link.icon.flatMap { ItemImageData.normalized($0) }
             return ExtraItemDefinition(name: link.name, target: .website(link.url), cachedIconData: icon)
         }
-        guard layout.saveExtraItems(entries, toPage: page ?? layout.lastPageIndex) else { return 0 }
+        guard layout.saveExtraItems(entries, toPage: page ?? layout.lastPageIndex) else {
+            return 0
+        }
         rebuild()
         entries.forEach { refreshWebsiteIcon($0.identity) }
         return entries.count
@@ -194,7 +214,9 @@ final class ExtraItemsController {
 
     @discardableResult
     func deleteWebsite(_ identity: ItemIdentity) -> Bool {
-        guard case .website = identity else { return false }
+        guard case .website = identity else {
+            return false
+        }
         iconTasks.removeValue(forKey: identity)?.cancel()
         iconVersions.removeValue(forKey: identity)
         fetchingIcons.remove(identity)
@@ -208,21 +230,31 @@ final class ExtraItemsController {
         var entry = definition(for: item)
         if let name {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { throw ExtraItemError.emptyName }
-            if case .shortcut = entry.target {
-                if trimmed != item.displayName { entry.nameOverride = trimmed }
+            guard !trimmed.isEmpty else {
+                throw ExtraItemError.emptyName
             }
-            else { entry.name = trimmed }
+            if case .shortcut = entry.target {
+                if trimmed != item.displayName {
+                    entry.nameOverride = trimmed
+                }
+            }
+            else {
+                entry.name = trimmed
+            }
         }
         entry.customIconData = customIconData
-        guard layout.saveExtraItem(entry) else { throw ExtraItemError.saveFailed }
+        guard layout.saveExtraItem(entry) else {
+            throw ExtraItemError.saveFailed
+        }
         rebuild()
     }
 
     @discardableResult
     func runShortcut(id: UUID) async throws -> Bool {
         guard items.contains(where: { $0.identity == .shortcut(id) && $0.isAvailable }) else { throw ExtraItemError.unavailable }
-        guard runningShortcuts.insert(id).inserted else { return false }
+        guard runningShortcuts.insert(id).inserted else {
+            return false
+        }
         defer { runningShortcuts.remove(id) }
         try await shortcuts.run(id: id)
         return true
@@ -243,7 +275,9 @@ final class ExtraItemsController {
         pinnedIdentities = layout.pinnedIdentities
         canEdit = layout.isEditable
         var next = applications + definitions.compactMap { entry -> LaunchItem? in
-            guard case .website = entry.target else { return nil }
+            guard case .website = entry.target else {
+                return nil
+            }
             return LaunchItem(definition: entry)
         }
         var seen = Set<UUID>()
@@ -255,11 +289,15 @@ final class ExtraItemsController {
             seen.insert(record.id)
         }
         for entry in definitions {
-            guard case .shortcut(let id) = entry.target, !seen.contains(id), layout.pinnedIdentities.contains(entry.identity) else { continue }
+            guard case .shortcut(let id) = entry.target, !seen.contains(id), layout.pinnedIdentities.contains(entry.identity) else {
+                continue
+            }
             next.append(LaunchItem(definition: entry, unavailableReason: hasListedShortcuts ? "快捷指令已删除或未同步到这台 Mac" : nil))
         }
         next.sort { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
-        guard items != next else { return }
+        guard items != next else {
+            return
+        }
         items = next
         if hasScannedApplications {
             onCatalogChange?(next)

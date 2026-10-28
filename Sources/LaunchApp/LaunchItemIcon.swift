@@ -47,9 +47,15 @@ enum ItemIconPresentation {
         return cache
     }()
     static func image(_ data: Data?) -> NSImage? {
-        guard let data else { return nil }
-        if let cached = images.object(forKey: data as NSData) { return cached }
-        guard let normalized = ItemImageData.normalized(data), let image = NSImage(data: normalized) else { return nil }
+        guard let data else {
+            return nil
+        }
+        if let cached = images.object(forKey: data as NSData) {
+            return cached
+        }
+        guard let normalized = ItemImageData.normalized(data), let image = NSImage(data: normalized) else {
+            return nil
+        }
         images.setObject(image, forKey: data as NSData, cost: 256 * 256 * 4)
         return image
     }

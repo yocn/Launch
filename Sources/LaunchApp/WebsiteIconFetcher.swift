@@ -5,7 +5,9 @@ import UniformTypeIdentifiers
 enum WebsiteAddress {
     static func normalized(_ text: String) throws -> URL {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !trimmed.contains(where: \.isWhitespace) else { throw WebsiteError.invalidAddress }
+        guard !trimmed.isEmpty, !trimmed.contains(where: \.isWhitespace) else {
+            throw WebsiteError.invalidAddress
+        }
         let hasScheme = trimmed.range(of: #"^[A-Za-z][A-Za-z0-9+.-]*:"#, options: .regularExpression) != nil
         let address = hasScheme ? trimmed : "https://" + trimmed
         guard let url = URL(string: address), ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
@@ -38,7 +40,9 @@ enum ItemImageData {
                   let height = info[kCGImagePropertyPixelHeight] as? Int,
                   width > 0, height > 0, width <= 8192, height <= 8192 else { continue }
             let side = min(width, height)
-            if side >= minimumSide, side > (selected?.side ?? 0) { selected = (index, side) }
+            if side >= minimumSide, side > (selected?.side ?? 0) {
+                selected = (index, side)
+            }
         }
         guard let selected, let image = CGImageSourceCreateThumbnailAtIndex(source, selected.index, [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
@@ -47,9 +51,13 @@ enum ItemImageData {
             kCGImageSourceShouldCacheImmediately: true,
         ] as CFDictionary) else { return nil }
         let result = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(result, UTType.png.identifier as CFString, 1, nil) else { return nil }
+        guard let destination = CGImageDestinationCreateWithData(result, UTType.png.identifier as CFString, 1, nil) else {
+            return nil
+        }
         CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination), result.length <= 1_048_576 else { return nil }
+        guard CGImageDestinationFinalize(destination), result.length <= 1_048_576 else {
+            return nil
+        }
         return result as Data
     }
 }
@@ -73,20 +81,28 @@ struct WebsiteIconFetcher: Sendable {
     }
 
     func fetch(for url: URL) async -> Data? {
-        guard (try? WebsiteAddress.normalized(url.absoluteString)) != nil else { return nil }
+        guard (try? WebsiteAddress.normalized(url.absoluteString)) != nil else {
+            return nil
+        }
         let pageLimit = 512 * 1024
         var base = url
         var candidates: [URL] = []
         if let (data, finalURL) = try? await load(url, pageLimit), data.count <= pageLimit {
-            if Self.isAllowed(finalURL, origin: url) { base = finalURL }
+            if Self.isAllowed(finalURL, origin: url) {
+                base = finalURL
+            }
             candidates = Self.candidates(in: Self.text(of: data), base: base)
         }
         for path in ["/apple-touch-icon.png", "/favicon.ico"] {
-            if let fallback = URL(string: path, relativeTo: base)?.absoluteURL { candidates.append(fallback) }
+            if let fallback = URL(string: path, relativeTo: base)?.absoluteURL {
+                candidates.append(fallback)
+            }
         }
         var seen = Set<URL>()
         for candidate in candidates.filter({ Self.isAllowed($0, origin: base) && seen.insert($0).inserted }).prefix(4) {
-            guard !Task.isCancelled else { return nil }
+            guard !Task.isCancelled else {
+                return nil
+            }
             if let (data, _) = try? await load(candidate, 1_048_576), let icon = ItemImageData.normalized(data, minimumSide: 64) {
                 return icon
             }
@@ -96,7 +112,9 @@ struct WebsiteIconFetcher: Sendable {
 
     // 只需找 link 标签，UTF-8 失败时按国内网站常见的 GB18030 解码
     private static func text(of data: Data) -> String {
-        if let text = String(data: data, encoding: .utf8) { return text }
+        if let text = String(data: data, encoding: .utf8) {
+            return text
+        }
         let gb = CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue))
         return String(data: data, encoding: String.Encoding(rawValue: gb)) ?? String(decoding: data, as: UTF8.self)
     }
@@ -154,7 +172,9 @@ private enum BoundedWebsiteRequest {
               response.expectedContentLength <= Int64(limit) else { throw WebsiteError.rejectedResponse }
         var result = Data()
         for try await byte in bytes {
-            guard result.count < limit else { throw WebsiteError.rejectedResponse }
+            guard result.count < limit else {
+                throw WebsiteError.rejectedResponse
+            }
             result.append(byte)
         }
         return (result, response.url ?? url)
@@ -182,9 +202,13 @@ final class RemoteImageDownload: NSObject, URLSessionDataDelegate, @unchecked Se
         let session = URLSession(configuration: configuration, delegate: download, delegateQueue: nil)
         let task = session.dataTask(with: url)
         task.resume()
-        if download.finished.wait(timeout: .now() + timeout) == .timedOut { task.cancel() }
+        if download.finished.wait(timeout: .now() + timeout) == .timedOut {
+            task.cancel()
+        }
         session.invalidateAndCancel()
-        guard (200 ... 299).contains(download.status), !download.tooLarge else { return nil }
+        guard (200 ... 299).contains(download.status), !download.tooLarge else {
+            return nil
+        }
         return ItemImageData.normalized(download.data, inputLimit: sizeLimit)
     }
 
