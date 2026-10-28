@@ -214,6 +214,8 @@ final class ScreenPresenter: LauncherPresenting {
         let view = LauncherHostingView(rootView: content.environment(mainCanvas))
         view.skipsCursorUpdate = skipsCursorUpdate
         view.registerForDraggedTypes([Self.itemDragType])
+        // 启动器按深色设计，系统控件（如搜索框占位文字）在浅色外观下会取成灰色，固定用深色外观
+        view.appearance = NSAppearance(named: .darkAqua)
         panel.contentView = view
     }
 
