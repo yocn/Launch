@@ -157,6 +157,26 @@ extension NSWindow.Level {
     static let aboveLauncher = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
 }
 
+extension NSWindow {
+    // 启动器可能开在其他应用的全屏空间上，独立弹出的窗口进不去、打开了也看不见；挂成启动器的子窗口才跟它在同一空间
+    func attachToLauncher() {
+        guard let launcher = NSApp.windows.first(where: { $0 is LauncherPanel && $0.isVisible }), parent !== launcher else {
+            return
+        }
+        launcher.addChildWindow(self, ordered: .above)
+        // runModal 总把窗口居中到主屏
+        if let screen = launcher.screen, screen != self.screen {
+            let area = screen.visibleFrame
+            setFrameOrigin(NSPoint(x: area.midX - frame.width / 2, y: area.midY - frame.height / 2))
+        }
+    }
+
+    // 不摘下的话，下次启动器出现会把已关的窗口一起带出来
+    func detachFromLauncher() {
+        parent?.removeChildWindow(self)
+    }
+}
+
 extension NSAlert {
     // 启动器面板在 statusBar 层级；runModal 会把层级重设为模态面板层级，要在模态会话里再调高
     // 主线程 Task 内模态期间主队列不会重入，只能用运行循环的模态模式执行
@@ -164,8 +184,10 @@ extension NSAlert {
         RunLoop.main.perform(inModes: [.modalPanel]) {
             MainActor.assumeIsolated {
                 self.window.level = .aboveLauncher
+                self.window.attachToLauncher()
             }
         }
+        defer { window.detachFromLauncher() }
         return runModal()
     }
 }
@@ -176,8 +198,10 @@ extension NSSavePanel {
         RunLoop.main.perform(inModes: [.modalPanel]) {
             MainActor.assumeIsolated {
                 self.level = .aboveLauncher
+                self.attachToLauncher()
             }
         }
+        defer { detachFromLauncher() }
         return runModal()
     }
 }

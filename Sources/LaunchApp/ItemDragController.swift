@@ -23,6 +23,7 @@ final class ItemDragController: NSObject, NSDraggingSource {
     // 本地监听吞掉了这一下，SwiftUI 仍会在抬起后识别成点空白处，按抬起时刻忽略
     private var dismissedClickTime: TimeInterval?
     private var monitors: [Any] = []
+    private var menuObservers: [NSObjectProtocol] = []
     private var press: LauncherModel.ItemPress?
     private var badgePress: LaunchItem?
     private var marqueePoint: CGPoint?
@@ -63,6 +64,25 @@ final class ItemDragController: NSObject, NSDraggingSource {
             self?.rightMouseDown(event) ?? event
         }
         monitors = [down, drag, up, rightDown].compactMap { $0 }
+        menuObservers = [
+            NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) { _ in
+                // 通知发出时菜单窗口还没创建，等进入菜单跟踪后再找
+                RunLoop.main.perform(inModes: [.common]) {
+                    MainActor.assumeIsolated {
+                        Self.menuWindows().forEach { $0.attachToLauncher() }
+                    }
+                }
+            },
+            NotificationCenter.default.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: nil) { _ in
+                MainActor.assumeIsolated {
+                    Self.menuWindows().forEach { $0.detachFromLauncher() }
+                }
+            },
+        ]
+    }
+
+    private static func menuWindows() -> [NSWindow] {
+        NSApp.windows.filter { $0.className.contains("Menu") }
     }
 
     private func globalPoint(of event: NSEvent) -> CGPoint? {
